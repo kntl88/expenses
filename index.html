@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -47,139 +46,138 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 /* Auth */
 .auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; text-align: center; }
-.auth-screen h2 { font-family: var(–serif); font-size: 36px; font-weight: 400; margin-bottom: 8px; }
-.auth-screen h2 span { color: var(–accent); font-style: italic; }
-.auth-screen p { color: var(–text-dim); margin-bottom: 32px; max-width: 400px; }
+.auth-screen h2 { font-family: var(--serif); font-size: 36px; font-weight: 400; margin-bottom: 8px; }
+.auth-screen h2 span { color: var(--accent); font-style: italic; }
+.auth-screen p { color: var(--text-dim); margin-bottom: 32px; max-width: 400px; }
 .auth-form { width: 100%; max-width: 400px; }
-.auth-form input { width: 100%; padding: 12px 16px; background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); color: var(–text); font-family: var(–mono); font-size: 12px; margin-bottom: 12px; outline: none; transition: border-color 0.15s; }
-.auth-form input:focus { border-color: var(–accent-dim); }
-.auth-form input::placeholder { color: var(–text-muted); }
-.auth-hint { font-size: 11px; color: var(–text-muted); margin-top: 16px; line-height: 1.6; }
-.auth-hint code { background: var(–surface); padding: 1px 5px; border-radius: 3px; color: var(–text-dim); }
+.auth-form input { width: 100%; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 12px; margin-bottom: 12px; outline: none; transition: border-color 0.15s; }
+.auth-form input:focus { border-color: var(--accent-dim); }
+.auth-form input::placeholder { color: var(--text-muted); }
+.auth-hint { font-size: 11px; color: var(--text-muted); margin-top: 16px; line-height: 1.6; }
+.auth-hint code { background: var(--surface); padding: 1px 5px; border-radius: 3px; color: var(--text-dim); }
 
 /* Balances */
 .balances { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.balance-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 14px; }
-.balance-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(–text-muted); margin-bottom: 4px; }
+.balance-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.balance-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
 .balance-card .value { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.balance-card .offset-btn { font-family: var(–mono); font-size: 9px; color: var(–text-muted); background: none; border: none; cursor: pointer; padding: 2px 0; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-.balance-card .offset-btn:hover { color: var(–text-dim); }
+.balance-card .offset-btn { font-family: var(--mono); font-size: 9px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 2px 0; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.balance-card .offset-btn:hover { color: var(--text-dim); }
 
 /* Summary */
 .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-.summary-card { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 12px; }
-.summary-card .label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(–text-muted); margin-bottom: 4px; }
+.summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.summary-card .label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
 .summary-card .value { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* Weekly */
-.weekly-breakdown { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 14px; margin-bottom: 16px; }
-.weekly-breakdown .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(–text-muted); margin-bottom: 10px; }
-.week-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(–border); }
+.weekly-breakdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
+.weekly-breakdown .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+.week-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .week-row:last-child { border-bottom: none; }
-.week-label { font-size: 11px; color: var(–text-dim); }
-.week-dates { font-size: 10px; color: var(–text-muted); }
-.week-amount { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(–red); }
-.week-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: var(–surface-2); border-radius: 2px; }
-.week-bar { height: 100%; border-radius: 2px; background: var(–red); transition: width 0.3s; min-width: 0; }
+.week-label { font-size: 11px; color: var(--text-dim); }
+.week-dates { font-size: 10px; color: var(--text-muted); }
+.week-amount { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
+.week-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: var(--surface-2); border-radius: 2px; }
+.week-bar { height: 100%; border-radius: 2px; background: var(--red); transition: width 0.3s; min-width: 0; }
 
 /* Form */
-.expense-form { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 20px; margin-bottom: 20px; display: none; }
+.expense-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: none; }
 .expense-form.visible { display: block; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
 .form-group { display: flex; flex-direction: column; }
-.form-group label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(–text-muted); margin-bottom: 6px; }
-.form-group input, .form-group select { padding: 10px 12px; background: var(–surface-2); border: 1px solid var(–border); border-radius: 6px; color: var(–text); font-family: var(–mono); font-size: 12px; outline: none; transition: border-color 0.15s; }
-.form-group input:focus, .form-group select:focus { border-color: var(–accent-dim); }
-.form-group select option { background: var(–surface-2); }
+.form-group label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
+.form-group input, .form-group select { padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; transition: border-color 0.15s; }
+.form-group input:focus, .form-group select:focus { border-color: var(--accent-dim); }
+.form-group select option { background: var(--surface-2); }
 .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
 /* Month nav */
 .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.month-nav .month-label { font-family: var(–serif); font-size: 20px; }
+.month-nav .month-label { font-family: var(--serif); font-size: 20px; }
 .month-nav-btns { display: flex; gap: 4px; }
 
 /* Filters */
 .category-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-.cat-pill { font-family: var(–mono); font-size: 10px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(–border); background: transparent; color: var(–text-dim); cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px; }
-.cat-pill:hover { border-color: var(–border-hover); color: var(–text); }
-.cat-pill.active { background: var(–accent); color: var(–bg); border-color: var(–accent); font-weight: 500; }
+.cat-pill { font-family: var(--mono); font-size: 10px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px; }
+.cat-pill:hover { border-color: var(--border-hover); color: var(--text); }
+.cat-pill.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
 
 /* List */
-.expense-day-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(–text-muted); padding: 14px 0 6px; }
-.expense-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(–surface); border: 1px solid transparent; border-radius: 8px; transition: all 0.15s; }
-.expense-item:hover { border-color: var(–border); }
+.expense-day-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 14px 0 6px; }
+.expense-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid transparent; border-radius: 8px; transition: all 0.15s; }
+.expense-item:hover { border-color: var(--border); }
 .expense-cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .expense-info { min-width: 0; }
-.expense-desc { font-size: 13px; color: var(–text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.expense-meta { font-size: 10px; color: var(–text-muted); margin-top: 1px; }
+.expense-desc { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.expense-meta { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
 .expense-amount { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.expense-amount.negative { color: var(–red); }
-.expense-amount.positive { color: var(–accent); }
-.expense-item .delete-btn { display: none; background: none; border: none; color: var(–text-muted); cursor: pointer; padding: 2px 6px; font-size: 14px; }
+.expense-amount.negative { color: var(--red); }
+.expense-amount.positive { color: var(--accent); }
+.expense-item .delete-btn { display: none; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 6px; font-size: 14px; }
 .expense-item:hover .delete-btn { display: inline; }
-.expense-item .delete-btn:hover { color: var(–red); }
-.empty-state { text-align: center; padding: 40px 20px; color: var(–text-muted); }
+.expense-item .delete-btn:hover { color: var(--red); }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
 
 /* Toast */
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: var(–surface-2); border: 1px solid var(–border); border-radius: 8px; font-family: var(–mono); font-size: 12px; color: var(–text); opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: 12px; color: var(--text); opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
 .toast.visible { opacity: 1; }
-.toast.error { border-color: var(–red-dim); color: var(–red); }
-.loading { text-align: center; padding: 40px; color: var(–text-muted); }
-.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(–border); border-top-color: var(–accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+.toast.error { border-color: var(--red-dim); color: var(--red); }
+.loading { text-align: center; padding: 40px; color: var(--text-muted); }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; }
 .modal-overlay.visible { display: flex; }
-.modal { background: var(–surface); border: 1px solid var(–border); border-radius: var(–radius); padding: 24px; width: 90%; max-width: 360px; }
-.modal h3 { font-family: var(–serif); font-size: 18px; font-weight: 400; margin-bottom: 4px; }
-.modal p { font-size: 11px; color: var(–text-muted); margin-bottom: 16px; line-height: 1.5; }
-.modal input { width: 100%; padding: 12px; background: var(–surface-2); border: 1px solid var(–border); border-radius: 6px; color: var(–text); font-family: var(–mono); font-size: 14px; outline: none; margin-bottom: 12px; }
-.modal input:focus { border-color: var(–accent-dim); }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 360px; }
+.modal h3 { font-family: var(--serif); font-size: 18px; font-weight: 400; margin-bottom: 4px; }
+.modal p { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
+.modal input { width: 100%; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; margin-bottom: 12px; }
+.modal input:focus { border-color: var(--accent-dim); }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* Responsive */
 @media (max-width: 500px) {
-.app { padding: 20px 14px 100px; }
-.balances { gap: 8px; }
-.balance-card { padding: 10px; }
-.balance-card .value { font-size: 15px; }
-.summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.summary-card { padding: 10px; }
-.summary-card .value { font-size: 13px; }
-.summary-card .label { font-size: 8px; }
-.weekly-breakdown { padding: 12px; }
-.week-row { padding: 5px 0; }
-.form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-.form-row.three .form-group:last-child { grid-column: 1 / -1; }
-.expense-form { padding: 14px; }
-.form-group input, .form-group select { padding: 12px 10px; font-size: 16px; }
-.header { margin-bottom: 20px; padding-bottom: 14px; }
-.header h1 { font-size: 22px; }
-.header-actions { gap: 6px; }
-.btn { padding: 8px 12px; font-size: 10px; }
-.btn-sm { padding: 6px 10px; }
-.month-nav .month-label { font-size: 18px; }
-.category-filters { gap: 5px; }
-.cat-pill { padding: 6px 10px; font-size: 9px; }
-.expense-item { padding: 10px 10px; gap: 10px; }
-.expense-desc { font-size: 12px; }
-.expense-amount { font-size: 13px; }
-.auth-screen { min-height: 60vh; padding: 20px 16px; }
-.auth-screen h2 { font-size: 28px; }
-.auth-screen p { font-size: 12px; margin-bottom: 24px; }
-.auth-form { max-width: 100%; }
-.auth-form input { font-size: 16px; padding: 14px 14px; }
-.toast { font-size: 11px; padding: 8px 16px; bottom: 16px; }
-.modal { padding: 18px; }
-.modal input { font-size: 16px; }
+  .app { padding: 20px 14px 100px; }
+  .balances { gap: 8px; }
+  .balance-card { padding: 10px; }
+  .balance-card .value { font-size: 15px; }
+  .summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .summary-card { padding: 10px; }
+  .summary-card .value { font-size: 13px; }
+  .summary-card .label { font-size: 8px; }
+  .weekly-breakdown { padding: 12px; }
+  .week-row { padding: 5px 0; }
+  .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-row.three .form-group:last-child { grid-column: 1 / -1; }
+  .expense-form { padding: 14px; }
+  .form-group input, .form-group select { padding: 12px 10px; font-size: 16px; }
+  .header { margin-bottom: 20px; padding-bottom: 14px; }
+  .header h1 { font-size: 22px; }
+  .header-actions { gap: 6px; }
+  .btn { padding: 8px 12px; font-size: 10px; }
+  .btn-sm { padding: 6px 10px; }
+  .month-nav .month-label { font-size: 18px; }
+  .category-filters { gap: 5px; }
+  .cat-pill { padding: 6px 10px; font-size: 9px; }
+  .expense-item { padding: 10px 10px; gap: 10px; }
+  .expense-desc { font-size: 12px; }
+  .expense-amount { font-size: 13px; }
+  .auth-screen { min-height: 60vh; padding: 20px 16px; }
+  .auth-screen h2 { font-size: 28px; }
+  .auth-screen p { font-size: 12px; margin-bottom: 24px; }
+  .auth-form { max-width: 100%; }
+  .auth-form input { font-size: 16px; padding: 14px 14px; }
+  .toast { font-size: 11px; padding: 8px 16px; bottom: 16px; }
+  .modal { padding: 18px; }
+  .modal input { font-size: 16px; }
 }
 
 .fade-in { animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>
-
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -254,10 +252,6 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="form-group"><label>Description</label><input id="f-desc" type="text" placeholder="Coffee, groceries…"></div>
       <div class="form-group"><label>Category</label><select id="f-cat"><option value="basic">Basic</option><option value="purchase">Purchase</option><option value="gas">Gas</option><option value="fun">Fun</option><option value="fixed">Fixed</option><option value="unnecessary">Unnecessary</option><option value="necessary">Necessary</option><option value="income">Income</option></select></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Account</label><select id="f-account"><option value="bank">Bank</option><option value="credit">Credit Card</option></select></div>
-      <div class="form-group"></div>
-    </div>
     <div class="form-actions">
       <button class="btn" onclick="toggleForm()">Cancel</button>
       <button class="btn btn-accent" onclick="addExpense()">Save</button>
@@ -310,8 +304,9 @@ async function saveData() {
   if (state.sha) body.sha = state.sha;
   try {
     const res = await ghFetch(DATA_PATH, { method:'PUT', body:JSON.stringify(body) });
-    if (!res.ok) throw new Error((await res.json()).message||res.status);
-    const j = await res.json(); state.sha = j.content.sha; return true;
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.message||res.status);
+    state.sha = j.content.sha; return true;
   } catch(e) { toast('Failed to save: '+e.message, true); return false; }
 }
 
@@ -321,8 +316,9 @@ async function saveAccounts() {
   if (state.accountsSha) body.sha = state.accountsSha;
   try {
     const res = await ghFetch(ACCOUNTS_PATH, { method:'PUT', body:JSON.stringify(body) });
-    if (!res.ok) throw new Error((await res.json()).message||res.status);
-    const j = await res.json(); state.accountsSha = j.content.sha; return true;
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.message||res.status);
+    state.accountsSha = j.content.sha; return true;
   } catch(e) { toast('Failed to save accounts: '+e.message, true); return false; }
 }
 
@@ -400,7 +396,9 @@ function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
-  const sum=state.expenses.filter(e=>(e.account||'bank')===offsetModalAccount).reduce((s,e)=>s+e.amount,0);
+  let sum;
+  if(offsetModalAccount==='bank') sum=state.expenses.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  else sum=state.expenses.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   if(!state.accounts[offsetModalAccount])state.accounts[offsetModalAccount]={};
   state.accounts[offsetModalAccount].offset=actual-sum;
   if(await saveAccounts()){toast('Offset saved');closeOffsetModal();render();}
@@ -410,9 +408,9 @@ async function saveOffset(){
 async function addExpense(){
   const amount=parseFloat(document.getElementById('f-amount').value), type=document.getElementById('f-type').value;
   const date=document.getElementById('f-date').value, desc=document.getElementById('f-desc').value.trim();
-  const cat=document.getElementById('f-cat').value, account=document.getElementById('f-account').value;
-  if(!amount||!date||!desc){toast('Fill in amount, date, description',true);return;}
-  const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc, category:cat, type, account, created:new Date().toISOString()};
+  const cat=document.getElementById('f-cat').value;
+  if(!amount||!date){toast('Fill in amount and date',true);return;}
+  const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, created:new Date().toISOString()};
   state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
   if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
 }
@@ -424,12 +422,12 @@ function render(){renderBalances();renderSummary();renderWeekly();renderFilters(
 function getMonthExpenses(){const y=state.currentMonth.getFullYear(),m=state.currentMonth.getMonth();return state.expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()===m;});}
 
 function renderBalances(){
-  const bankSum=state.expenses.filter(e=>(e.account||'bank')==='bank').reduce((s,e)=>s+e.amount,0);
-  const creditSum=state.expenses.filter(e=>(e.account||'bank')==='credit').reduce((s,e)=>s+e.amount,0);
+  const bankSum=state.expenses.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  const creditSum=state.expenses.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   const bankBal=(state.accounts.bank?.offset||0)+bankSum, creditBal=(state.accounts.credit?.offset||0)+creditSum;
   document.getElementById('balances').innerHTML=`
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
-    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal<=0?'var(--red)':'var(--accent)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
+    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
 }
 
 function renderSummary(){
@@ -479,8 +477,8 @@ function renderList(){
   const g={}; items.forEach(e=>{if(!g[e.date])g[e.date]=[];g[e.date].push(e);});
   let h=''; Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
-    g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;const acct=(e.account||'bank')==='credit'?' · CC':'';
-      h+=`<div class="expense-item fade-in"><div class="expense-cat-dot" style="background:${cat.color}"></div><div class="expense-info"><div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}${acct}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="deleteExpense('${e.id}')">✕</button></div></div>`;
+    g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;
+      h+=`<div class="expense-item fade-in"><div class="expense-cat-dot" style="background:${cat.color}"></div><div class="expense-info"><div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="deleteExpense('${e.id}')">✕</button></div></div>`;
     });
   });
   container.innerHTML=h;
@@ -489,13 +487,12 @@ function renderList(){
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function toggleForm(){const f=document.getElementById('expense-form');f.classList.toggle('visible');if(f.classList.contains('visible')){document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-amount').focus();}}
-function clearForm(){['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-type').value='expense';document.getElementById('f-cat').value='basic';document.getElementById('f-account').value='bank';}
+function clearForm(){['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-type').value='expense';document.getElementById('f-cat').value='basic';}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
-function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Account','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.account||'bank',e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
+function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
 function toast(msg,err){const el=document.getElementById('toast');el.textContent=msg;el.className='toast visible'+(err?' error':'');clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='toast',2500);}
 window.addEventListener('DOMContentLoaded',tryAutoConnect);
 </script>
-
 </body>
 </html>
