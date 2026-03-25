@@ -360,15 +360,14 @@ body {
       <div class="form-group">
         <label>Category</label>
         <select id="f-cat">
-          <option value="food">Food & Drink</option>
-          <option value="transport">Transport</option>
-          <option value="housing">Housing</option>
-          <option value="utilities">Utilities</option>
-          <option value="health">Health</option>
-          <option value="entertainment">Entertainment</option>
-          <option value="shopping">Shopping</option>
+          <option value="basic">Basic</option>
+          <option value="purchase">Purchase</option>
+          <option value="gas">Gas</option>
+          <option value="fun">Fun</option>
+          <option value="fixed">Fixed</option>
+          <option value="unnecessary">Unnecessary</option>
+          <option value="necessary">Necessary</option>
           <option value="income">Income</option>
-          <option value="other">Other</option>
         </select>
       </div>
     </div>
@@ -399,15 +398,14 @@ body {
 <script>
 // ── Config & State ──
 const CATEGORIES = {
-  food: { label: 'Food & Drink', color: '#f0a054' },
-  transport: { label: 'Transport', color: '#54a0f0' },
-  housing: { label: 'Housing', color: '#c084fc' },
-  utilities: { label: 'Utilities', color: '#60c0a0' },
-  health: { label: 'Health', color: '#f05454' },
-  entertainment: { label: 'Entertainment', color: '#f0d454' },
-  shopping: { label: 'Shopping', color: '#f07498' },
-  income: { label: 'Income', color: '#c4f54a' },
-  other: { label: 'Other', color: '#8a8880' }
+  basic: { label: 'Basic', color: '#60c0a0' },
+  purchase: { label: 'Purchase', color: '#54a0f0' },
+  gas: { label: 'Gas', color: '#f0a054' },
+  fun: { label: 'Fun', color: '#f0d454' },
+  fixed: { label: 'Fixed', color: '#c084fc' },
+  unnecessary: { label: 'Unnecessary', color: '#f05454' },
+  necessary: { label: 'Necessary', color: '#f07498' },
+  income: { label: 'Income', color: '#c4f54a' }
 };
 
 let state = {
@@ -905,7 +903,7 @@ function toggleForm() {
 function clearForm() {
   ['f-amount','f-desc'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-type').value = 'expense';
-  document.getElementById('f-cat').value = 'food';
+  document.getElementById('f-cat').value = 'basic';
 }
 
 function changeMonth(delta) {
