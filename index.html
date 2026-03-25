@@ -131,12 +131,25 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; }
 .modal-overlay.visible { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 360px; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
 .modal h3 { font-family: var(--serif); font-size: 18px; font-weight: 400; margin-bottom: 4px; }
 .modal p { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
 .modal input { width: 100%; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; margin-bottom: 12px; }
 .modal input:focus { border-color: var(--accent-dim); }
+.modal textarea { width: 100%; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; resize: vertical; min-height: 160px; margin-bottom: 12px; line-height: 1.6; }
+.modal textarea:focus { border-color: var(--accent-dim); }
+.modal textarea::placeholder { color: var(--text-muted); }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.bulk-preview { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+.bulk-preview .error { color: var(--red); }
+
+/* Snapshots */
+.snapshots { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
+.snapshots .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+.snapshot-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.snapshot-row:last-child { border-bottom: none; }
+.snapshot-date { color: var(--text-dim); }
+.snapshot-val { font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* Responsive */
 @media (max-width: 500px) {
@@ -195,6 +208,23 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
 </div>
 
+<div id="bulk-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Bulk Add</h3>
+    <p>One transaction per line: <code>date category amount description</code><br>
+       Date: YYYY-MM-DD or DD.MM. &nbsp; Category: first letters work (ba, pu, ga, fu, fi, un, ne, in)<br>
+       Example: <code>2026-03-25 ba 12.50 Groceries</code></p>
+    <textarea id="bulk-input" placeholder="2026-03-25 basic 12.50 Groceries
+25.3. fun 8 Cinema
+2026-03-24 income 3200 Salary"></textarea>
+    <div class="bulk-preview" id="bulk-preview"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeBulkModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="bulkAdd()">Add All</button>
+    </div>
+  </div>
+</div>
+
 <div id="auth-screen" class="auth-screen">
   <h2>Expense <span>Tracker</span></h2>
   <div id="auth-setup" style="display:none">
@@ -237,6 +267,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <h1>Expense<span>.</span></h1>
     <div class="header-actions">
       <button class="btn" onclick="exportCSV()">Export</button>
+      <button class="btn" onclick="openBulkModal()">Bulk</button>
       <button class="btn btn-danger" onclick="disconnect()">Lock</button>
       <button class="btn btn-accent" onclick="toggleForm()">+ Add</button>
     </div>
@@ -264,17 +295,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
   <div class="summary" id="summary"></div>
   <div class="weekly-breakdown" id="weekly-breakdown"></div>
+  <div class="snapshots" id="snapshots" style="display:none"></div>
   <div class="category-filters" id="cat-filters"></div>
   <div id="expense-list"></div>
 </div>
 
 <script>
 const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, necessary:{label:'Necessary',color:'#f07498'}, income:{label:'Income',color:'#c4f54a'} };
-const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', VAULT_PATH='data/vault.json';
+const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSHOTS_PATH='data/snapshots.json', VAULT_PATH='data/vault.json';
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
 const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
 
-let state = { owner:'', repo:'', token:'', expenses:[], accounts:{bank:{offset:0},credit:{offset:0}}, sha:null, accountsSha:null, currentMonth:new Date(), activeCategory:'all', loading:false };
+let state = { owner:'', repo:'', token:'', expenses:[], accounts:{bank:{offset:0},credit:{offset:0}}, snapshots:[], sha:null, accountsSha:null, snapshotsSha:null, currentMonth:new Date(), activeCategory:'all', loading:false };
 let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
@@ -295,14 +327,18 @@ function ghFetchRaw(o,r,t,p,opts={}) {
 async function loadData() {
   state.loading = true; renderList();
   try {
-    const [res, ares] = await Promise.all([ghFetch(DATA_PATH), ghFetch(ACCOUNTS_PATH)]);
+    const [res, ares, sres] = await Promise.all([ghFetch(DATA_PATH), ghFetch(ACCOUNTS_PATH), ghFetch(SNAPSHOTS_PATH)]);
     if (res.ok) { const j = await res.json(); state.sha = j.sha; state.expenses = JSON.parse(atob(j.content.replace(/\n/g,''))); }
     else if (res.status===404) { state.expenses=[]; state.sha=null; }
     else throw new Error(`${res.status}`);
     if (ares.ok) { const j = await ares.json(); state.accountsSha = j.sha; state.accounts = JSON.parse(atob(j.content.replace(/\n/g,''))); }
     else if (ares.status===404) { state.accounts={bank:{offset:0},credit:{offset:0}}; state.accountsSha=null; }
+    if (sres.ok) { const j = await sres.json(); state.snapshotsSha = j.sha; state.snapshots = JSON.parse(atob(j.content.replace(/\n/g,''))); }
+    else if (sres.status===404) { state.snapshots=[]; state.snapshotsSha=null; }
   } catch(e) { toast('Failed to load: '+e.message, true); state.expenses=[]; }
-  state.loading = false; render();
+  state.loading = false;
+  await checkMonthlySnapshot();
+  render();
 }
 
 async function saveData() {
@@ -327,6 +363,107 @@ async function saveAccounts() {
     if (!res.ok) throw new Error(j.message||res.status);
     state.accountsSha = j.content.sha; return true;
   } catch(e) { toast('Failed to save accounts: '+e.message, true); return false; }
+}
+
+async function saveSnapshots() {
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.snapshots, null, 2))));
+  const body = { message:'Update snapshots', content };
+  if (state.snapshotsSha) body.sha = state.snapshotsSha;
+  try {
+    const res = await ghFetch(SNAPSHOTS_PATH, { method:'PUT', body:JSON.stringify(body) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.message||res.status);
+    state.snapshotsSha = j.content.sha; return true;
+  } catch(e) { toast('Failed to save snapshots: '+e.message, true); return false; }
+}
+
+async function checkMonthlySnapshot() {
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if (state.snapshots.find(s => s.month === monthKey)) return;
+  const bankSum = state.expenses.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
+  const creditSum = state.expenses.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
+  const bankBal = (state.accounts.bank?.offset || 0) + bankSum;
+  const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal });
+  state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
+  await saveSnapshots();
+}
+
+// Bulk add
+const CAT_ALIASES = {};
+Object.keys(CATEGORIES).forEach(k => { CAT_ALIASES[k] = k; for (let i = 2; i <= k.length; i++) { const prefix = k.slice(0, i); if (!CAT_ALIASES[prefix]) CAT_ALIASES[prefix] = k; } });
+
+function parseBulkLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  const parts = line.split(/\s+/);
+  if (parts.length < 3) return { error: 'Need at least: date category amount' };
+
+  let dateStr = parts[0];
+  // Support DD.MM. format (assume current year)
+  const dotMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.?$/);
+  if (dotMatch) {
+    const y = new Date().getFullYear();
+    dateStr = `${y}-${dotMatch[2].padStart(2,'0')}-${dotMatch[1].padStart(2,'0')}`;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { error: `Bad date: ${parts[0]}` };
+
+  const catInput = parts[1].toLowerCase();
+  const cat = CAT_ALIASES[catInput];
+  if (!cat) return { error: `Unknown category: ${parts[1]}` };
+
+  const amount = parseFloat(parts[2]);
+  if (isNaN(amount) || amount <= 0) return { error: `Bad amount: ${parts[2]}` };
+
+  const desc = parts.slice(3).join(' ') || cat;
+  const type = cat === 'income' ? 'income' : 'expense';
+
+  return { date: dateStr, category: cat, amount: type === 'expense' ? -amount : amount, description: desc, type };
+}
+
+function openBulkModal() {
+  document.getElementById('bulk-input').value = '';
+  document.getElementById('bulk-preview').innerHTML = '';
+  document.getElementById('bulk-modal').classList.add('visible');
+  setTimeout(() => document.getElementById('bulk-input').focus(), 50);
+  document.getElementById('bulk-input').addEventListener('input', updateBulkPreview);
+}
+
+function closeBulkModal() {
+  document.getElementById('bulk-modal').classList.remove('visible');
+  document.getElementById('bulk-input').removeEventListener('input', updateBulkPreview);
+}
+
+function updateBulkPreview() {
+  const lines = document.getElementById('bulk-input').value.split('\n').filter(l => l.trim());
+  let ok = 0, errs = [];
+  lines.forEach((l, i) => { const r = parseBulkLine(l); if (!r) return; if (r.error) errs.push(`Line ${i+1}: ${r.error}`); else ok++; });
+  const el = document.getElementById('bulk-preview');
+  el.innerHTML = `${ok} valid transaction${ok!==1?'s':''}` + (errs.length ? `<br><span class="error">${errs.join('<br>')}</span>` : '');
+}
+
+async function bulkAdd() {
+  const lines = document.getElementById('bulk-input').value.split('\n').filter(l => l.trim());
+  const parsed = lines.map(parseBulkLine).filter(r => r && !r.error);
+  if (!parsed.length) { toast('No valid transactions', true); return; }
+
+  const newEntries = parsed.map(p => ({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    amount: p.amount, date: p.date, description: p.description, category: p.category, type: p.type,
+    created: new Date().toISOString()
+  }));
+
+  state.expenses.push(...newEntries);
+  state.expenses.sort((a, b) => b.date.localeCompare(a.date));
+
+  if (await saveData()) {
+    toast(`Added ${newEntries.length} transaction${newEntries.length!==1?'s':''}`);
+    closeBulkModal(); render();
+  } else {
+    const ids = new Set(newEntries.map(e => e.id));
+    state.expenses = state.expenses.filter(e => !ids.has(e.id));
+  }
 }
 
 // Crypto
@@ -395,7 +532,7 @@ async function bootstrap() {
 }
 function resetVault(){if(!confirm('Clear credentials?'))return;localStorage.removeItem('exp_vault');localStorage.removeItem(LOCAL_META_KEY);document.getElementById('auth-bootstrap').style.display='none';showAuthMode();toast('Cleared');}
 function connectWith(o,r,t){state.owner=GH_OWNER;state.repo=r;state.token=t;document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';loadData();}
-function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],accounts:{bank:{offset:0},credit:{offset:0}},sha:null,accountsSha:null};document.getElementById('auth-screen').style.display='flex';document.getElementById('app').style.display='none';showAuthMode();}
+function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],accounts:{bank:{offset:0},credit:{offset:0}},snapshots:[],sha:null,accountsSha:null,snapshotsSha:null};document.getElementById('auth-screen').style.display='flex';document.getElementById('app').style.display='none';showAuthMode();}
 function tryAutoConnect(){showAuthMode();}
 
 // Offset modal
@@ -446,7 +583,7 @@ async function saveExpense(){
 async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...state.expenses];state.expenses=state.expenses.filter(e=>e.id!==id);if(await saveData()){toast('Deleted');render();}else{state.expenses=bk;}}
 
 // Render
-function render(){renderBalances();renderSummary();renderWeekly();renderFilters();renderList();}
+function render(){renderBalances();renderSummary();renderWeekly();renderSnapshots();renderFilters();renderList();}
 
 function getMonthExpenses(){const y=state.currentMonth.getFullYear(),m=state.currentMonth.getMonth();return state.expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()===m;});}
 
@@ -492,6 +629,18 @@ function renderWeekly(){
     h+=`<div class="week-row"><div style="min-width:50px"><div class="week-label">Wk ${i+1}</div><div class="week-dates">${fd(w.start)}–${fd(w.end)}</div></div><div class="week-bar-wrap"><div class="week-bar" style="width:${pct}%"></div></div><div class="week-amount">${fmt(w.total)}</div></div>`;
   });
   document.getElementById('weekly-breakdown').innerHTML=h;
+}
+
+function renderSnapshots(){
+  const el=document.getElementById('snapshots');
+  if(!state.snapshots.length){el.style.display='none';return;}
+  el.style.display='block';
+  let h='<div class="section-title">Monthly Balance Log</div>';
+  state.snapshots.slice().reverse().slice(0,12).forEach(s=>{
+    const color=s.total>=0?'var(--accent)':'var(--red)';
+    h+=`<div class="snapshot-row"><div class="snapshot-date">${s.month}</div><div><span class="snapshot-val" style="color:var(--accent)">Bank ${fmt(s.bank)}</span> · <span class="snapshot-val" style="color:${s.credit>=0?'var(--accent)':'var(--red)'}">CC ${fmt(s.credit)}</span></div><div class="snapshot-val" style="color:${color}">Net ${fmt(s.total)}</div></div>`;
+  });
+  el.innerHTML=h;
 }
 
 function renderFilters(){
