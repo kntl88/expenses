@@ -106,7 +106,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 /* List */
 .expense-day-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 14px 0 6px; }
-.expense-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid transparent; border-radius: 8px; transition: all 0.15s; }
+.expense-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid transparent; border-radius: 8px; transition: all 0.15s; cursor: pointer; }
 .expense-item:hover { border-color: var(--border); }
 .expense-cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .expense-info { min-width: 0; }
@@ -243,18 +243,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
   <div class="balances" id="balances"></div>
   <div class="expense-form" id="expense-form">
-    <div class="form-row three">
+    <div class="form-row">
       <div class="form-group"><label>Amount (€)</label><input id="f-amount" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="form-group"><label>Type</label><select id="f-type"><option value="expense">Expense</option><option value="income">Income</option></select></div>
       <div class="form-group"><label>Date</label><input id="f-date" type="date"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>Description</label><input id="f-desc" type="text" placeholder="Coffee, groceries…"></div>
-      <div class="form-group"><label>Category</label><select id="f-cat"><option value="basic">Basic</option><option value="purchase">Purchase</option><option value="gas">Gas</option><option value="fun">Fun</option><option value="fixed">Fixed</option><option value="unnecessary">Unnecessary</option><option value="necessary">Necessary</option><option value="income">Income</option></select></div>
+    <div class="form-group" style="margin-bottom:12px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Category</label>
+      <div class="category-filters" id="f-cat-pills" style="margin-bottom:0"></div>
     </div>
     <div class="form-actions">
       <button class="btn" onclick="toggleForm()">Cancel</button>
-      <button class="btn btn-accent" onclick="addExpense()">Save</button>
+      <button class="btn btn-accent" id="f-save-btn" onclick="saveExpense()">Save</button>
     </div>
   </div>
   <div class="month-nav">
@@ -276,6 +276,13 @@ const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
 
 let state = { owner:'', repo:'', token:'', expenses:[], accounts:{bank:{offset:0},credit:{offset:0}}, sha:null, accountsSha:null, currentMonth:new Date(), activeCategory:'all', loading:false };
 let offsetModalAccount = null;
+let editingId = null;
+let formCat = 'basic';
+
+function renderFormCats(){
+  document.getElementById('f-cat-pills').innerHTML=Object.keys(CATEGORIES).map(c=>`<button type="button" class="cat-pill ${formCat===c?'active':''}" onclick="setFormCat('${c}')">${CATEGORIES[c].label}</button>`).join('');
+}
+function setFormCat(c){formCat=c;renderFormCats();}
 
 // GitHub API
 function ghFetch(path, opts={}) {
@@ -405,14 +412,36 @@ async function saveOffset(){
 }
 
 // CRUD
-async function addExpense(){
-  const amount=parseFloat(document.getElementById('f-amount').value), type=document.getElementById('f-type').value;
+function editExpense(id){
+  const e=state.expenses.find(x=>x.id===id); if(!e)return;
+  editingId=id;
+  const f=document.getElementById('expense-form');
+  f.classList.add('visible');
+  document.getElementById('f-amount').value=Math.abs(e.amount);
+  document.getElementById('f-date').value=e.date;
+  document.getElementById('f-desc').value=e.description||'';
+  formCat=e.category||'basic'; renderFormCats();
+  document.getElementById('f-save-btn').textContent='Update';
+  document.getElementById('f-amount').focus();
+}
+
+async function saveExpense(){
+  const amount=parseFloat(document.getElementById('f-amount').value);
   const date=document.getElementById('f-date').value, desc=document.getElementById('f-desc').value.trim();
-  const cat=document.getElementById('f-cat').value;
+  const cat=formCat, type=cat==='income'?'income':'expense';
   if(!amount||!date){toast('Fill in amount and date',true);return;}
-  const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, created:new Date().toISOString()};
-  state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
-  if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
+  if(editingId){
+    const idx=state.expenses.findIndex(x=>x.id===editingId);
+    if(idx===-1){toast('Entry not found',true);return;}
+    const backup={...state.expenses[idx]};
+    state.expenses[idx]={...state.expenses[idx], amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type};
+    state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+    if(await saveData()){toast('Updated');toggleForm();clearForm();render();}else{state.expenses[idx]=backup;}
+  } else {
+    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, created:new Date().toISOString()};
+    state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+    if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
+  }
 }
 async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...state.expenses];state.expenses=state.expenses.filter(e=>e.id!==id);if(await saveData()){toast('Deleted');render();}else{state.expenses=bk;}}
 
@@ -478,7 +507,7 @@ function renderList(){
   let h=''; Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
     g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;
-      h+=`<div class="expense-item fade-in"><div class="expense-cat-dot" style="background:${cat.color}"></div><div class="expense-info"><div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="deleteExpense('${e.id}')">✕</button></div></div>`;
+      h+=`<div class="expense-item fade-in" onclick="editExpense('${e.id}')"><div class="expense-cat-dot" style="background:${cat.color}"></div><div class="expense-info"><div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
     });
   });
   container.innerHTML=h;
@@ -486,8 +515,8 @@ function renderList(){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');f.classList.toggle('visible');if(f.classList.contains('visible')){document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-amount').focus();}}
-function clearForm(){['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');document.getElementById('f-type').value='expense';document.getElementById('f-cat').value='basic';}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';renderFormCats();document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('f-save-btn').textContent='Save';}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
