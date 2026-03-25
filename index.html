@@ -277,6 +277,9 @@ body {
         Grant <code>Contents: Read and write</code> on your private repo only.<br>
         Your PAT is encrypted with AES-256-GCM locally — only the ciphertext is stored in your browser.
       </div>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
+        <button class="btn" style="width:100%" onclick="showSyncMode()">Already set up? Sign in from another device</button>
+      </div>
     </div>
   </div>
 
@@ -293,21 +296,25 @@ body {
     </div>
   </div>
 
-  <!-- Mode 3: Bootstrap on new browser (have repo info but no local vault cache) -->
+  <!-- Mode 3: Sync from existing repo (new device / new browser) -->
   <div id="auth-bootstrap" style="display:none">
-    <p>New browser detected for <span id="bootstrap-repo-label" style="color:var(--accent)"></span>.<br>
-       Enter your PAT once to sync the vault from your repo.</p>
+    <p>Sign in to an existing vault.</p>
     <div class="auth-form">
+      <input id="auth-bootstrap-owner" type="text" placeholder="GitHub username" autocomplete="username">
+      <input id="auth-bootstrap-repo" type="text" placeholder="Private repo name" autocomplete="off">
       <input id="auth-bootstrap-token" type="password" placeholder="Personal Access Token" autocomplete="off">
+      <div style="height:4px"></div>
       <input id="auth-bootstrap-pw" type="password" placeholder="Your password" autocomplete="current-password"
              onkeydown="if(event.key==='Enter')bootstrap()">
       <button class="btn btn-accent" style="width:100%;padding:12px" onclick="bootstrap()">Sync & Unlock</button>
       <div class="auth-hint">
-        After this one-time sync, you'll only need your short password on this browser.
+        After this one-time sync, you'll only need your short password on this device.
       </div>
-      <div style="margin-top:16px">
-        <button class="btn btn-sm btn-danger" onclick="resetVault()">Start fresh instead</button>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
+        <button class="btn" style="width:100%" onclick="showSetupMode()">Back to new setup</button>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 </div>
@@ -637,8 +644,12 @@ async function unlock() {
 
   const localVault = localStorage.getItem('exp_vault');
   if (!localVault) {
+    // Local cache missing — show sync screen pre-filled with repo info
+    document.getElementById('auth-unlock').style.display = 'none';
+    document.getElementById('auth-bootstrap').style.display = 'block';
+    document.getElementById('auth-bootstrap-owner').value = owner;
+    document.getElementById('auth-bootstrap-repo').value = repo;
     toast('Local cache missing — enter PAT to re-sync', true);
-    showBootstrapMode(owner, repo);
     return;
   }
 
@@ -654,24 +665,24 @@ async function unlock() {
   }
 }
 
-// Bootstrap: when localStorage is empty (new browser) but we know the repo
-function showBootstrapMode(owner, repo) {
-  document.getElementById('auth-unlock').style.display = 'none';
+// Show sync mode from setup screen
+function showSyncMode() {
+  document.getElementById('auth-setup').style.display = 'none';
   document.getElementById('auth-bootstrap').style.display = 'block';
-  document.getElementById('bootstrap-repo-label').textContent = `${owner}/${repo}`;
-  // Store for the bootstrap handler
-  document.getElementById('auth-bootstrap').dataset.owner = owner;
-  document.getElementById('auth-bootstrap').dataset.repo = repo;
+}
+
+function showSetupMode() {
+  document.getElementById('auth-bootstrap').style.display = 'none';
+  document.getElementById('auth-setup').style.display = 'block';
 }
 
 async function bootstrap() {
-  const el = document.getElementById('auth-bootstrap');
-  const owner = el.dataset.owner;
-  const repo = el.dataset.repo;
+  const owner = document.getElementById('auth-bootstrap-owner').value.trim();
+  const repo = document.getElementById('auth-bootstrap-repo').value.trim();
   const token = document.getElementById('auth-bootstrap-token').value.trim();
   const pw = document.getElementById('auth-bootstrap-pw').value;
 
-  if (!token || !pw) { toast('Fill in both fields', true); return; }
+  if (!owner || !repo || !token || !pw) { toast('Fill in all fields', true); return; }
 
   try {
     // Fetch vault from GitHub using the provided PAT
