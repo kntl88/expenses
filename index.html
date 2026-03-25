@@ -266,16 +266,17 @@ body {
     <p>First-time setup — enter your GitHub details and choose a short password to encrypt them.</p>
     <div class="auth-form">
       <input id="auth-owner" type="text" placeholder="GitHub username" autocomplete="username">
-      <input id="auth-repo" type="text" placeholder="Private repo name (e.g. my-expenses)" autocomplete="off">
+      <input id="auth-repo" type="text" placeholder="Private repo name (for expense data)" autocomplete="off">
+      <input id="auth-public-repo" type="text" placeholder="Public repo name (this app's repo)" autocomplete="off">
       <input id="auth-token" type="password" placeholder="Personal Access Token (repo scope)" autocomplete="off">
       <div style="height:4px"></div>
-      <input id="auth-newpw" type="password" placeholder="Choose a short password" autocomplete="new-password">
+      <input id="auth-newpw" type="password" placeholder="Choose a password (8+ chars recommended)" autocomplete="new-password">
       <input id="auth-newpw2" type="password" placeholder="Confirm password" autocomplete="new-password">
       <button class="btn btn-accent" style="width:100%;padding:12px" onclick="setupVault()">Encrypt & Save</button>
       <div class="auth-hint">
-        Create a <code>Fine-grained PAT</code> at GitHub → Settings → Developer settings → Personal access tokens.<br>
-        Grant <code>Contents: Read and write</code> on your private repo only.<br>
-        Your PAT is encrypted with AES-256-GCM locally — only the ciphertext is stored in your browser.
+        Your encrypted vault is stored in the <strong>public</strong> repo — it's AES-256-GCM ciphertext, safe without your password.<br>
+        Expense data goes in the <strong>private</strong> repo.<br>
+        Your PAT needs <code>Contents: Read and write</code> on <strong>both</strong> repos.
       </div>
       <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
         <button class="btn" style="width:100%" onclick="showSyncMode()">Already set up? Sign in from another device</button>
@@ -296,19 +297,18 @@ body {
     </div>
   </div>
 
-  <!-- Mode 3: Sync from existing repo (new device / new browser) -->
+  <!-- Mode 3: Sign in on new device (password only — vault fetched from public repo) -->
   <div id="auth-bootstrap" style="display:none">
-    <p>Sign in to an existing vault.</p>
+    <p>Sign in from another device.</p>
     <div class="auth-form">
       <input id="auth-bootstrap-owner" type="text" placeholder="GitHub username" autocomplete="username">
-      <input id="auth-bootstrap-repo" type="text" placeholder="Private repo name" autocomplete="off">
-      <input id="auth-bootstrap-token" type="password" placeholder="Personal Access Token" autocomplete="off">
+      <input id="auth-bootstrap-public-repo" type="text" placeholder="Public repo name (this app's repo)" autocomplete="off">
       <div style="height:4px"></div>
       <input id="auth-bootstrap-pw" type="password" placeholder="Your password" autocomplete="current-password"
              onkeydown="if(event.key==='Enter')bootstrap()">
-      <button class="btn btn-accent" style="width:100%;padding:12px" onclick="bootstrap()">Sync & Unlock</button>
+      <button class="btn btn-accent" style="width:100%;padding:12px" onclick="bootstrap()">Unlock</button>
       <div class="auth-hint">
-        After this one-time sync, you'll only need your short password on this device.
+        The encrypted vault is fetched from your public repo — no PAT needed.
       </div>
       <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
         <button class="btn" style="width:100%" onclick="showSetupMode()">Back to new setup</button>
@@ -409,7 +409,7 @@ const CATEGORIES = {
 };
 
 let state = {
-  owner: '', repo: '', token: '',
+  owner: '', repo: '', publicRepo: '', token: '',
   expenses: [],      // all expenses from the data file
   sha: null,         // GitHub file SHA for updates
   currentMonth: new Date(),
@@ -542,22 +542,22 @@ async function ghFetchRaw(owner, repo, token, path, opts = {}) {
   });
 }
 
-async function saveVaultToGitHub(owner, repo, token, encryptedBlob) {
-  // Check if vault file already exists (to get SHA for update)
+async function saveVaultToGitHub(owner, publicRepo, token, encryptedBlob) {
+  // Save vault to the PUBLIC repo (readable without auth)
   let sha = null;
   try {
-    const existing = await ghFetchRaw(owner, repo, token, VAULT_PATH);
+    const existing = await ghFetchRaw(owner, publicRepo, token, VAULT_PATH);
     if (existing.ok) {
       const json = await existing.json();
       sha = json.sha;
     }
-  } catch (e) { /* file doesn't exist yet, that's fine */ }
+  } catch (e) { /* file doesn't exist yet */ }
 
   const content = btoa(unescape(encodeURIComponent(JSON.stringify({ encrypted: encryptedBlob }))));
   const body = { message: 'Update vault', content };
   if (sha) body.sha = sha;
 
-  const res = await ghFetchRaw(owner, repo, token, VAULT_PATH, {
+  const res = await ghFetchRaw(owner, publicRepo, token, VAULT_PATH, {
     method: 'PUT', body: JSON.stringify(body)
   });
   if (!res.ok) {
@@ -566,8 +566,12 @@ async function saveVaultToGitHub(owner, repo, token, encryptedBlob) {
   }
 }
 
-async function loadVaultFromGitHub(owner, repo, token) {
-  const res = await ghFetchRaw(owner, repo, token, VAULT_PATH);
+async function loadVaultFromPublicRepo(owner, publicRepo) {
+  // Fetch vault from PUBLIC repo — no auth needed
+  const url = `https://api.github.com/repos/${owner}/${publicRepo}/contents/${VAULT_PATH}`;
+  const res = await fetch(url, {
+    headers: { 'Accept': 'application/vnd.github.v3+json' }
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
   const json = await res.json();
@@ -592,31 +596,33 @@ function showAuthMode() {
 async function setupVault() {
   const owner = document.getElementById('auth-owner').value.trim();
   const repo = document.getElementById('auth-repo').value.trim();
+  const publicRepo = document.getElementById('auth-public-repo').value.trim();
   const token = document.getElementById('auth-token').value.trim();
   const pw = document.getElementById('auth-newpw').value;
   const pw2 = document.getElementById('auth-newpw2').value;
 
-  if (!owner || !repo || !token) { toast('Fill in all GitHub fields', true); return; }
+  if (!owner || !repo || !publicRepo || !token) { toast('Fill in all fields', true); return; }
   if (!pw || pw.length < 3) { toast('Password must be at least 3 characters', true); return; }
   if (pw !== pw2) { toast('Passwords don\'t match', true); return; }
 
   try {
-    // Verify the token works by hitting the repo
+    // Verify the token works against the private repo
     const check = await ghFetchRaw(owner, repo, token, '');
     if (check.status === 401 || check.status === 403) {
       toast('Invalid token or no access to this repo', true); return;
     }
 
-    // Encrypt the token and push vault to the private repo
-    const encrypted = await encryptData(token, pw);
-    await saveVaultToGitHub(owner, repo, token, encrypted);
+    // Encrypt the token + private repo name, push vault to PUBLIC repo
+    const payload = JSON.stringify({ token, repo });
+    const encrypted = await encryptData(payload, pw);
+    await saveVaultToGitHub(owner, publicRepo, token, encrypted);
 
-    // Store only non-secret metadata locally
-    localStorage.setItem(LOCAL_META_KEY, JSON.stringify({ owner, repo }));
+    // Store non-secret metadata locally
+    localStorage.setItem(LOCAL_META_KEY, JSON.stringify({ owner, repo, publicRepo }));
     // Cache encrypted vault locally for fast unlock
     localStorage.setItem('exp_vault', encrypted);
 
-    toast('Credentials encrypted & saved to repo');
+    toast('Credentials encrypted & saved');
     connectWith(owner, repo, token);
   } catch (e) {
     toast('Setup failed: ' + e.message, true);
@@ -629,33 +635,27 @@ async function unlock() {
 
   const meta = localStorage.getItem(LOCAL_META_KEY);
   if (!meta) { toast('No saved credentials — use setup', true); return; }
-  const { owner, repo } = JSON.parse(meta);
-
-  // We need a temporary way to fetch the vault. The trick: the vault itself
-  // contains the PAT. But we need the PAT to access the private repo.
-  // Solution: on setup we also store a "bootstrap token" — a second encrypted
-  // copy using a known derivation — NO, that defeats the purpose.
-  //
-  // Actual solution: we store the encrypted PAT in localStorage too (it's
-  // encrypted, so it's safe). The private repo copy is the backup/sync copy.
-  // On unlock we try localStorage first, fall back to asking for PAT.
+  const { owner, repo, publicRepo } = JSON.parse(meta);
 
   const localVault = localStorage.getItem('exp_vault');
   if (!localVault) {
-    // Local cache missing — show sync screen pre-filled with repo info
+    // Local cache missing — show sync screen pre-filled
     document.getElementById('auth-unlock').style.display = 'none';
     document.getElementById('auth-bootstrap').style.display = 'block';
     document.getElementById('auth-bootstrap-owner').value = owner;
-    document.getElementById('auth-bootstrap-repo').value = repo;
-    toast('Local cache missing — enter PAT to re-sync', true);
+    document.getElementById('auth-bootstrap-public-repo').value = publicRepo;
+    toast('Local cache missing — re-sync below', true);
     return;
   }
 
   try {
-    const token = await decryptData(localVault, pw);
-    // Verify it's a valid token (quick sanity check on format)
+    const json = await decryptData(localVault, pw);
+    const parsed = JSON.parse(json);
+    // Support both old format (plain token string) and new format ({token, repo})
+    const token = typeof parsed === 'string' ? parsed : parsed.token;
+    const dataRepo = typeof parsed === 'string' ? repo : (parsed.repo || repo);
     if (!token || token.length < 10) throw new Error('invalid');
-    connectWith(owner, repo, token);
+    connectWith(owner, dataRepo, token);
   } catch (e) {
     toast('Wrong password', true);
     document.getElementById('auth-pw').value = '';
@@ -676,31 +676,34 @@ function showSetupMode() {
 
 async function bootstrap() {
   const owner = document.getElementById('auth-bootstrap-owner').value.trim();
-  const repo = document.getElementById('auth-bootstrap-repo').value.trim();
-  const token = document.getElementById('auth-bootstrap-token').value.trim();
+  const publicRepo = document.getElementById('auth-bootstrap-public-repo').value.trim();
   const pw = document.getElementById('auth-bootstrap-pw').value;
 
-  if (!owner || !repo || !token || !pw) { toast('Fill in all fields', true); return; }
+  if (!owner || !publicRepo || !pw) { toast('Fill in all fields', true); return; }
 
   try {
-    // Fetch vault from GitHub using the provided PAT
-    const encrypted = await loadVaultFromGitHub(owner, repo, token);
+    // Fetch vault from PUBLIC repo — no PAT needed
+    const encrypted = await loadVaultFromPublicRepo(owner, publicRepo);
     if (!encrypted) {
       toast('No vault found in repo — use full setup instead', true); return;
     }
 
-    // Verify the password decrypts correctly
-    const decryptedToken = await decryptData(encrypted, pw);
-    if (!decryptedToken || decryptedToken.length < 10) throw new Error('invalid');
+    // Decrypt — contains {token, repo}
+    const json = await decryptData(encrypted, pw);
+    const parsed = JSON.parse(json);
+    const token = typeof parsed === 'string' ? parsed : parsed.token;
+    const repo = typeof parsed === 'string' ? '' : parsed.repo;
+    if (!token || token.length < 10) throw new Error('invalid');
+    if (!repo) { toast('Vault format outdated — please run full setup', true); return; }
 
-    // Cache the encrypted vault locally for next time
+    // Cache locally
     localStorage.setItem('exp_vault', encrypted);
-    localStorage.setItem(LOCAL_META_KEY, JSON.stringify({ owner, repo }));
+    localStorage.setItem(LOCAL_META_KEY, JSON.stringify({ owner, repo, publicRepo }));
 
-    toast('Synced — you\'re set on this browser');
-    connectWith(owner, repo, decryptedToken);
+    toast('Synced — password-only from now on');
+    connectWith(owner, repo, token);
   } catch (e) {
-    if (e.message === 'invalid' || e.name === 'OperationError') {
+    if (e.name === 'OperationError') {
       toast('Wrong password', true);
     } else {
       toast('Failed: ' + e.message, true);
@@ -726,7 +729,7 @@ function connectWith(owner, repo, token) {
 }
 
 function disconnect() {
-  state = { ...state, owner: '', repo: '', token: '', expenses: [], sha: null };
+  state = { ...state, owner: '', repo: '', publicRepo: '', token: '', expenses: [], sha: null };
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-bootstrap').style.display = 'none';
