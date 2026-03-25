@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1c1c20;
+  --border: #2a2a30;
+  --border-hover: #3a3a42;
+  --text: #e8e6e3;
+  --text-dim: #8a8880;
+  --text-muted: #5a5850;
+  --accent: #c4f54a;
+  --accent-dim: #8aac34;
+  --red: #f05454;
+  --red-dim: #a03838;
+  --blue: #54a0f0;
+  --orange: #f0a054;
+  --radius: 10px;
+  --mono: 'DM Mono', monospace;
+  --serif: 'Instrument Serif', serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--mono);
+  font-weight: 300;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Layout ── */
+.app { max-width: 680px; margin: 0 auto; padding: 40px 20px 100px; }
+
+/* ── Header ── */
+.header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 48px; padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.header h1 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: 28px; letter-spacing: -0.5px; color: var(--text);
+}
+.header h1 span { color: var(--accent); }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ── Buttons ── */
+.btn {
+  font-family: var(--mono); font-size: 11px; font-weight: 400;
+  padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.btn:hover { border-color: var(--border-hover); color: var(--text); background: var(--surface-2); }
+.btn-accent {
+  background: var(--accent); color: var(--bg); border-color: var(--accent);
+  font-weight: 500;
+}
+.btn-accent:hover { background: #d4ff5a; border-color: #d4ff5a; color: var(--bg); }
+.btn-danger { color: var(--red); }
+.btn-danger:hover { background: rgba(240,84,84,0.1); border-color: var(--red-dim); }
+.btn-sm { padding: 4px 10px; font-size: 10px; }
+
+/* ── Auth Screen ── */
+.auth-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 70vh; text-align: center;
+}
+.auth-screen h2 {
+  font-family: var(--serif); font-size: 36px; font-weight: 400;
+  margin-bottom: 8px;
+}
+.auth-screen h2 span { color: var(--accent); font-style: italic; }
+.auth-screen p { color: var(--text-dim); margin-bottom: 32px; max-width: 400px; }
+.auth-form { width: 100%; max-width: 400px; }
+.auth-form input {
+  width: 100%; padding: 12px 16px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  margin-bottom: 12px; outline: none; transition: border-color 0.15s;
+}
+.auth-form input:focus { border-color: var(--accent-dim); }
+.auth-form input::placeholder { color: var(--text-muted); }
+.auth-hint {
+  font-size: 11px; color: var(--text-muted); margin-top: 16px;
+  line-height: 1.6;
+}
+.auth-hint code {
+  background: var(--surface); padding: 1px 5px; border-radius: 3px;
+  color: var(--text-dim);
+}
+
+/* ── Summary Cards ── */
+.summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin-bottom: 32px;
+}
+.summary-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.summary-card .label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.summary-card .value {
+  font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.summary-card .value.expense { color: var(--red); }
+.summary-card .value.income { color: var(--accent); }
+
+/* ── Expense Form ── */
+.expense-form {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  margin-bottom: 32px;
+  display: none;
+}
+.expense-form.visible { display: block; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-muted); margin-bottom: 6px;
+}
+.form-group input, .form-group select {
+  padding: 10px 12px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  outline: none; transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group select:focus { border-color: var(--accent-dim); }
+.form-group select option { background: var(--surface-2); }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* ── Month Nav ── */
+.month-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.month-nav .month-label {
+  font-family: var(--serif); font-size: 20px;
+}
+.month-nav-btns { display: flex; gap: 4px; }
+
+/* ── Category Filter ── */
+.category-filters {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.cat-pill {
+  font-family: var(--mono); font-size: 10px; padding: 4px 10px;
+  border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  cursor: pointer; transition: all 0.15s;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cat-pill:hover { border-color: var(--border-hover); color: var(--text); }
+.cat-pill.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
+
+/* ── Expense List ── */
+.expense-list { display: flex; flex-direction: column; gap: 1px; }
+.expense-day-header {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-muted); padding: 16px 0 8px;
+}
+.expense-item {
+  display: grid; grid-template-columns: auto 1fr auto;
+  gap: 14px; align-items: center; padding: 12px 14px;
+  background: var(--surface); border: 1px solid transparent;
+  border-radius: 8px; transition: all 0.15s; cursor: default;
+}
+.expense-item:hover { border-color: var(--border); }
+.expense-cat-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.expense-info { min-width: 0; }
+.expense-desc {
+  font-size: 13px; color: var(--text); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.expense-meta {
+  font-size: 10px; color: var(--text-muted); margin-top: 2px;
+}
+.expense-amount {
+  font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums;
+  text-align: right; white-space: nowrap;
+}
+.expense-amount.negative { color: var(--red); }
+.expense-amount.positive { color: var(--accent); }
+.expense-item .delete-btn {
+  display: none; background: none; border: none;
+  color: var(--text-muted); cursor: pointer; padding: 2px 6px;
+  font-size: 14px; transition: color 0.15s;
+}
+.expense-item:hover .delete-btn { display: inline; }
+.expense-item .delete-btn:hover { color: var(--red); }
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center; padding: 48px 20px; color: var(--text-muted);
+}
+.empty-state .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; font-family: var(--mono); font-size: 12px;
+  color: var(--text); opacity: 0; transition: opacity 0.3s;
+  pointer-events: none; z-index: 100;
+}
+.toast.visible { opacity: 1; }
+.toast.error { border-color: var(--red-dim); color: var(--red); }
+
+/* ── Loading ── */
+.loading { text-align: center; padding: 40px; color: var(--text-muted); }
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Responsive ── */
+@media (max-width: 500px) {
+  .summary { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .form-row.three { grid-template-columns: 1fr; }
+  .header h1 { font-size: 22px; }
+}
+
+/* ── Fade-in animation ── */
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- Auth Screen -->
+<div id="auth-screen" class="auth-screen">
+  <h2>Expense <span>Tracker</span></h2>
+
+  <!-- Mode 1: First-time setup -->
+  <div id="auth-setup" style="display:none">
+    <p>First-time setup — enter your GitHub details and choose a short password to encrypt them.</p>
+    <div class="auth-form">
+      <input id="auth-owner" type="text" placeholder="GitHub username" autocomplete="username">
+      <input id="auth-repo" type="text" placeholder="Private repo name (e.g. my-expenses)" autocomplete="off">
+      <input id="auth-token" type="password" placeholder="Personal Access Token (repo scope)" autocomplete="off">
+      <div style="height:4px"></div>
+      <input id="auth-newpw" type="password" placeholder="Choose a short password" autocomplete="new-password">
+      <input id="auth-newpw2" type="password" placeholder="Confirm password" autocomplete="new-password">
+      <button class="btn btn-accent" style="width:100%;padding:12px" onclick="setupVault()">Encrypt & Save</button>
+      <div class="auth-hint">
+        Create a <code>Fine-grained PAT</code> at GitHub → Settings → Developer settings → Personal access tokens.<br>
+        Grant <code>Contents: Read and write</code> on your private repo only.<br>
+        Your PAT is encrypted with AES-256-GCM locally — only the ciphertext is stored in your browser.
+      </div>
+    </div>
+  </div>
+
+  <!-- Mode 2: Unlock with password -->
+  <div id="auth-unlock" style="display:none">
+    <p>Enter your password to unlock.</p>
+    <div class="auth-form">
+      <input id="auth-pw" type="password" placeholder="Password" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')unlock()">
+      <button class="btn btn-accent" style="width:100%;padding:12px" onclick="unlock()">Unlock</button>
+      <div style="margin-top:16px">
+        <button class="btn btn-sm btn-danger" onclick="resetVault()">Reset credentials</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app" class="app" style="display:none">
+  <div class="header">
+    <h1>Expense<span>.</span></h1>
+    <div class="header-actions">
+      <button class="btn" onclick="exportCSV()">Export</button>
+      <button class="btn btn-danger" onclick="disconnect()">Lock</button>
+      <button class="btn btn-accent" onclick="toggleForm()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary" id="summary"></div>
+
+  <!-- Add Form -->
+  <div class="expense-form" id="expense-form">
+    <div class="form-row three">
+      <div class="form-group">
+        <label>Amount (€)</label>
+        <input id="f-amount" type="number" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="f-type">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input id="f-date" type="date">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Description</label>
+        <input id="f-desc" type="text" placeholder="Coffee, groceries…">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="f-cat">
+          <option value="food">Food & Drink</option>
+          <option value="transport">Transport</option>
+          <option value="housing">Housing</option>
+          <option value="utilities">Utilities</option>
+          <option value="health">Health</option>
+          <option value="entertainment">Entertainment</option>
+          <option value="shopping">Shopping</option>
+          <option value="income">Income</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="toggleForm()">Cancel</button>
+      <button class="btn btn-accent" onclick="addExpense()">Save</button>
+    </div>
+  </div>
+
+  <!-- Month Nav -->
+  <div class="month-nav">
+    <div class="month-nav-btns">
+      <button class="btn btn-sm" onclick="changeMonth(-1)">← Prev</button>
+    </div>
+    <div class="month-label" id="month-label"></div>
+    <div class="month-nav-btns">
+      <button class="btn btn-sm" onclick="changeMonth(1)">Next →</button>
+    </div>
+  </div>
+
+  <!-- Category Filters -->
+  <div class="category-filters" id="cat-filters"></div>
+
+  <!-- Expense List -->
+  <div id="expense-list"></div>
+</div>
+
+<script>
+// ── Config & State ──
+const CATEGORIES = {
+  food: { label: 'Food & Drink', color: '#f0a054' },
+  transport: { label: 'Transport', color: '#54a0f0' },
+  housing: { label: 'Housing', color: '#c084fc' },
+  utilities: { label: 'Utilities', color: '#60c0a0' },
+  health: { label: 'Health', color: '#f05454' },
+  entertainment: { label: 'Entertainment', color: '#f0d454' },
+  shopping: { label: 'Shopping', color: '#f07498' },
+  income: { label: 'Income', color: '#c4f54a' },
+  other: { label: 'Other', color: '#8a8880' }
+};
+
+let state = {
+  owner: '', repo: '', token: '',
+  expenses: [],      // all expenses from the data file
+  sha: null,         // GitHub file SHA for updates
+  currentMonth: new Date(),
+  activeCategory: 'all',
+  loading: false
+};
+
+const DATA_PATH = 'data/expenses.json';
+
+// ── GitHub API ──
+async function ghFetch(path, opts = {}) {
+  const url = `https://api.github.com/repos/${state.owner}/${state.repo}/contents/${path}`;
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      'Authorization': `Bearer ${state.token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    }
+  });
+  return res;
+}
+
+async function loadData() {
+  state.loading = true;
+  renderList();
+  try {
+    const res = await ghFetch(DATA_PATH);
+    if (res.status === 200) {
+      const json = await res.json();
+      state.sha = json.sha;
+      const content = atob(json.content.replace(/\n/g, ''));
+      state.expenses = JSON.parse(content);
+    } else if (res.status === 404) {
+      // File doesn't exist yet — will be created on first save
+      state.expenses = [];
+      state.sha = null;
+    } else {
+      throw new Error(`GitHub API returned ${res.status}`);
+    }
+  } catch (e) {
+    toast('Failed to load data: ' + e.message, true);
+    state.expenses = [];
+  }
+  state.loading = false;
+  render();
+}
+
+async function saveData() {
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.expenses, null, 2))));
+  const body = {
+    message: `Update expenses ${new Date().toISOString().slice(0, 10)}`,
+    content: content
+  };
+  if (state.sha) body.sha = state.sha;
+
+  try {
+    const res = await ghFetch(DATA_PATH, { method: 'PUT', body: JSON.stringify(body) });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || res.status);
+    }
+    const json = await res.json();
+    state.sha = json.content.sha;
+    return true;
+  } catch (e) {
+    toast('Failed to save: ' + e.message, true);
+    return false;
+  }
+}
+
+// ── Crypto helpers (AES-256-GCM + PBKDF2) ──
+const VAULT_KEY = 'exp_vault';
+const SALT_LEN = 16;
+const IV_LEN = 12;
+const PBKDF2_ITERATIONS = 310000;
+
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptData(plaintext, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
+  const key = await deriveKey(password, salt);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, key, enc.encode(plaintext)
+  );
+  // Pack: salt + iv + ciphertext → base64
+  const packed = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+  packed.set(salt, 0);
+  packed.set(iv, salt.length);
+  packed.set(new Uint8Array(ciphertext), salt.length + iv.length);
+  return btoa(String.fromCharCode(...packed));
+}
+
+async function decryptData(blob64, password) {
+  const packed = Uint8Array.from(atob(blob64), c => c.charCodeAt(0));
+  const salt = packed.slice(0, SALT_LEN);
+  const iv = packed.slice(SALT_LEN, SALT_LEN + IV_LEN);
+  const ciphertext = packed.slice(SALT_LEN + IV_LEN);
+  const key = await deriveKey(password, salt);
+  const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  return new TextDecoder().decode(dec);
+}
+
+// ── Vault auth flows ──
+function showAuthMode() {
+  const hasVault = !!localStorage.getItem(VAULT_KEY);
+  document.getElementById('auth-setup').style.display = hasVault ? 'none' : 'block';
+  document.getElementById('auth-unlock').style.display = hasVault ? 'block' : 'none';
+  if (hasVault) {
+    setTimeout(() => document.getElementById('auth-pw')?.focus(), 50);
+  }
+}
+
+async function setupVault() {
+  const owner = document.getElementById('auth-owner').value.trim();
+  const repo = document.getElementById('auth-repo').value.trim();
+  const token = document.getElementById('auth-token').value.trim();
+  const pw = document.getElementById('auth-newpw').value;
+  const pw2 = document.getElementById('auth-newpw2').value;
+
+  if (!owner || !repo || !token) { toast('Fill in all GitHub fields', true); return; }
+  if (!pw || pw.length < 3) { toast('Password must be at least 3 characters', true); return; }
+  if (pw !== pw2) { toast('Passwords don\'t match', true); return; }
+
+  try {
+    const payload = JSON.stringify({ owner, repo, token });
+    const encrypted = await encryptData(payload, pw);
+    localStorage.setItem(VAULT_KEY, encrypted);
+    toast('Credentials encrypted & saved');
+    connectWith(owner, repo, token);
+  } catch (e) {
+    toast('Encryption failed: ' + e.message, true);
+  }
+}
+
+async function unlock() {
+  const pw = document.getElementById('auth-pw').value;
+  if (!pw) { toast('Enter your password', true); return; }
+
+  const blob = localStorage.getItem(VAULT_KEY);
+  if (!blob) { toast('No saved credentials — use setup', true); return; }
+
+  try {
+    const json = await decryptData(blob, pw);
+    const { owner, repo, token } = JSON.parse(json);
+    connectWith(owner, repo, token);
+  } catch (e) {
+    toast('Wrong password', true);
+    document.getElementById('auth-pw').value = '';
+    document.getElementById('auth-pw').focus();
+  }
+}
+
+function resetVault() {
+  if (!confirm('This will delete your saved encrypted credentials. You\'ll need to re-enter your PAT. Continue?')) return;
+  localStorage.removeItem(VAULT_KEY);
+  showAuthMode();
+  toast('Credentials cleared');
+}
+
+function connectWith(owner, repo, token) {
+  state.owner = owner; state.repo = repo; state.token = token;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadData();
+}
+
+function disconnect() {
+  // Just lock — don't delete the vault
+  state = { ...state, owner: '', repo: '', token: '', expenses: [], sha: null };
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  showAuthMode();
+}
+
+function tryAutoConnect() {
+  // No auto-connect — always require password unlock
+  showAuthMode();
+}
+
+// ── Expense CRUD ──
+async function addExpense() {
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  const type = document.getElementById('f-type').value;
+  const date = document.getElementById('f-date').value;
+  const desc = document.getElementById('f-desc').value.trim();
+  const cat = document.getElementById('f-cat').value;
+
+  if (!amount || !date || !desc) { toast('Fill in amount, date, and description', true); return; }
+
+  const expense = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    amount: type === 'expense' ? -Math.abs(amount) : Math.abs(amount),
+    date, description: desc, category: cat, type,
+    created: new Date().toISOString()
+  };
+
+  state.expenses.push(expense);
+  state.expenses.sort((a, b) => b.date.localeCompare(a.date));
+
+  const ok = await saveData();
+  if (ok) {
+    toast('Saved');
+    toggleForm();
+    clearForm();
+    render();
+  } else {
+    // Roll back
+    state.expenses = state.expenses.filter(e => e.id !== expense.id);
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this entry?')) return;
+  const backup = [...state.expenses];
+  state.expenses = state.expenses.filter(e => e.id !== id);
+  const ok = await saveData();
+  if (ok) { toast('Deleted'); render(); }
+  else { state.expenses = backup; }
+}
+
+// ── Rendering ──
+function render() {
+  renderSummary();
+  renderFilters();
+  renderList();
+}
+
+function getMonthExpenses() {
+  const y = state.currentMonth.getFullYear();
+  const m = state.currentMonth.getMonth();
+  return state.expenses.filter(e => {
+    const d = new Date(e.date);
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+}
+
+function renderSummary() {
+  const items = getMonthExpenses();
+  const income = items.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
+  const expenses = items.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0);
+  const net = income - expenses;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-card fade-in">
+      <div class="label">Income</div>
+      <div class="value income">${fmt(income)}</div>
+    </div>
+    <div class="summary-card fade-in">
+      <div class="label">Expenses</div>
+      <div class="value expense">${fmt(expenses)}</div>
+    </div>
+    <div class="summary-card fade-in">
+      <div class="label">Net</div>
+      <div class="value" style="color:${net >= 0 ? 'var(--accent)' : 'var(--red)'}">${net >= 0 ? '+' : '-'}${fmt(Math.abs(net))}</div>
+    </div>
+  `;
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('month-label').textContent =
+    `${monthNames[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
+}
+
+function renderFilters() {
+  const cats = ['all', ...Object.keys(CATEGORIES)];
+  document.getElementById('cat-filters').innerHTML = cats.map(c => `
+    <button class="cat-pill ${state.activeCategory === c ? 'active' : ''}"
+            onclick="setCategory('${c}')">
+      ${c === 'all' ? 'All' : CATEGORIES[c].label}
+    </button>
+  `).join('');
+}
+
+function renderList() {
+  const container = document.getElementById('expense-list');
+
+  if (state.loading) {
+    container.innerHTML = '<div class="loading"><div class="spinner"></div><br>Loading…</div>';
+    return;
+  }
+
+  let items = getMonthExpenses();
+  if (state.activeCategory !== 'all') {
+    items = items.filter(e => e.category === state.activeCategory);
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state fade-in">
+        <div class="icon">○</div>
+        No entries for this month${state.activeCategory !== 'all' ? ' in this category' : ''}
+      </div>`;
+    return;
+  }
+
+  // Group by date
+  const grouped = {};
+  items.forEach(e => {
+    if (!grouped[e.date]) grouped[e.date] = [];
+    grouped[e.date].push(e);
+  });
+
+  const dates = Object.keys(grouped).sort().reverse();
+  let html = '';
+  dates.forEach(date => {
+    const d = new Date(date + 'T00:00:00');
+    const dayStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    html += `<div class="expense-day-header">${dayStr}</div>`;
+    grouped[date].forEach(e => {
+      const cat = CATEGORIES[e.category] || CATEGORIES.other;
+      html += `
+        <div class="expense-item fade-in">
+          <div class="expense-cat-dot" style="background:${cat.color}"></div>
+          <div class="expense-info">
+            <div class="expense-desc">${esc(e.description)}</div>
+            <div class="expense-meta">${cat.label}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="expense-amount ${e.amount < 0 ? 'negative' : 'positive'}">
+              ${e.amount < 0 ? '-' : '+'}€${Math.abs(e.amount).toFixed(2)}
+            </div>
+            <button class="delete-btn" onclick="deleteExpense('${e.id}')" title="Delete">✕</button>
+          </div>
+        </div>`;
+    });
+  });
+
+  container.innerHTML = html;
+}
+
+// ── Helpers ──
+function fmt(n) { return '€' + n.toFixed(2); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function toggleForm() {
+  const f = document.getElementById('expense-form');
+  f.classList.toggle('visible');
+  if (f.classList.contains('visible')) {
+    document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('f-amount').focus();
+  }
+}
+
+function clearForm() {
+  ['f-amount','f-desc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-type').value = 'expense';
+  document.getElementById('f-cat').value = 'food';
+}
+
+function changeMonth(delta) {
+  state.currentMonth = new Date(
+    state.currentMonth.getFullYear(),
+    state.currentMonth.getMonth() + delta, 1
+  );
+  render();
+}
+
+function setCategory(cat) {
+  state.activeCategory = cat;
+  renderFilters();
+  renderList();
+}
+
+function exportCSV() {
+  const items = getMonthExpenses();
+  if (!items.length) { toast('No data to export', true); return; }
+  const rows = [['Date','Description','Category','Type','Amount']];
+  items.forEach(e => rows.push([e.date, e.description, e.category, e.type, e.amount]));
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;
+  a.click();
+}
+
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast visible' + (isError ? ' error' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.className = 'toast', 2500);
+}
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded', tryAutoConnect);
+</script>
+
+</body>
+</html>
