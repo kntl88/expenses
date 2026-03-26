@@ -57,12 +57,20 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .auth-hint code { background: var(--surface); padding: 1px 5px; border-radius: 3px; color: var(--text-dim); }
 
 /* Balances */
-.balances { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.balances { margin-bottom: 16px; }
+.balances-row { display: grid; gap: 10px; margin-bottom: 10px; }
+.balances-row.top { grid-template-columns: 1fr 1fr; }
+.balances-row.cards { grid-template-columns: repeat(3, 1fr); }
 .balance-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.balance-card.small { padding: 10px; }
 .balance-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
+.balance-card.small .label { font-size: 9px; }
 .balance-card .value { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.balance-card.small .value { font-size: 14px; }
 .balance-card .offset-btn { font-family: var(--mono); font-size: 9px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 2px 0; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .balance-card .offset-btn:hover { color: var(--text-dim); }
+.cards-total { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; }
+.cards-total .ct-val { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* Summary */
 .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -244,9 +252,11 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Responsive */
 @media (max-width: 500px) {
   .app { padding: 20px 14px 100px; }
-  .balances { gap: 6px; grid-template-columns: 1fr 1fr 1fr; }
+  .balances-row.top { gap: 8px; }
+  .balances-row.cards { grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .balance-card { padding: 10px; }
   .balance-card .value { font-size: 15px; }
+  .balance-card.small .value { font-size: 12px; }
   .summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .summary-card { padding: 10px; }
   .summary-card .value { font-size: 13px; }
@@ -502,6 +512,7 @@ const DAILY_COMBOS = [
   { label: 'Gas', cats: ['gas'] },
 ];
 const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSHOTS_PATH='data/snapshots.json', VAULT_PATH='data/vault.json';
+const CREDIT_CARDS=[{id:'gold',label:'Gold'},{id:'work',label:'Work'},{id:'norwegian',label:'Norwegian'}];
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
 const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
 
@@ -683,20 +694,21 @@ async function checkMonthlySnapshot() {
   if (state.snapshots.find(s => s.month === monthKey)) return;
   const confirmed = state.expenses.filter(e => !e.proposed && !e.dismissed);
   const bankSum = confirmed.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
-  const creditSum = confirmed.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
   const bankBal = (state.accounts.bank?.offset || 0) + bankSum;
-  const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
-  // Available: exclude work, subtract envelopes
+  // Credit cards total
+  let creditTotal = 0;
+  CREDIT_CARDS.forEach(card => { creditTotal += state.accounts[card.id]?.offset || 0; });
+  // Available
   const workSpent = confirmed.filter(e => e.category==='work' && e.amount<0).reduce((s,e) => s+Math.abs(e.amount), 0);
   const workReimbursed = confirmed.filter(e => e.category==='work' && e.amount>0).reduce((s,e) => s+e.amount, 0);
   const workPending = Math.max(0, workSpent - workReimbursed);
   let envelopeHeld = 0;
   getEnvelopes().forEach(env => { const c = calcEnvelope(env); if(c.buffer > 0) envelopeHeld += c.buffer; });
   const available = bankBal - envelopeHeld + workPending;
-  // Savings delta from previous snapshot
+  // Savings delta
   const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
   const savingsDelta = prevSnapshot && prevSnapshot.available !== undefined ? available - prevSnapshot.available : null;
-  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal, available, envelopes: envelopeHeld, workPending, savings: savingsDelta });
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditTotal, total: bankBal + creditTotal, available, envelopes: envelopeHeld, workPending, savings: savingsDelta });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
 }
@@ -1202,17 +1214,21 @@ function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],acco
 function tryAutoConnect(){initPinPads();showAuthMode();}
 
 // Offset modal
-function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('offset-modal-title').textContent=acct==='bank'?'Bank Balance':'Credit Card Balance';document.getElementById('offset-input').value='';document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
+function openOffsetModal(acct){offsetModalAccount=acct;const card=CREDIT_CARDS.find(c=>c.id===acct);const title=acct==='bank'?'Bank Balance':card?card.label+' Balance':'Balance';document.getElementById('offset-modal-title').textContent=title;document.getElementById('offset-input').value='';document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
-  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
-  let sum;
-  if(offsetModalAccount==='bank') sum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-  else sum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   if(!state.accounts[offsetModalAccount])state.accounts[offsetModalAccount]={};
-  state.accounts[offsetModalAccount].offset=actual-sum;
-  if(await saveAccounts()){toast('Offset saved');closeOffsetModal();render();}
+  if(offsetModalAccount==='bank'){
+    // Bank: offset = actual minus tracked income sum
+    const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
+    const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+    state.accounts[offsetModalAccount].offset=actual-bankSum;
+  } else {
+    // Credit cards: offset IS the balance (negative means you owe)
+    state.accounts[offsetModalAccount].offset=actual;
+  }
+  if(await saveAccounts()){toast('Balance saved');closeOffsetModal();render();}
 }
 
 // CRUD
@@ -1271,26 +1287,42 @@ function getMonthConfirmed(){return getMonthExpenses().filter(e=>!e.proposed&&!e
 
 function renderBalances(){
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
-  // Bank and credit reflect ALL real transactions
   const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
-  const bankBal=(state.accounts.bank?.offset||0)+bankSum, creditBal=(state.accounts.credit?.offset||0)+creditSum;
-  // Work: track unreimbursed amount
+  const bankBal=(state.accounts.bank?.offset||0)+bankSum;
+  // Individual credit cards — each has its own offset, all share the same creditSum
+  // The total across cards should equal creditSum + sum of offsets
+  let totalCredit=0;
+  const cardBalances=CREDIT_CARDS.map(card=>{
+    const offset=state.accounts[card.id]?.offset||0;
+    // Each card's balance is just its offset (user adjusts each to match statement)
+    // The tracked creditSum is distributed implicitly — offsets ARE the balances
+    totalCredit+=offset;
+    return {id:card.id, label:card.label, balance:offset};
+  });
+  // Work pending
   const workSpent=confirmed.filter(e=>e.category==='work'&&e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const workReimbursed=confirmed.filter(e=>e.category==='work'&&e.amount>0).reduce((s,e)=>s+e.amount,0);
   const workPending=Math.max(0, workSpent-workReimbursed);
   // Envelopes
   let envelopeHeld=0;
   getEnvelopes().forEach(env=>{const c=calcEnvelope(env);if(c.buffer>0)envelopeHeld+=c.buffer;});
-  // Available = bank - envelopes + work pending (money is coming back)
   const available=bankBal-envelopeHeld+workPending;
   const notes=[];
   if(envelopeHeld>0)notes.push(fmt(envelopeHeld)+' envelopes');
   if(workPending>0)notes.push(fmt(workPending)+' work pending');
-  document.getElementById('balances').innerHTML=`
+
+  let h=`<div class="balances-row top">
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${notes.join(' · ')}</div></div>
-    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
+  </div>`;
+  h+=`<div class="cards-total"><span>Credit Cards</span><span class="ct-val" style="color:${totalCredit>=0?'var(--accent)':'var(--red)'}">${fmt(totalCredit)}</span></div>`;
+  h+=`<div class="balances-row cards">`;
+  cardBalances.forEach(c=>{
+    h+=`<div class="balance-card small fade-in"><div class="label">${c.label}</div><div class="value" style="color:${c.balance>=0?'var(--accent)':'var(--red)'}">${fmt(c.balance)}</div><button class="offset-btn" onclick="openOffsetModal('${c.id}')">adjust</button></div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('balances').innerHTML=h;
 }
 
 function renderSummary(){
