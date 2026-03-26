@@ -123,6 +123,23 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .expense-day-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 14px 0 6px; }
 .expense-item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid transparent; border-left: 3px solid transparent; border-radius: 8px; transition: all 0.15s; cursor: pointer; }
 .expense-item:hover { border-color: var(--border); border-left-color: inherit; }
+.expense-item.proposed { border: 1px dashed var(--blue); border-left: 3px dashed var(--blue); opacity: 0.8; }
+.expense-item.proposed:hover { opacity: 1; }
+.proposed-actions { display: flex; gap: 6px; }
+.proposed-actions button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+.proposed-actions .confirm-btn { color: var(--accent); border-color: var(--accent-dim); }
+.proposed-actions .confirm-btn:hover { background: rgba(196,245,74,0.1); }
+.proposed-actions .dismiss-btn { color: var(--text-muted); }
+.proposed-actions .dismiss-btn:hover { color: var(--red); }
+
+/* Recurring list in modal */
+.recurring-list { margin-bottom: 16px; }
+.recurring-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.recurring-item:last-child { border-bottom: none; }
+.recurring-item .ri-info { color: var(--text); }
+.recurring-item .ri-meta { font-size: 10px; color: var(--text-muted); }
+.recurring-item .ri-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+.recurring-item .ri-del:hover { color: var(--red); }
 .expense-info { min-width: 0; }
 .expense-desc { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .expense-meta { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
@@ -295,6 +312,33 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
 </div>
 
+<div id="recurring-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Recurring Transactions</h3>
+    <p>Set up recurring expenses. They'll be proposed automatically when due.</p>
+    <div class="recurring-list" id="recurring-list"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Add new</div>
+      <input id="rec-desc" type="text" placeholder="Description (e.g. Spotify)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input id="rec-amount" type="number" step="0.01" placeholder="Amount (€)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="rec-months" type="number" min="1" placeholder="Every N months" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input id="rec-start" type="date" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <select id="rec-type" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+      </div>
+      <button class="btn btn-accent" style="width:100%" onclick="addRecurring()">Add Recurring</button>
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn" onclick="closeRecurringModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="auth-screen" class="auth-screen">
   <h2>Expense <span>Tracker</span></h2>
   <div id="auth-setup" style="display:none">
@@ -344,6 +388,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="header-actions">
       <button class="btn" onclick="exportCSV()">Export</button>
       <button class="btn" onclick="openBulkModal()">Bulk</button>
+      <button class="btn" onclick="openRecurringModal()">Recurring</button>
       <button class="btn" onclick="openChpwModal()">PIN</button>
       <button class="btn btn-danger" onclick="disconnect()">Lock</button>
       <button class="btn btn-accent" onclick="toggleForm()">+ Add</button>
@@ -383,7 +428,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 </div>
 
 <script>
-const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, necessary:{label:'Necessary',color:'#f07498'}, income:{label:'Income',color:'#c4f54a'} };
+const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, necessary:{label:'Necessary',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, income:{label:'Income',color:'#c4f54a'} };
 const DAILY_COMBOS = [
   { label: 'Basic', cats: ['basic'] },
   { label: 'Fun', cats: ['fun'] },
@@ -512,6 +557,7 @@ async function loadData() {
   } catch(e) { toast('Failed to load: '+e.message, true); state.expenses=[]; }
   state.loading = false;
   await checkMonthlySnapshot();
+  generateProposedExpenses();
   render();
 }
 
@@ -562,6 +608,135 @@ async function checkMonthlySnapshot() {
   state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
+}
+
+// Recurring
+function getRecurringTemplates() {
+  return state.accounts.recurring || [];
+}
+
+function generateProposedExpenses() {
+  const templates = getRecurringTemplates();
+  if (!templates.length) return;
+  const today = new Date().toISOString().slice(0, 10);
+
+  templates.forEach(t => {
+    // Generate all due dates from startDate up to today
+    const start = new Date(t.startDate + 'T00:00:00');
+    let current = new Date(start);
+
+    while (current.toISOString().slice(0, 10) <= today) {
+      const dateStr = current.toISOString().slice(0, 10);
+      // Check if we already have an expense (proposed or confirmed) matching this template + date
+      const exists = state.expenses.find(e =>
+        e.recurringId === t.id && e.date === dateStr
+      );
+      if (!exists) {
+        state.expenses.push({
+          id: 'prop_' + t.id + '_' + dateStr,
+          recurringId: t.id,
+          amount: t.type === 'income' ? Math.abs(t.amount) : -Math.abs(t.amount),
+          date: dateStr,
+          description: t.description,
+          category: 'recurring',
+          type: t.type || 'expense',
+          proposed: true,
+          created: new Date().toISOString()
+        });
+      }
+      // Advance by N months
+      current = new Date(current);
+      current.setMonth(current.getMonth() + (t.intervalMonths || 1));
+    }
+  });
+  state.expenses.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+async function confirmProposed(id) {
+  const idx = state.expenses.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  // Remove proposed flag, give it a real id
+  const e = state.expenses[idx];
+  state.expenses[idx] = { ...e, proposed: false, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
+  if (await saveData()) { toast('Confirmed'); render(); }
+}
+
+async function dismissProposed(id) {
+  // Mark as dismissed by saving with a 'dismissed' flag so it doesn't regenerate
+  const idx = state.expenses.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  state.expenses[idx] = { ...state.expenses[idx], proposed: false, dismissed: true, amount: 0 };
+  // Actually just remove it and save — but we need to prevent regeneration
+  // Better: save with dismissed flag, filter from display
+  if (await saveData()) { toast('Dismissed'); render(); }
+}
+
+// Recurring modal
+function openRecurringModal() {
+  document.getElementById('recurring-modal').classList.add('visible');
+  document.getElementById('rec-start').value = new Date().toISOString().slice(0, 10);
+  renderRecurringList();
+}
+function closeRecurringModal() {
+  document.getElementById('recurring-modal').classList.remove('visible');
+}
+
+function renderRecurringList() {
+  const templates = getRecurringTemplates();
+  const el = document.getElementById('recurring-list');
+  if (!templates.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No recurring transactions yet.</div>'; return; }
+  el.innerHTML = templates.map(t => `
+    <div class="recurring-item">
+      <div>
+        <div class="ri-info">${esc(t.description)} — €${Math.abs(t.amount).toFixed(2)}</div>
+        <div class="ri-meta">Every ${t.intervalMonths} month${t.intervalMonths>1?'s':''} · since ${t.startDate} · ${t.type||'expense'}</div>
+      </div>
+      <button class="ri-del" onclick="deleteRecurring('${t.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function addRecurring() {
+  const desc = document.getElementById('rec-desc').value.trim();
+  const amount = parseFloat(document.getElementById('rec-amount').value);
+  const months = parseInt(document.getElementById('rec-months').value);
+  const startDate = document.getElementById('rec-start').value;
+  const type = document.getElementById('rec-type').value;
+
+  if (!desc || !amount || !months || !startDate) { toast('Fill in all fields', true); return; }
+
+  if (!state.accounts.recurring) state.accounts.recurring = [];
+  state.accounts.recurring.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 4),
+    description: desc,
+    amount: amount,
+    intervalMonths: months,
+    startDate: startDate,
+    type: type
+  });
+
+  if (await saveAccounts()) {
+    toast('Recurring added');
+    document.getElementById('rec-desc').value = '';
+    document.getElementById('rec-amount').value = '';
+    document.getElementById('rec-months').value = '';
+    renderRecurringList();
+    // Regenerate proposals
+    generateProposedExpenses();
+    render();
+  }
+}
+
+async function deleteRecurring(id) {
+  if (!confirm('Delete this recurring template?')) return;
+  state.accounts.recurring = (state.accounts.recurring || []).filter(t => t.id !== id);
+  // Also remove any unsaved proposed expenses for this template
+  state.expenses = state.expenses.filter(e => !(e.recurringId === id && e.proposed));
+  if (await saveAccounts()) {
+    toast('Deleted');
+    renderRecurringList();
+    render();
+  }
 }
 
 // Bulk add
@@ -788,9 +963,10 @@ function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
   let sum;
-  if(offsetModalAccount==='bank') sum=state.expenses.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-  else sum=state.expenses.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
+  if(offsetModalAccount==='bank') sum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  else sum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   if(!state.accounts[offsetModalAccount])state.accounts[offsetModalAccount]={};
   state.accounts[offsetModalAccount].offset=actual-sum;
   if(await saveAccounts()){toast('Offset saved');closeOffsetModal();render();}
@@ -838,10 +1014,12 @@ async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...stat
 function render(){renderBalances();renderSummary();renderDailyRates();renderWeekly();renderSnapshots();renderFilters();renderList();}
 
 function getMonthExpenses(){const y=state.currentMonth.getFullYear(),m=state.currentMonth.getMonth();return state.expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()===m;});}
+function getMonthConfirmed(){return getMonthExpenses().filter(e=>!e.proposed&&!e.dismissed);}
 
 function renderBalances(){
-  const bankSum=state.expenses.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-  const creditSum=state.expenses.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
+  const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   const bankBal=(state.accounts.bank?.offset||0)+bankSum, creditBal=(state.accounts.credit?.offset||0)+creditSum;
   document.getElementById('balances').innerHTML=`
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
@@ -849,7 +1027,7 @@ function renderBalances(){
 }
 
 function renderSummary(){
-  const items=getMonthExpenses();
+  const items=getMonthConfirmed();
   const income=items.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const spent=items.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const savings=income-spent;
@@ -872,7 +1050,7 @@ function getCurrentWeekRange(){
 }
 
 function renderDailyRates(){
-  const allItems=getMonthExpenses().filter(e=>e.amount<0);
+  const allItems=getMonthConfirmed().filter(e=>e.amount<0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
   const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
@@ -905,7 +1083,7 @@ function renderDailyRates(){
 }
 
 function renderWeekly(){
-  const items=getMonthExpenses().filter(e=>e.amount<0);
+  const items=getMonthConfirmed().filter(e=>e.amount<0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const first=new Date(y,m,1), last=new Date(y,m+1,0);
   const weeks=[]; let ws=new Date(first);
@@ -945,7 +1123,8 @@ function renderFilters(){
 function renderList(){
   const container=document.getElementById('expense-list');
   if(state.loading){container.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading…</div>';return;}
-  let items=getMonthExpenses(); if(state.activeCategory!=='all')items=items.filter(e=>e.category===state.activeCategory);
+  let items=getMonthExpenses().filter(e=>!e.dismissed);
+  if(state.activeCategory!=='all')items=items.filter(e=>e.category===state.activeCategory);
   if(!items.length){container.innerHTML='<div class="empty-state fade-in">No entries'+(state.activeCategory!=='all'?' in this category':'')+'</div>';return;}
   const g={}; items.forEach(e=>{if(!g[e.date])g[e.date]=[];g[e.date].push(e);});
   let h=''; Object.keys(g).sort().reverse().forEach(date=>{
@@ -953,7 +1132,11 @@ function renderList(){
     g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;
       const hasDesc=e.description && e.description.toLowerCase()!==e.category;
       const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div>`:`<div class="expense-desc">${cat.label}</div>`;
-      h+=`<div class="expense-item fade-in" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
+      const proposedClass=e.proposed?' proposed':'';
+      const actionHtml=e.proposed
+        ?`<div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div>`
+        :`<button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button>`;
+      h+=`<div class="expense-item fade-in${proposedClass}" style="border-left-color:${cat.color}" onclick="${e.proposed?'':`editExpense('${e.id}')`}"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div>${actionHtml}</div></div>`;
     });
   });
   container.innerHTML=h;
