@@ -638,25 +638,42 @@ function renderSummary(){
 
 function setRateMode(m){rateMode=m;renderDailyRates();}
 
+function getCurrentWeekRange(){
+  const now=new Date();
+  const dow=now.getDay(); const diff=(dow+6)%7; // days since Monday
+  const mon=new Date(now); mon.setDate(mon.getDate()-diff); mon.setHours(0,0,0,0);
+  const sun=new Date(mon); sun.setDate(sun.getDate()+6);
+  return {start:mon.toISOString().slice(0,10), end:sun.toISOString().slice(0,10), daysElapsed:diff+1};
+}
+
 function renderDailyRates(){
-  const items=getMonthExpenses().filter(e=>e.amount<0);
+  const allItems=getMonthExpenses().filter(e=>e.amount<0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
   const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
   const daysInMonth=new Date(y,m+1,0).getDate();
-  const daysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
-  const weeksElapsed=daysElapsed/7;
+  const monthDaysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
 
-  const modeLabel={day:'/ day',week:'/ week',month:'total'}[rateMode];
+  let periodItems, periodLabel, periodDays;
+  if(rateMode==='week' && isCurrentMonth){
+    const wr=getCurrentWeekRange();
+    periodItems=allItems.filter(e=>e.date>=wr.start && e.date<=wr.end);
+    periodLabel='This week';
+    periodDays=wr.daysElapsed;
+  } else {
+    periodItems=allItems;
+    periodLabel=rateMode==='week'?'Month (no current week)':'This month';
+    periodDays=monthDaysElapsed;
+  }
 
-  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='day'?'active':''}" onclick="setRateMode('day')">Day</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button></div></div><div class="rate-grid">`;
+  // Always compute monthly /day from all items
+  const monthDayRate=(cat)=>{const t=allItems.filter(e=>cat.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0); return monthDaysElapsed>0?t/monthDaysElapsed:0;};
+
+  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   DAILY_COMBOS.forEach(combo=>{
-    const total=items.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
-    let rate;
-    if(rateMode==='day') rate=daysElapsed>0?total/daysElapsed:0;
-    else if(rateMode==='week') rate=weeksElapsed>0?total/weeksElapsed:0;
-    else rate=total;
-    h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(rate)} ${modeLabel}</div></div></div>`;
+    const total=periodItems.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
+    const daily=monthDayRate(combo.cats);
+    h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)} / day</div></div></div>`;
   });
   h+='</div>';
   document.getElementById('daily-rates').innerHTML=h;
