@@ -83,7 +83,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 /* Daily rates */
 .daily-rates { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
-.daily-rates .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+.daily-rates .rate-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.daily-rates .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 0; }
+.rate-toggle { display: flex; gap: 4px; }
+.rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
+.rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
+.rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
 .rate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .rate-item { padding: 8px; background: var(--surface-2); border-radius: 6px; }
 .rate-item .rate-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -331,6 +336,7 @@ let state = { owner:'', repo:'', token:'', expenses:[], accounts:{bank:{offset:0
 let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
+let rateMode = 'day';
 
 function renderFormCats(){
   document.getElementById('f-cat-pills').innerHTML=Object.keys(CATEGORIES).map(c=>`<button type="button" class="cat-pill ${formCat===c?'active':''}" onclick="setFormCat('${c}')">${CATEGORIES[c].label}</button>`).join('');
@@ -630,18 +636,27 @@ function renderSummary(){
   document.getElementById('month-label').textContent=`${mn[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
 }
 
+function setRateMode(m){rateMode=m;renderDailyRates();}
+
 function renderDailyRates(){
   const items=getMonthExpenses().filter(e=>e.amount<0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
   const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
-  const daysElapsed=isCurrentMonth ? now.getDate() : new Date(y,m+1,0).getDate();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const daysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
+  const weeksElapsed=daysElapsed/7;
 
-  let h='<div class="section-title">Daily Rates</div><div class="rate-grid">';
+  const modeLabel={day:'/ day',week:'/ week',month:'total'}[rateMode];
+
+  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='day'?'active':''}" onclick="setRateMode('day')">Day</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button></div></div><div class="rate-grid">`;
   DAILY_COMBOS.forEach(combo=>{
     const total=items.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
-    const daily=daysElapsed>0 ? total/daysElapsed : 0;
-    h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)}/day</div></div></div>`;
+    let rate;
+    if(rateMode==='day') rate=daysElapsed>0?total/daysElapsed:0;
+    else if(rateMode==='week') rate=weeksElapsed>0?total/weeksElapsed:0;
+    else rate=total;
+    h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(rate)} ${modeLabel}</div></div></div>`;
   });
   h+='</div>';
   document.getElementById('daily-rates').innerHTML=h;
