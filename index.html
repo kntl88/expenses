@@ -192,6 +192,26 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .snapshot-date { color: var(--text-dim); }
 .snapshot-val { font-weight: 500; font-variant-numeric: tabular-nums; }
 
+/* Budgeted envelopes */
+.budgeted-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
+.budgeted-section .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+.envelope-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.envelope-card { padding: 10px; background: var(--surface-2); border-radius: 6px; border-left: 3px solid var(--blue); }
+.envelope-card .env-label { font-size: 10px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.envelope-card .env-buffer { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+.envelope-card .env-meta { font-size: 9px; color: var(--text-muted); line-height: 1.5; }
+.envelope-card .env-rate { font-size: 10px; color: var(--text-dim); }
+.envelope-card .env-rate .elevated { color: var(--orange); }
+.envelope-card .env-progress { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.envelope-card .env-progress-bar { height: 100%; border-radius: 2px; background: var(--blue); transition: width 0.3s; }
+.budgeted-total { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between; }
+.budgeted-total .bt-val { font-weight: 500; color: var(--blue); }
+
+/* Sub-category picker in form */
+.subcat-picker { display: none; margin-bottom: 12px; }
+.subcat-picker.visible { display: block; }
+.subcat-picker .subcat-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+
 /* Pin Pad (mobile only) */
 .pin-pad { display: none; }
 @media (max-width: 768px) and (hover: none) and (pointer: coarse) {
@@ -239,6 +259,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .rate-chart { height: 100px; }
   .rate-chart-val { font-size: 8px; }
   .rate-chart-label { font-size: 8px; }
+  .envelope-grid { grid-template-columns: 1fr; }
   .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   .form-row.three .form-group:last-child { grid-column: 1 / -1; }
   .expense-form { padding: 14px; }
@@ -352,6 +373,30 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
 </div>
 
+<div id="budgeted-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Budget Envelopes</h3>
+    <p>Set up envelopes for planned expenses. Allocate monthly to smooth out spikes.</p>
+    <div class="recurring-list" id="envelope-list"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Add envelope</div>
+      <input id="env-label" type="text" placeholder="Label (e.g. Medical, Travel)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input id="env-alloc" type="number" step="0.01" placeholder="€/month" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="env-recovery" type="number" min="1" placeholder="Recovery months (def 6)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input id="env-start" type="month" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="env-target" type="number" step="0.01" placeholder="Target € (optional)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      </div>
+      <button class="btn btn-accent" style="width:100%" onclick="addEnvelope()">Add Envelope</button>
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn" onclick="closeBudgetedModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="auth-screen" class="auth-screen">
   <h2>Expense <span>Tracker</span></h2>
   <div id="auth-setup" style="display:none">
@@ -402,6 +447,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <button class="btn" onclick="exportCSV()">Export</button>
       <button class="btn" onclick="openBulkModal()">Bulk</button>
       <button class="btn" onclick="openRecurringModal()">Recurring</button>
+      <button class="btn" onclick="openBudgetedModal()">Envelopes</button>
       <button class="btn" onclick="openChpwModal()">PIN</button>
       <button class="btn btn-danger" onclick="disconnect()">Lock</button>
       <button class="btn btn-accent" onclick="toggleForm()">+ Add</button>
@@ -422,6 +468,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <label>Category</label>
       <div class="category-filters" id="f-cat-pills" style="margin-bottom:0"></div>
     </div>
+    <div class="subcat-picker" id="subcat-picker">
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;display:block">Envelope</label>
+      <div class="subcat-pills" id="subcat-pills"></div>
+    </div>
     <div class="form-actions">
       <button class="btn" onclick="toggleForm()">Cancel</button>
       <button class="btn btn-accent" id="f-save-btn" onclick="saveExpense()">Save</button>
@@ -433,6 +483,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="month-nav-btns"><button class="btn btn-sm" onclick="changeMonth(1)">Next →</button></div>
   </div>
   <div class="summary" id="summary"></div>
+  <div class="budgeted-section" id="budgeted-section" style="display:none"></div>
   <div class="daily-rates" id="daily-rates"></div>
   <div class="weekly-breakdown" id="weekly-breakdown"></div>
   <div class="snapshots" id="snapshots" style="display:none"></div>
@@ -441,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 </div>
 
 <script>
-const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, necessary:{label:'Necessary',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, income:{label:'Income',color:'#c4f54a'} };
+const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, income:{label:'Income',color:'#c4f54a'} };
 const DAILY_COMBOS = [
   { label: 'Basic', cats: ['basic'] },
   { label: 'Fun', cats: ['fun'] },
@@ -458,6 +509,7 @@ let state = { owner:'', repo:'', token:'', expenses:[], accounts:{bank:{offset:0
 let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
+let formSubCat = '';
 let rateMode = 'day';
 let selectedCombos = new Set();
 
@@ -550,7 +602,18 @@ window.addEventListener('resize', () => {
 function renderFormCats(){
   document.getElementById('f-cat-pills').innerHTML=Object.keys(CATEGORIES).map(c=>`<button type="button" class="cat-pill ${formCat===c?'active':''}" onclick="setFormCat('${c}')">${CATEGORIES[c].label}</button>`).join('');
 }
-function setFormCat(c){formCat=c;renderFormCats();}
+function setFormCat(c){formCat=c;renderFormCats();
+  const picker=document.getElementById('subcat-picker');
+  if(c==='budgeted'){picker.classList.add('visible');renderSubCatPills();}
+  else{picker.classList.remove('visible');formSubCat='';}
+}
+function renderSubCatPills(){
+  const envs=getEnvelopes();
+  document.getElementById('subcat-pills').innerHTML=envs.map(e=>
+    `<button type="button" class="cat-pill ${formSubCat===e.id?'active':''}" onclick="setFormSubCat('${e.id}')">${esc(e.label)}</button>`
+  ).join('')+(envs.length?'':'<span style="font-size:11px;color:var(--text-muted)">No envelopes — add one first</span>');
+}
+function setFormSubCat(id){formSubCat=id;renderSubCatPills();}
 
 // GitHub API
 function ghFetch(path, opts={}) {
@@ -762,13 +825,143 @@ async function addRecurring() {
 async function deleteRecurring(id) {
   if (!confirm('Delete this recurring template?')) return;
   state.accounts.recurring = (state.accounts.recurring || []).filter(t => t.id !== id);
-  // Also remove any unsaved proposed expenses for this template
   state.expenses = state.expenses.filter(e => !(e.recurringId === id && e.proposed));
   if (await saveAccounts()) {
     toast('Deleted');
     renderRecurringList();
     render();
   }
+}
+
+// Budgeted Envelopes
+function getEnvelopes() { return state.accounts.budgeted || []; }
+
+function getMonthsBetween(startMonth, endMonth) {
+  // startMonth/endMonth in "YYYY-MM" format
+  const [sy, sm] = startMonth.split('-').map(Number);
+  const [ey, em] = endMonth.split('-').map(Number);
+  return (ey - sy) * 12 + (em - sm);
+}
+
+function calcEnvelope(env) {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthsElapsed = Math.max(0, getMonthsBetween(env.startDate, currentMonth) + 1); // +1 to include start month
+  const baseAlloc = env.monthlyAlloc || 0;
+  const totalAllocated = monthsElapsed * baseAlloc;
+  const totalSpent = state.expenses
+    .filter(e => e.subCategory === env.id && !e.proposed && !e.dismissed)
+    .reduce((s, e) => s + Math.abs(e.amount), 0);
+  const buffer = totalAllocated - totalSpent;
+  const recoveryMonths = env.recoveryMonths || 6;
+
+  let effectiveRate = baseAlloc;
+  let recovering = false;
+  let recoveryEta = 0;
+  if (buffer < 0) {
+    const deficit = Math.abs(buffer);
+    const extra = deficit / recoveryMonths;
+    effectiveRate = baseAlloc + extra;
+    recovering = true;
+    recoveryEta = Math.ceil(deficit / effectiveRate);
+  }
+
+  const target = env.target || null;
+  const progress = target ? Math.min(1, Math.max(0, (totalAllocated - totalSpent) / target)) : null;
+
+  return { buffer, totalAllocated, totalSpent, effectiveRate, baseAlloc, recovering, recoveryEta, target, progress, monthsElapsed };
+}
+
+function renderBudgeted() {
+  const envs = getEnvelopes();
+  const el = document.getElementById('budgeted-section');
+  if (!envs.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+
+  let totalEffective = 0;
+  let h = '<div class="section-title">Budget Envelopes</div><div class="envelope-grid">';
+  envs.forEach(env => {
+    const c = calcEnvelope(env);
+    totalEffective += c.effectiveRate;
+    const bufColor = c.buffer >= 0 ? 'var(--accent)' : 'var(--red)';
+    const rateHtml = c.recovering
+      ? `<span class="elevated">€${c.effectiveRate.toFixed(0)}/mo</span> (base €${c.baseAlloc}/mo · recovers in ~${c.recoveryEta}mo)`
+      : `€${c.baseAlloc}/mo`;
+    const progressHtml = c.target
+      ? `<div class="env-progress"><div class="env-progress-bar" style="width:${(c.progress*100).toFixed(0)}%"></div></div>`
+      : '';
+    const targetHtml = c.target ? ` · target €${c.target}` : '';
+    h += `<div class="envelope-card">
+      <div class="env-label">${esc(env.label)}</div>
+      <div class="env-buffer" style="color:${bufColor}">${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
+      <div class="env-rate">${rateHtml}</div>
+      <div class="env-meta">Allocated €${c.totalAllocated.toFixed(0)} · Spent €${c.totalSpent.toFixed(0)}${targetHtml}</div>
+      ${progressHtml}
+    </div>`;
+  });
+  h += '</div>';
+  h += `<div class="budgeted-total"><span>Total effective budgeted</span><span class="bt-val">€${totalEffective.toFixed(2)}/mo</span></div>`;
+  el.innerHTML = h;
+}
+
+// Budgeted modal
+function openBudgetedModal() {
+  document.getElementById('budgeted-modal').classList.add('visible');
+  const now = new Date();
+  document.getElementById('env-start').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  renderEnvelopeList();
+}
+function closeBudgetedModal() {
+  document.getElementById('budgeted-modal').classList.remove('visible');
+}
+
+function renderEnvelopeList() {
+  const envs = getEnvelopes();
+  const el = document.getElementById('envelope-list');
+  if (!envs.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No envelopes yet.</div>'; return; }
+  el.innerHTML = envs.map(env => {
+    const c = calcEnvelope(env);
+    const rateStr = c.recovering ? `€${c.effectiveRate.toFixed(0)}/mo (recovering)` : `€${c.baseAlloc}/mo`;
+    return `<div class="recurring-item">
+      <div>
+        <div class="ri-info">${esc(env.label)} — buffer ${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
+        <div class="ri-meta">${rateStr} · ${c.monthsElapsed} months · spent €${c.totalSpent.toFixed(0)}${env.target?' · target €'+env.target:''}</div>
+      </div>
+      <button class="ri-del" onclick="deleteEnvelope('${env.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function addEnvelope() {
+  const label = document.getElementById('env-label').value.trim();
+  const alloc = parseFloat(document.getElementById('env-alloc').value);
+  const recovery = parseInt(document.getElementById('env-recovery').value) || 6;
+  const startDate = document.getElementById('env-start').value;
+  const target = parseFloat(document.getElementById('env-target').value) || null;
+
+  if (!label || !alloc || !startDate) { toast('Fill in label, monthly amount, and start', true); return; }
+
+  if (!state.accounts.budgeted) state.accounts.budgeted = [];
+  state.accounts.budgeted.push({
+    id: label.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20) + '_' + Date.now().toString(36).slice(-4),
+    label, monthlyAlloc: alloc, recoveryMonths: recovery, startDate, target
+  });
+
+  if (await saveAccounts()) {
+    toast('Envelope added');
+    document.getElementById('env-label').value = '';
+    document.getElementById('env-alloc').value = '';
+    document.getElementById('env-recovery').value = '';
+    document.getElementById('env-target').value = '';
+    renderEnvelopeList();
+    render();
+  }
+}
+
+async function deleteEnvelope(id) {
+  if (!confirm('Delete this envelope?')) return;
+  state.accounts.budgeted = (state.accounts.budgeted || []).filter(e => e.id !== id);
+  if (await saveAccounts()) { toast('Deleted'); renderEnvelopeList(); render(); }
 }
 
 // Bulk add
@@ -1022,8 +1215,16 @@ function editExpense(id){
   document.getElementById('f-date').value=e.date;
   document.getElementById('f-desc').value=e.description||'';
   formCat=e.category||'basic'; renderFormCats();
+  // Restore sub-category for budgeted items
+  if(e.category==='budgeted'&&e.subCategory){
+    formSubCat=e.subCategory;
+    document.getElementById('subcat-picker').classList.add('visible');
+    renderSubCatPills();
+  } else {
+    formSubCat='';
+    document.getElementById('subcat-picker').classList.remove('visible');
+  }
   document.getElementById('f-save-btn').textContent='Update';
-  // Set pin pad amount
   const grid=document.getElementById('pin-grid-amount');
   if(grid){grid.dataset.value=String(absAmt);updatePinDisplay('pin-grid-amount');}
   if(!isMobile())document.getElementById('f-amount').focus();
@@ -1033,16 +1234,18 @@ async function saveExpense(){
   const amount=parseFloat(document.getElementById('f-amount').value);
   const date=document.getElementById('f-date').value, desc=document.getElementById('f-desc').value.trim();
   const cat=formCat, type=cat==='income'?'income':'expense';
+  const subCat=cat==='budgeted'?formSubCat:undefined;
   if(!amount||!date){toast('Fill in amount and date',true);return;}
+  if(cat==='budgeted'&&!subCat){toast('Pick an envelope',true);return;}
   if(editingId){
     const idx=state.expenses.findIndex(x=>x.id===editingId);
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
-    state.expenses[idx]={...state.expenses[idx], amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type};
+    state.expenses[idx]={...state.expenses[idx], amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, subCategory:subCat};
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');toggleForm();clearForm();render();}else{state.expenses[idx]=backup;}
   } else {
-    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, created:new Date().toISOString()};
+    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, subCategory:subCat, created:new Date().toISOString()};
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
   }
@@ -1050,7 +1253,7 @@ async function saveExpense(){
 async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...state.expenses];state.expenses=state.expenses.filter(e=>e.id!==id);if(await saveData()){toast('Deleted');render();}else{state.expenses=bk;}}
 
 // Render
-function render(){renderBalances();renderSummary();renderDailyRates();renderWeekly();renderSnapshots();renderFilters();renderList();}
+function render(){renderBalances();renderSummary();renderBudgeted();renderDailyRates();renderWeekly();renderSnapshots();renderFilters();renderList();}
 
 function getMonthExpenses(){const y=state.currentMonth.getFullYear(),m=state.currentMonth.getMonth();return state.expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()===m;});}
 function getMonthConfirmed(){return getMonthExpenses().filter(e=>!e.proposed&&!e.dismissed);}
@@ -1070,15 +1273,19 @@ function renderSummary(){
   const income=items.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const spent=items.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const savings=income-spent;
-  // Calculate recurring monthly cost from templates
+  // Recurring monthly
   const templates=getRecurringTemplates();
-  let recurringMonthly=0;
-  templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMonthly+=avg/(t.intervalMonths||1);}});
+  let recurringMo=0;
+  templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});
+  // Budgeted monthly (effective rates)
+  let budgetedMo=0;
+  getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).effectiveRate;});
+  const fixedMo=recurringMo+budgetedMo;
   document.getElementById('summary').innerHTML=`
     <div class="summary-card fade-in"><div class="label">Income</div><div class="value" style="color:var(--accent)">${fmt(income)}</div></div>
     <div class="summary-card fade-in"><div class="label">Spent</div><div class="value" style="color:var(--red)">${fmt(spent)}</div></div>
     <div class="summary-card fade-in"><div class="label">Savings</div><div class="value" style="color:${savings>=0?'var(--accent)':'var(--red)'}">${savings>=0?'+':''}${fmt(savings)}</div></div>
-    <div class="summary-card fade-in"><div class="label">Recurring/mo</div><div class="value" style="color:var(--blue)">${fmt(recurringMonthly)}</div></div>`;
+    <div class="summary-card fade-in"><div class="label">Fixed/mo</div><div class="value" style="color:var(--blue)">${fmt(fixedMo)}</div></div>`;
   const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('month-label').textContent=`${mn[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
 }
@@ -1222,8 +1429,10 @@ function renderList(){
   let h=''; Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
     g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;
+      const envLabel=e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
+      const metaLabel=envLabel?cat.label+' · '+envLabel:cat.label;
       const hasDesc=e.description && e.description.toLowerCase()!==e.category;
-      const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div>`:`<div class="expense-desc">${cat.label}</div>`;
+      const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${metaLabel}</div>`;
       const proposedClass=e.proposed?' proposed':'';
       const actionHtml=e.proposed
         ?`<div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div>`
@@ -1236,8 +1445,8 @@ function renderList(){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';renderFormCats();document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';formSubCat='';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
