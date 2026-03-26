@@ -65,7 +65,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .balance-card .offset-btn:hover { color: var(--text-dim); }
 
 /* Summary */
-.summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
 .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
 .summary-card .label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
 .summary-card .value { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -228,7 +228,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .balances { gap: 8px; }
   .balance-card { padding: 10px; }
   .balance-card .value { font-size: 15px; }
-  .summary { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .summary-card { padding: 10px; }
   .summary-card .value { font-size: 13px; }
   .summary-card .label { font-size: 8px; }
@@ -633,27 +633,30 @@ function getRecurringTemplates() {
   return state.accounts.recurring || [];
 }
 
+function getRecurringAverage(templateId, templateAmount) {
+  const confirmed = state.expenses.filter(e => e.recurringId === templateId && !e.proposed && !e.dismissed);
+  if (!confirmed.length) return templateAmount;
+  return confirmed.reduce((s, e) => s + Math.abs(e.amount), 0) / confirmed.length;
+}
+
 function generateProposedExpenses() {
   const templates = getRecurringTemplates();
   if (!templates.length) return;
   const today = new Date().toISOString().slice(0, 10);
 
   templates.forEach(t => {
-    // Generate all due dates from startDate up to today
+    const avg = getRecurringAverage(t.id, t.amount);
     const start = new Date(t.startDate + 'T00:00:00');
     let current = new Date(start);
 
     while (current.toISOString().slice(0, 10) <= today) {
       const dateStr = current.toISOString().slice(0, 10);
-      // Check if we already have an expense (proposed or confirmed) matching this template + date
-      const exists = state.expenses.find(e =>
-        e.recurringId === t.id && e.date === dateStr
-      );
+      const exists = state.expenses.find(e => e.recurringId === t.id && e.date === dateStr);
       if (!exists) {
         state.expenses.push({
           id: 'prop_' + t.id + '_' + dateStr,
           recurringId: t.id,
-          amount: t.type === 'income' ? Math.abs(t.amount) : -Math.abs(t.amount),
+          amount: t.type === 'income' ? Math.abs(avg) : -Math.abs(avg),
           date: dateStr,
           description: t.description,
           category: 'recurring',
@@ -662,7 +665,6 @@ function generateProposedExpenses() {
           created: new Date().toISOString()
         });
       }
-      // Advance by N months
       current = new Date(current);
       current.setMonth(current.getMonth() + (t.intervalMonths || 1));
     }
@@ -673,10 +675,13 @@ function generateProposedExpenses() {
 async function confirmProposed(id) {
   const idx = state.expenses.findIndex(e => e.id === id);
   if (idx === -1) return;
-  // Remove proposed flag, give it a real id
   const e = state.expenses[idx];
-  state.expenses[idx] = { ...e, proposed: false, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
-  if (await saveData()) { toast('Confirmed'); render(); }
+  // Give it a real id and remove proposed flag
+  const realId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  state.expenses[idx] = { ...e, proposed: false, id: realId };
+  // Open edit form so user can adjust amount
+  editExpense(realId);
+  document.getElementById('f-save-btn').textContent = 'Confirm';
 }
 
 async function dismissProposed(id) {
@@ -703,15 +708,25 @@ function renderRecurringList() {
   const templates = getRecurringTemplates();
   const el = document.getElementById('recurring-list');
   if (!templates.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No recurring transactions yet.</div>'; return; }
-  el.innerHTML = templates.map(t => `
-    <div class="recurring-item">
-      <div>
-        <div class="ri-info">${esc(t.description)} — €${Math.abs(t.amount).toFixed(2)}</div>
-        <div class="ri-meta">Every ${t.intervalMonths} month${t.intervalMonths>1?'s':''} · since ${t.startDate} · ${t.type||'expense'}</div>
-      </div>
-      <button class="ri-del" onclick="deleteRecurring('${t.id}')">✕</button>
-    </div>
-  `).join('');
+
+  let totalMonthly = 0;
+  let html = '';
+  templates.forEach(t => {
+    const avg = getRecurringAverage(t.id, t.amount);
+    const monthlyEquiv = avg / (t.intervalMonths || 1);
+    if (t.type !== 'income') totalMonthly += monthlyEquiv;
+    const confirmedCount = state.expenses.filter(e => e.recurringId === t.id && !e.proposed && !e.dismissed).length;
+    html += `
+      <div class="recurring-item">
+        <div>
+          <div class="ri-info">${esc(t.description)} — avg €${avg.toFixed(2)}</div>
+          <div class="ri-meta">Every ${t.intervalMonths} mo · €${monthlyEquiv.toFixed(2)}/mo · ${confirmedCount} paid · ${t.type||'expense'}</div>
+        </div>
+        <button class="ri-del" onclick="deleteRecurring('${t.id}')">✕</button>
+      </div>`;
+  });
+  html += `<div style="padding:8px 0;border-top:1px solid var(--border);margin-top:4px;font-size:12px;color:var(--text-dim)">Total recurring: <strong style="color:var(--red)">€${totalMonthly.toFixed(2)}/mo</strong></div>`;
+  el.innerHTML = html;
 }
 
 async function addRecurring() {
@@ -1056,10 +1071,15 @@ function renderSummary(){
   const income=items.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const spent=items.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const savings=income-spent;
+  // Calculate recurring monthly cost from templates
+  const templates=getRecurringTemplates();
+  let recurringMonthly=0;
+  templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMonthly+=avg/(t.intervalMonths||1);}});
   document.getElementById('summary').innerHTML=`
     <div class="summary-card fade-in"><div class="label">Income</div><div class="value" style="color:var(--accent)">${fmt(income)}</div></div>
     <div class="summary-card fade-in"><div class="label">Spent</div><div class="value" style="color:var(--red)">${fmt(spent)}</div></div>
-    <div class="summary-card fade-in"><div class="label">Savings</div><div class="value" style="color:${savings>=0?'var(--accent)':'var(--red)'}">${savings>=0?'+':''}${fmt(savings)}</div></div>`;
+    <div class="summary-card fade-in"><div class="label">Savings</div><div class="value" style="color:${savings>=0?'var(--accent)':'var(--red)'}">${savings>=0?'+':''}${fmt(savings)}</div></div>
+    <div class="summary-card fade-in"><div class="label">Recurring/mo</div><div class="value" style="color:var(--blue)">${fmt(recurringMonthly)}</div></div>`;
   const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('month-label').textContent=`${mn[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
 }
