@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 </div>
 
 <script>
-const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, income:{label:'Income',color:'#c4f54a'} };
+const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, work:{label:'Work',color:'#40c8c8'}, income:{label:'Income',color:'#c4f54a'} };
 const DAILY_COMBOS = [
   { label: 'Basic', cats: ['basic'] },
   { label: 'Fun', cats: ['fun'] },
@@ -681,11 +681,22 @@ async function checkMonthlySnapshot() {
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   if (state.snapshots.find(s => s.month === monthKey)) return;
-  const bankSum = state.expenses.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
-  const creditSum = state.expenses.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
+  const confirmed = state.expenses.filter(e => !e.proposed && !e.dismissed);
+  const bankSum = confirmed.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
+  const creditSum = confirmed.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
   const bankBal = (state.accounts.bank?.offset || 0) + bankSum;
   const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
-  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal });
+  // Available: exclude work, subtract envelopes
+  const workSpent = confirmed.filter(e => e.category==='work' && e.amount<0).reduce((s,e) => s+Math.abs(e.amount), 0);
+  const workReimbursed = confirmed.filter(e => e.category==='work' && e.amount>0).reduce((s,e) => s+e.amount, 0);
+  const workPending = Math.max(0, workSpent - workReimbursed);
+  let envelopeHeld = 0;
+  getEnvelopes().forEach(env => { const c = calcEnvelope(env); if(c.buffer > 0) envelopeHeld += c.buffer; });
+  const available = bankBal - envelopeHeld + workPending;
+  // Savings delta from previous snapshot
+  const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
+  const savingsDelta = prevSnapshot && prevSnapshot.available !== undefined ? available - prevSnapshot.available : null;
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal, available, envelopes: envelopeHeld, workPending, savings: savingsDelta });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
 }
@@ -1260,37 +1271,55 @@ function getMonthConfirmed(){return getMonthExpenses().filter(e=>!e.proposed&&!e
 
 function renderBalances(){
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
+  // Bank and credit reflect ALL real transactions
   const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   const bankBal=(state.accounts.bank?.offset||0)+bankSum, creditBal=(state.accounts.credit?.offset||0)+creditSum;
-  // Available = bank minus positive envelope buffers
+  // Work: track unreimbursed amount
+  const workSpent=confirmed.filter(e=>e.category==='work'&&e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
+  const workReimbursed=confirmed.filter(e=>e.category==='work'&&e.amount>0).reduce((s,e)=>s+e.amount,0);
+  const workPending=Math.max(0, workSpent-workReimbursed);
+  // Envelopes
   let envelopeHeld=0;
   getEnvelopes().forEach(env=>{const c=calcEnvelope(env);if(c.buffer>0)envelopeHeld+=c.buffer;});
-  const available=bankBal-envelopeHeld;
+  // Available = bank - envelopes + work pending (money is coming back)
+  const available=bankBal-envelopeHeld+workPending;
+  const notes=[];
+  if(envelopeHeld>0)notes.push(fmt(envelopeHeld)+' envelopes');
+  if(workPending>0)notes.push(fmt(workPending)+' work pending');
   document.getElementById('balances').innerHTML=`
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
-    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${envelopeHeld>0?fmt(envelopeHeld)+' in envelopes':''}</div></div>
+    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${notes.join(' · ')}</div></div>
     <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
 }
 
 function renderSummary(){
   const items=getMonthConfirmed();
-  const income=items.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-  const spent=items.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
+  const personal=items.filter(e=>e.category!=='work');
+  const income=personal.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  const spent=personal.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const savings=income-spent;
-  // Recurring monthly
+  // Work balance this month
+  const workItems=items.filter(e=>e.category==='work');
+  const workSpent=workItems.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
+  const workBack=workItems.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  const workNet=workSpent-workBack;
+  // Fixed monthly
   const templates=getRecurringTemplates();
   let recurringMo=0;
   templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});
-  // Budgeted monthly (effective rates)
   let budgetedMo=0;
   getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).effectiveRate;});
   const fixedMo=recurringMo+budgetedMo;
-  document.getElementById('summary').innerHTML=`
+  let html=`
     <div class="summary-card fade-in"><div class="label">Income</div><div class="value" style="color:var(--accent)">${fmt(income)}</div></div>
     <div class="summary-card fade-in"><div class="label">Spent</div><div class="value" style="color:var(--red)">${fmt(spent)}</div></div>
     <div class="summary-card fade-in"><div class="label">Savings</div><div class="value" style="color:${savings>=0?'var(--accent)':'var(--red)'}">${savings>=0?'+':''}${fmt(savings)}</div></div>
     <div class="summary-card fade-in"><div class="label">Fixed/mo</div><div class="value" style="color:var(--blue)">${fmt(fixedMo)}</div></div>`;
+  if(workSpent>0||workBack>0){
+    html+=`<div class="summary-card fade-in"><div class="label">Work pending</div><div class="value" style="color:${workNet>0?'var(--orange)':'var(--accent)'}">${workNet>0?fmt(workNet):fmt(0)}</div></div>`;
+  }
+  document.getElementById('summary').innerHTML=html;
   const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('month-label').textContent=`${mn[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
 }
@@ -1414,8 +1443,16 @@ function renderSnapshots(){
   el.style.display='block';
   let h='<div class="section-title">Monthly Balance Log</div>';
   state.snapshots.slice().reverse().slice(0,12).forEach(s=>{
-    const color=s.total>=0?'var(--accent)':'var(--red)';
-    h+=`<div class="snapshot-row"><div class="snapshot-date">${s.month}</div><div><span class="snapshot-val" style="color:var(--accent)">Bank ${fmt(s.bank)}</span> · <span class="snapshot-val" style="color:${s.credit>=0?'var(--accent)':'var(--red)'}">CC ${fmt(s.credit)}</span></div><div class="snapshot-val" style="color:${color}">Net ${fmt(s.total)}</div></div>`;
+    const avail=s.available!==undefined?fmt(s.available):'—';
+    const availColor=s.available>=0?'var(--accent)':'var(--red)';
+    const savingsHtml=s.savings!==null&&s.savings!==undefined
+      ?`<span class="snapshot-val" style="color:${s.savings>=0?'var(--accent)':'var(--red)'}"> ${s.savings>=0?'+':''}${fmt(s.savings)}</span>`
+      :'';
+    h+=`<div class="snapshot-row">
+      <div class="snapshot-date">${s.month}</div>
+      <div><span class="snapshot-val" style="color:${availColor}">Avail ${avail}</span>${savingsHtml}</div>
+      <div><span class="snapshot-val" style="color:var(--text-dim)">Bank ${fmt(s.bank)}</span></div>
+    </div>`;
   });
   el.innerHTML=h;
 }
