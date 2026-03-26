@@ -116,9 +116,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 /* List */
 .expense-day-header { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 14px 0 6px; }
-.expense-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid transparent; border-radius: 8px; transition: all 0.15s; cursor: pointer; }
-.expense-item:hover { border-color: var(--border); }
-.expense-cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.expense-item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid transparent; border-left: 3px solid transparent; border-radius: 8px; transition: all 0.15s; cursor: pointer; }
+.expense-item:hover { border-color: var(--border); border-left-color: inherit; }
 .expense-info { min-width: 0; }
 .expense-desc { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .expense-meta { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
@@ -695,7 +694,9 @@ function renderList(){
   let h=''; Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
     g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;
-      h+=`<div class="expense-item fade-in" onclick="editExpense('${e.id}')"><div class="expense-cat-dot" style="background:${cat.color}"></div><div class="expense-info"><div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
+      const hasDesc=e.description && e.description.toLowerCase()!==e.category;
+      const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${cat.label}</div>`:`<div class="expense-desc">${cat.label}</div>`;
+      h+=`<div class="expense-item fade-in" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
     });
   });
   container.innerHTML=h;
