@@ -207,7 +207,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .pin-key.danger { color: var(--red); font-size: 14px; }
   .pin-key.wide { font-size: 14px; }
   /* Hide native inputs on mobile when pin pad is active */
-  .has-pin-pad .auth-form input[type="password"] { display: none; }
+  .has-pin-pad #auth-unlock input[type="password"] { display: none; }
+  .has-pin-pad #auth-bootstrap input[type="password"] { display: none; }
   .has-pin-pad #f-amount { display: none; }
 }
 
@@ -523,6 +524,9 @@ function initPinPads() {
   buildPinPad('pin-grid-unlock', 'password', 'unlock');
   buildPinPad('pin-grid-bootstrap', 'password', 'bootstrap');
   buildPinPad('pin-grid-amount', 'amount', '');
+  resetPinPad('pin-grid-unlock');
+  resetPinPad('pin-grid-bootstrap');
+  resetPinPad('pin-grid-amount');
 }
 
 window.addEventListener('resize', () => {
@@ -920,8 +924,15 @@ async function loadVaultFromPublicRepo(o,r) {
 function showAuthMode() {
   const m=localStorage.getItem(LOCAL_META_KEY), v=!!localStorage.getItem('exp_vault');
   document.getElementById('auth-setup').style.display='none'; document.getElementById('auth-unlock').style.display='none'; document.getElementById('auth-bootstrap').style.display='none';
-  if(m&&v){document.getElementById('auth-unlock').style.display='block';setTimeout(()=>document.getElementById('auth-pw')?.focus(),50);}
-  else{document.getElementById('auth-bootstrap').style.display='block';setTimeout(()=>document.getElementById('auth-bootstrap-pw')?.focus(),50);}
+  if(m&&v){
+    document.getElementById('auth-unlock').style.display='block';
+    if(isMobile()){document.body.classList.add('has-pin-pad');buildPinPad('pin-grid-unlock','password','unlock');resetPinPad('pin-grid-unlock');}
+    else{setTimeout(()=>document.getElementById('auth-pw')?.focus(),50);}
+  } else {
+    document.getElementById('auth-bootstrap').style.display='block';
+    if(isMobile()){document.body.classList.add('has-pin-pad');buildPinPad('pin-grid-bootstrap','password','bootstrap');resetPinPad('pin-grid-bootstrap');}
+    else{setTimeout(()=>document.getElementById('auth-bootstrap-pw')?.focus(),50);}
+  }
 }
 async function setupVault() {
   const repo=document.getElementById('auth-repo').value.trim(), token=document.getElementById('auth-token').value.trim();
@@ -941,7 +952,7 @@ async function unlock() {
   try{const p=JSON.parse(await decryptData(v,pw));const t=typeof p==='string'?p:p.token;const r=typeof p==='string'?repo:(p.repo||repo);if(!t||t.length<10)throw 0;connectWith(GH_OWNER,r,t);}
   catch(e){toast('Wrong password',true);document.getElementById('auth-pw').value='';resetPinPad('pin-grid-unlock');if(!isMobile())document.getElementById('auth-pw').focus();}
 }
-function showSyncMode(){document.getElementById('auth-setup').style.display='none';document.getElementById('auth-bootstrap').style.display='block';}
+function showSyncMode(){document.getElementById('auth-setup').style.display='none';document.getElementById('auth-bootstrap').style.display='block';if(isMobile()){buildPinPad('pin-grid-bootstrap','password','bootstrap');resetPinPad('pin-grid-bootstrap');}}
 function showSetupMode(){document.getElementById('auth-bootstrap').style.display='none';document.getElementById('auth-setup').style.display='block';}
 async function bootstrap() {
   const pw=document.getElementById('auth-bootstrap-pw').value; if(!pw){toast('Enter password',true);return;}
