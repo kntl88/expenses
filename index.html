@@ -57,7 +57,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .auth-hint code { background: var(--surface); padding: 1px 5px; border-radius: 3px; color: var(--text-dim); }
 
 /* Balances */
-.balances { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.balances { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .balance-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
 .balance-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
 .balance-card .value { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -244,7 +244,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Responsive */
 @media (max-width: 500px) {
   .app { padding: 20px 14px 100px; }
-  .balances { gap: 8px; }
+  .balances { gap: 6px; grid-template-columns: 1fr 1fr 1fr; }
   .balance-card { padding: 10px; }
   .balance-card .value { font-size: 15px; }
   .summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -1263,8 +1263,13 @@ function renderBalances(){
   const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   const bankBal=(state.accounts.bank?.offset||0)+bankSum, creditBal=(state.accounts.credit?.offset||0)+creditSum;
+  // Available = bank minus positive envelope buffers
+  let envelopeHeld=0;
+  getEnvelopes().forEach(env=>{const c=calcEnvelope(env);if(c.buffer>0)envelopeHeld+=c.buffer;});
+  const available=bankBal-envelopeHeld;
   document.getElementById('balances').innerHTML=`
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
+    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${envelopeHeld>0?fmt(envelopeHeld)+' in envelopes':''}</div></div>
     <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
 }
 
