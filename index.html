@@ -271,6 +271,30 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
 </div>
 
+<div id="chpw-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Change Password</h3>
+    <p>Enter your current password, then set a new one. Use the pin pad or type freely.</p>
+    <input id="chpw-old" type="password" placeholder="Current password">
+    <input id="chpw-new" type="password" placeholder="New password / PIN">
+    <input id="chpw-new2" type="password" placeholder="Confirm new password / PIN">
+    <div class="pin-pad" id="pin-pad-chpw">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px" id="chpw-pin-label">New PIN</div>
+      <div class="pin-display password" id="pin-display-chpw"></div>
+      <div class="pin-grid" id="pin-grid-chpw"></div>
+      <div style="margin-top:6px;text-align:center">
+        <button class="btn btn-sm" onclick="chpwPinSetField('new')">Set as new</button>
+        <button class="btn btn-sm" onclick="chpwPinSetField('confirm')">Set as confirm</button>
+        <button class="btn btn-sm" onclick="chpwPinSetField('current')">Set as current</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn" onclick="closeChpwModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="changePassword()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="auth-screen" class="auth-screen">
   <h2>Expense <span>Tracker</span></h2>
   <div id="auth-setup" style="display:none">
@@ -320,6 +344,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="header-actions">
       <button class="btn" onclick="exportCSV()">Export</button>
       <button class="btn" onclick="openBulkModal()">Bulk</button>
+      <button class="btn" onclick="openChpwModal()">PIN</button>
       <button class="btn btn-danger" onclick="disconnect()">Lock</button>
       <button class="btn btn-accent" onclick="toggleForm()">+ Add</button>
     </div>
@@ -615,7 +640,81 @@ async function bulkAdd() {
   }
 }
 
-// Crypto
+// Change Password
+let chpwPinField = 'new';
+
+function openChpwModal() {
+  ['chpw-old','chpw-new','chpw-new2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('chpw-modal').classList.add('visible');
+  resetPinPad('pin-grid-chpw');
+  chpwPinField = 'new';
+  updateChpwPinLabel();
+  if (isMobile()) {
+    buildPinPad('pin-grid-chpw', 'password', '');
+  }
+  setTimeout(() => document.getElementById('chpw-old').focus(), 50);
+}
+
+function closeChpwModal() {
+  document.getElementById('chpw-modal').classList.remove('visible');
+}
+
+function chpwPinSetField(field) {
+  const grid = document.getElementById('pin-grid-chpw');
+  const val = grid?.dataset.value || '';
+  if (field === 'current') document.getElementById('chpw-old').value = val;
+  else if (field === 'new') document.getElementById('chpw-new').value = val;
+  else if (field === 'confirm') document.getElementById('chpw-new2').value = val;
+  grid.dataset.value = '';
+  updatePinDisplay('pin-grid-chpw');
+  // Advance to next logical field
+  if (field === 'current') { chpwPinField = 'new'; }
+  else if (field === 'new') { chpwPinField = 'confirm'; }
+  else { chpwPinField = 'new'; }
+  updateChpwPinLabel();
+  toast(field === 'current' ? 'Current set' : field === 'new' ? 'New set' : 'Confirm set');
+}
+
+function updateChpwPinLabel() {
+  const el = document.getElementById('chpw-pin-label');
+  if (el) el.textContent = chpwPinField === 'current' ? 'Current password' : chpwPinField === 'new' ? 'New PIN / password' : 'Confirm new';
+}
+
+async function changePassword() {
+  const oldPw = document.getElementById('chpw-old').value;
+  const newPw = document.getElementById('chpw-new').value;
+  const newPw2 = document.getElementById('chpw-new2').value;
+
+  if (!oldPw) { toast('Enter current password', true); return; }
+  if (!newPw || newPw.length < 3) { toast('New password too short', true); return; }
+  if (newPw !== newPw2) { toast("New passwords don't match", true); return; }
+
+  // Verify old password by decrypting current vault
+  const vault = localStorage.getItem('exp_vault');
+  if (!vault) { toast('No vault found', true); return; }
+
+  try {
+    const json = await decryptData(vault, oldPw);
+    const parsed = JSON.parse(json);
+    const token = typeof parsed === 'string' ? parsed : parsed.token;
+    const repo = typeof parsed === 'string' ? state.repo : (parsed.repo || state.repo);
+
+    // Re-encrypt with new password
+    const encrypted = await encryptData(JSON.stringify({ token, repo }), newPw);
+
+    // Save to public repo
+    await saveVaultToGitHub(GH_OWNER, GH_PUBLIC_REPO, token, encrypted);
+
+    // Update local cache
+    localStorage.setItem('exp_vault', encrypted);
+
+    toast('Password changed');
+    closeChpwModal();
+  } catch (e) {
+    if (e.name === 'OperationError') toast('Current password is wrong', true);
+    else toast('Failed: ' + (e.message || e), true);
+  }
+}
 async function deriveKey(pw, salt) {
   const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:PBKDF2_ITER, hash:'SHA-256' }, km, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
