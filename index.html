@@ -81,6 +81,16 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .week-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: var(--surface-2); border-radius: 2px; }
 .week-bar { height: 100%; border-radius: 2px; background: var(--red); transition: width 0.3s; min-width: 0; }
 
+/* Daily rates */
+.daily-rates { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
+.daily-rates .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+.rate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rate-item { padding: 8px; background: var(--surface-2); border-radius: 6px; }
+.rate-item .rate-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rate-item .rate-values { display: flex; flex-direction: column; gap: 1px; }
+.rate-item .rate-total { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
+.rate-item .rate-daily { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+
 /* Form */
 .expense-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: none; }
 .expense-form.visible { display: block; }
@@ -163,6 +173,9 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .summary-card .label { font-size: 8px; }
   .weekly-breakdown { padding: 12px; }
   .week-row { padding: 5px 0; }
+  .rate-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .rate-item .rate-total { font-size: 13px; }
+  .rate-item .rate-daily { font-size: 10px; }
   .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   .form-row.three .form-group:last-child { grid-column: 1 / -1; }
   .expense-form { padding: 14px; }
@@ -294,6 +307,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="month-nav-btns"><button class="btn btn-sm" onclick="changeMonth(1)">Next →</button></div>
   </div>
   <div class="summary" id="summary"></div>
+  <div class="daily-rates" id="daily-rates"></div>
   <div class="weekly-breakdown" id="weekly-breakdown"></div>
   <div class="snapshots" id="snapshots" style="display:none"></div>
   <div class="category-filters" id="cat-filters"></div>
@@ -302,6 +316,14 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 <script>
 const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, necessary:{label:'Necessary',color:'#f07498'}, income:{label:'Income',color:'#c4f54a'} };
+const DAILY_COMBOS = [
+  { label: 'Basic', cats: ['basic'] },
+  { label: 'Fun', cats: ['fun'] },
+  { label: 'Unnecessary', cats: ['unnecessary'] },
+  { label: 'Ba+Fu+Un', cats: ['basic','fun','unnecessary'] },
+  { label: 'Purchases', cats: ['purchase'] },
+  { label: 'Gas', cats: ['gas'] },
+];
 const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSHOTS_PATH='data/snapshots.json', VAULT_PATH='data/vault.json';
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
 const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
@@ -583,7 +605,7 @@ async function saveExpense(){
 async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...state.expenses];state.expenses=state.expenses.filter(e=>e.id!==id);if(await saveData()){toast('Deleted');render();}else{state.expenses=bk;}}
 
 // Render
-function render(){renderBalances();renderSummary();renderWeekly();renderSnapshots();renderFilters();renderList();}
+function render(){renderBalances();renderSummary();renderDailyRates();renderWeekly();renderSnapshots();renderFilters();renderList();}
 
 function getMonthExpenses(){const y=state.currentMonth.getFullYear(),m=state.currentMonth.getMonth();return state.expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()===m;});}
 
@@ -607,6 +629,23 @@ function renderSummary(){
     <div class="summary-card fade-in"><div class="label">Savings</div><div class="value" style="color:${savings>=0?'var(--accent)':'var(--red)'}">${savings>=0?'+':''}${fmt(savings)}</div></div>`;
   const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('month-label').textContent=`${mn[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
+}
+
+function renderDailyRates(){
+  const items=getMonthExpenses().filter(e=>e.amount<0);
+  const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
+  const now=new Date();
+  const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
+  const daysElapsed=isCurrentMonth ? now.getDate() : new Date(y,m+1,0).getDate();
+
+  let h='<div class="section-title">Daily Rates</div><div class="rate-grid">';
+  DAILY_COMBOS.forEach(combo=>{
+    const total=items.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
+    const daily=daysElapsed>0 ? total/daysElapsed : 0;
+    h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)}/day</div></div></div>`;
+  });
+  h+='</div>';
+  document.getElementById('daily-rates').innerHTML=h;
 }
 
 function renderWeekly(){
