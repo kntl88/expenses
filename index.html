@@ -666,13 +666,13 @@ function renderDailyRates(){
     periodDays=monthDaysElapsed;
   }
 
-  // Always compute monthly /day from all items
-  const monthDayRate=(cat)=>{const t=allItems.filter(e=>cat.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0); return monthDaysElapsed>0?t/monthDaysElapsed:0;};
+  // /day based on the period shown
+  const perDayDivisor=periodDays;
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   DAILY_COMBOS.forEach(combo=>{
     const total=periodItems.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
-    const daily=monthDayRate(combo.cats);
+    const daily=perDayDivisor>0?total/perDayDivisor:0;
     h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)} / day</div></div></div>`;
   });
   h+='</div>';
