@@ -98,13 +98,13 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-item .rate-total { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
 .rate-item .rate-daily { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-dim); }
 
-/* Rate bar chart */
-.rate-chart { margin-top: 12px; }
-.rate-chart-bar-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-.rate-chart-label { font-size: 10px; color: var(--text-muted); min-width: 44px; text-align: right; flex-shrink: 0; }
-.rate-chart-bar-wrap { flex: 1; height: 16px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-.rate-chart-bar { height: 100%; border-radius: 3px; background: var(--red); transition: width 0.3s; min-width: 0; }
-.rate-chart-val { font-size: 10px; color: var(--text-dim); min-width: 50px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+/* Rate bar chart (vertical) */
+.rate-chart { margin-top: 12px; display: flex; align-items: flex-end; gap: 4px; height: 120px; padding-top: 4px; }
+.rate-chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+.rate-chart-bar-wrap { width: 100%; flex: 1; display: flex; align-items: flex-end; justify-content: center; }
+.rate-chart-bar { width: 70%; border-radius: 3px 3px 0 0; background: #e8c840; transition: height 0.3s; min-height: 0; }
+.rate-chart-val { font-size: 9px; color: var(--text-dim); font-variant-numeric: tabular-nums; margin-top: 2px; text-align: center; white-space: nowrap; }
+.rate-chart-label { font-size: 9px; color: var(--text-muted); margin-top: 2px; text-align: center; }
 
 /* Form */
 .expense-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: none; }
@@ -194,7 +194,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 /* Pin Pad (mobile only) */
 .pin-pad { display: none; }
-@media (max-width: 500px) {
+@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
   .pin-pad { display: block; margin-top: 8px; }
   .pin-pad .pin-display {
     text-align: center; font-size: 28px; font-weight: 500; font-family: var(--mono);
@@ -215,7 +215,6 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .pin-key:active { background: var(--surface-2); border-color: var(--accent-dim); }
   .pin-key.accent { background: var(--accent); color: var(--bg); border-color: var(--accent); font-size: 14px; font-weight: 500; }
   .pin-key.danger { color: var(--red); font-size: 14px; }
-  .pin-key.wide { font-size: 14px; }
   /* Hide native inputs on mobile when pin pad is active */
   .has-pin-pad #auth-unlock input[type="password"] { display: none; }
   .has-pin-pad #auth-bootstrap input[type="password"] { display: none; }
@@ -237,9 +236,9 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .rate-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .rate-item .rate-total { font-size: 13px; }
   .rate-item .rate-daily { font-size: 10px; }
-  .rate-chart-label { font-size: 9px; min-width: 36px; }
-  .rate-chart-val { font-size: 9px; min-width: 42px; }
-  .rate-chart-bar-wrap { height: 14px; }
+  .rate-chart { height: 100px; }
+  .rate-chart-val { font-size: 8px; }
+  .rate-chart-label { font-size: 8px; }
   .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   .form-row.three .form-group:last-child { grid-column: 1 / -1; }
   .expense-form { padding: 14px; }
@@ -463,7 +462,7 @@ let rateMode = 'day';
 let selectedCombos = new Set();
 
 // Pin Pad
-const isMobile = () => window.innerWidth <= 500;
+const isMobile = () => window.matchMedia('(max-width: 768px) and (hover: none) and (pointer: coarse)').matches;
 
 function buildPinPad(gridId, mode, onSubmit) {
   const grid = document.getElementById(gridId);
@@ -1090,9 +1089,10 @@ function toggleCombo(idx){if(selectedCombos.has(idx))selectedCombos.delete(idx);
 function getCurrentWeekRange(){
   const now=new Date();
   const dow=now.getDay(); const diff=(dow+6)%7;
-  const mon=new Date(now); mon.setDate(mon.getDate()-diff); mon.setHours(0,0,0,0);
-  const sun=new Date(mon); sun.setDate(sun.getDate()+6);
-  return {start:mon.toISOString().slice(0,10), end:sun.toISOString().slice(0,10), daysElapsed:diff+1};
+  const mon=new Date(now.getFullYear(), now.getMonth(), now.getDate()-diff);
+  const sun=new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+6);
+  const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return {start:fmtLocal(mon), end:fmtLocal(sun), daysElapsed:diff+1};
 }
 
 function renderDailyRates(){
@@ -1127,34 +1127,35 @@ function renderDailyRates(){
 
   // Bar chart (if any combos selected)
   if(selectedCombos.size>0){
-    // Gather all selected categories
     const selCats=new Set();
     selectedCombos.forEach(i=>{if(DAILY_COMBOS[i])DAILY_COMBOS[i].cats.forEach(c=>selCats.add(c));});
     const filteredItems=periodItems.filter(e=>selCats.has(e.category));
+    const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayStr=fmtLocal(now);
 
     let bars=[];
     if(rateMode==='week' && isCurrentMonth){
-      // Show per-day bars for the current week
       const wr=getCurrentWeekRange();
       const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-      const startDate=new Date(wr.start+'T00:00:00');
+      const parts=wr.start.split('-');
+      const startDate=new Date(+parts[0], +parts[1]-1, +parts[2]);
       for(let d=0;d<7;d++){
-        const dt=new Date(startDate);dt.setDate(dt.getDate()+d);
-        const ds=dt.toISOString().slice(0,10);
-        if(ds>now.toISOString().slice(0,10))break;
+        const dt=new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()+d);
+        const ds=fmtLocal(dt);
+        if(ds>todayStr)break;
         const total=filteredItems.filter(e=>e.date===ds).reduce((s,e)=>s+Math.abs(e.amount),0);
         bars.push({label:dayNames[d],total});
       }
     } else {
-      // Show per-week bars for the month
       const first=new Date(y,m,1), last=new Date(y,m+1,0);
       let ws=new Date(first);
       const dow=ws.getDay();if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
       let wIdx=1;
       while(ws<=last){
         const we=new Date(ws);we.setDate(we.getDate()+6);
-        const cs=new Date(Math.max(ws,first)).toISOString().slice(0,10);
-        const ce=new Date(Math.min(we,last)).toISOString().slice(0,10);
+        const csD=new Date(Math.max(ws,first));
+        const ceD=new Date(Math.min(we,last));
+        const cs=fmtLocal(csD), ce=fmtLocal(ceD);
         const total=filteredItems.filter(e=>e.date>=cs&&e.date<=ce).reduce((s,e)=>s+Math.abs(e.amount),0);
         bars.push({label:'Wk'+wIdx,total});
         ws=new Date(ws);ws.setDate(ws.getDate()+7);wIdx++;
@@ -1164,8 +1165,8 @@ function renderDailyRates(){
     const maxBar=Math.max(...bars.map(b=>b.total),1);
     h+='<div class="rate-chart">';
     bars.forEach(b=>{
-      const pct=(b.total/maxBar*100).toFixed(0);
-      h+=`<div class="rate-chart-bar-row"><div class="rate-chart-label">${b.label}</div><div class="rate-chart-bar-wrap"><div class="rate-chart-bar" style="width:${pct}%"></div></div><div class="rate-chart-val">${fmt(b.total)}</div></div>`;
+      const pct=maxBar>0?(b.total/maxBar*100).toFixed(0):'0';
+      h+=`<div class="rate-chart-col"><div class="rate-chart-bar-wrap"><div class="rate-chart-bar" style="height:${pct}%"></div></div><div class="rate-chart-val">${b.total>0?fmt(b.total):''}</div><div class="rate-chart-label">${b.label}</div></div>`;
     });
     h+='</div>';
   }
