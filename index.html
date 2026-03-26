@@ -90,11 +90,21 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
 .rate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.rate-item { padding: 8px; background: var(--surface-2); border-radius: 6px; }
+.rate-item { padding: 8px; background: var(--surface-2); border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+.rate-item:hover { border-color: var(--border-hover); }
+.rate-item.selected { border-color: var(--accent-dim); background: rgba(196,245,74,0.05); }
 .rate-item .rate-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rate-item .rate-values { display: flex; flex-direction: column; gap: 1px; }
 .rate-item .rate-total { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
 .rate-item .rate-daily { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+
+/* Rate bar chart */
+.rate-chart { margin-top: 12px; }
+.rate-chart-bar-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.rate-chart-label { font-size: 10px; color: var(--text-muted); min-width: 44px; text-align: right; flex-shrink: 0; }
+.rate-chart-bar-wrap { flex: 1; height: 16px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.rate-chart-bar { height: 100%; border-radius: 3px; background: var(--red); transition: width 0.3s; min-width: 0; }
+.rate-chart-val { font-size: 10px; color: var(--text-dim); min-width: 50px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
 /* Form */
 .expense-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: none; }
@@ -227,6 +237,9 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .rate-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .rate-item .rate-total { font-size: 13px; }
   .rate-item .rate-daily { font-size: 10px; }
+  .rate-chart-label { font-size: 9px; min-width: 36px; }
+  .rate-chart-val { font-size: 9px; min-width: 42px; }
+  .rate-chart-bar-wrap { height: 14px; }
   .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   .form-row.three .form-group:last-child { grid-column: 1 / -1; }
   .expense-form { padding: 14px; }
@@ -447,6 +460,7 @@ let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
 let rateMode = 'day';
+let selectedCombos = new Set();
 
 // Pin Pad
 const isMobile = () => window.innerWidth <= 500;
@@ -1051,10 +1065,11 @@ function renderSummary(){
 }
 
 function setRateMode(m){rateMode=m;renderDailyRates();}
+function toggleCombo(idx){if(selectedCombos.has(idx))selectedCombos.delete(idx);else selectedCombos.add(idx);renderDailyRates();}
 
 function getCurrentWeekRange(){
   const now=new Date();
-  const dow=now.getDay(); const diff=(dow+6)%7; // days since Monday
+  const dow=now.getDay(); const diff=(dow+6)%7;
   const mon=new Date(now); mon.setDate(mon.getDate()-diff); mon.setHours(0,0,0,0);
   const sun=new Date(mon); sun.setDate(sun.getDate()+6);
   return {start:mon.toISOString().slice(0,10), end:sun.toISOString().slice(0,10), daysElapsed:diff+1};
@@ -1068,28 +1083,73 @@ function renderDailyRates(){
   const daysInMonth=new Date(y,m+1,0).getDate();
   const monthDaysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
 
-  let periodItems, periodLabel, periodDays;
+  let periodItems, periodDays;
   if(rateMode==='week' && isCurrentMonth){
     const wr=getCurrentWeekRange();
     periodItems=allItems.filter(e=>e.date>=wr.start && e.date<=wr.end);
-    periodLabel='This week';
     periodDays=wr.daysElapsed;
   } else {
     periodItems=allItems;
-    periodLabel=rateMode==='week'?'Month (no current week)':'This month';
     periodDays=monthDaysElapsed;
   }
 
-  // /day based on the period shown
   const perDayDivisor=periodDays;
 
+  // Grid
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  DAILY_COMBOS.forEach(combo=>{
+  DAILY_COMBOS.forEach((combo,i)=>{
     const total=periodItems.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
     const daily=perDayDivisor>0?total/perDayDivisor:0;
-    h+=`<div class="rate-item"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)} / day</div></div></div>`;
+    const sel=selectedCombos.has(i)?'selected':'';
+    h+=`<div class="rate-item ${sel}" onclick="toggleCombo(${i})"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)} / day</div></div></div>`;
   });
   h+='</div>';
+
+  // Bar chart (if any combos selected)
+  if(selectedCombos.size>0){
+    // Gather all selected categories
+    const selCats=new Set();
+    selectedCombos.forEach(i=>{if(DAILY_COMBOS[i])DAILY_COMBOS[i].cats.forEach(c=>selCats.add(c));});
+    const filteredItems=periodItems.filter(e=>selCats.has(e.category));
+
+    let bars=[];
+    if(rateMode==='week' && isCurrentMonth){
+      // Show per-day bars for the current week
+      const wr=getCurrentWeekRange();
+      const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const startDate=new Date(wr.start+'T00:00:00');
+      for(let d=0;d<7;d++){
+        const dt=new Date(startDate);dt.setDate(dt.getDate()+d);
+        const ds=dt.toISOString().slice(0,10);
+        if(ds>now.toISOString().slice(0,10))break;
+        const total=filteredItems.filter(e=>e.date===ds).reduce((s,e)=>s+Math.abs(e.amount),0);
+        bars.push({label:dayNames[d],total});
+      }
+    } else {
+      // Show per-week bars for the month
+      const first=new Date(y,m,1), last=new Date(y,m+1,0);
+      let ws=new Date(first);
+      const dow=ws.getDay();if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
+      let wIdx=1;
+      while(ws<=last){
+        const we=new Date(ws);we.setDate(we.getDate()+6);
+        const cs=new Date(Math.max(ws,first)).toISOString().slice(0,10);
+        const ce=new Date(Math.min(we,last)).toISOString().slice(0,10);
+        const total=filteredItems.filter(e=>e.date>=cs&&e.date<=ce).reduce((s,e)=>s+Math.abs(e.amount),0);
+        bars.push({label:'Wk'+wIdx,total});
+        ws=new Date(ws);ws.setDate(ws.getDate()+7);wIdx++;
+      }
+    }
+
+    const maxBar=Math.max(...bars.map(b=>b.total),1);
+    h+='<div class="rate-chart">';
+    bars.forEach(b=>{
+      const pct=(b.total/maxBar*100).toFixed(0);
+      h+=`<div class="rate-chart-bar-row"><div class="rate-chart-label">${b.label}</div><div class="rate-chart-bar-wrap"><div class="rate-chart-bar" style="width:${pct}%"></div></div><div class="rate-chart-val">${fmt(b.total)}</div></div>`;
+    });
+    h+='</div>';
+  }
+
   document.getElementById('daily-rates').innerHTML=h;
 }
 
