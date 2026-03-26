@@ -165,6 +165,35 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .snapshot-date { color: var(--text-dim); }
 .snapshot-val { font-weight: 500; font-variant-numeric: tabular-nums; }
 
+/* Pin Pad (mobile only) */
+.pin-pad { display: none; }
+@media (max-width: 500px) {
+  .pin-pad { display: block; margin-top: 8px; }
+  .pin-pad .pin-display {
+    text-align: center; font-size: 28px; font-weight: 500; font-family: var(--mono);
+    font-variant-numeric: tabular-nums; padding: 12px; margin-bottom: 8px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); min-height: 54px; letter-spacing: 2px;
+  }
+  .pin-pad .pin-display.password { letter-spacing: 6px; }
+  .pin-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .pin-key {
+    font-family: var(--mono); font-size: 20px; font-weight: 400;
+    padding: 14px 0; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer;
+    transition: all 0.1s; text-align: center; user-select: none;
+  }
+  .pin-key:active { background: var(--surface-2); border-color: var(--accent-dim); }
+  .pin-key.accent { background: var(--accent); color: var(--bg); border-color: var(--accent); font-size: 14px; font-weight: 500; }
+  .pin-key.danger { color: var(--red); font-size: 14px; }
+  .pin-key.wide { font-size: 14px; }
+  /* Hide native inputs on mobile when pin pad is active */
+  .has-pin-pad .auth-form input[type="password"] { display: none; }
+  .has-pin-pad #f-amount { display: none; }
+}
+
 /* Responsive */
 @media (max-width: 500px) {
   .app { padding: 20px 14px 100px; }
@@ -263,7 +292,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <p>Enter your password to unlock.</p>
     <div class="auth-form">
       <input id="auth-pw" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')unlock()">
-      <button class="btn btn-accent" style="width:100%;padding:14px" onclick="unlock()">Unlock</button>
+      <div class="pin-pad" id="pin-pad-unlock">
+        <div class="pin-display password" id="pin-display-unlock"></div>
+        <div class="pin-grid" id="pin-grid-unlock"></div>
+      </div>
       <div style="margin-top:16px"><button class="btn btn-sm btn-danger" onclick="resetVault()">Reset credentials</button></div>
     </div>
   </div>
@@ -271,7 +303,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <p>Enter your password to unlock.</p>
     <div class="auth-form">
       <input id="auth-bootstrap-pw" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')bootstrap()">
-      <button class="btn btn-accent" style="width:100%;padding:14px" onclick="bootstrap()">Unlock</button>
+      <div class="pin-pad" id="pin-pad-bootstrap">
+        <div class="pin-display password" id="pin-display-bootstrap"></div>
+        <div class="pin-grid" id="pin-grid-bootstrap"></div>
+      </div>
       <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border)">
         <button class="btn" style="width:100%" onclick="showSetupMode()">New setup instead</button>
       </div>
@@ -294,6 +329,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="form-row">
       <div class="form-group"><label>Amount (€)</label><input id="f-amount" type="number" step="0.01" placeholder="0.00"></div>
       <div class="form-group"><label>Date</label><input id="f-date" type="date"></div>
+    </div>
+    <div class="pin-pad" id="pin-pad-amount">
+      <div class="pin-display" id="pin-display-amount">0.00</div>
+      <div class="pin-grid" id="pin-grid-amount"></div>
     </div>
     <div class="form-group" style="margin-bottom:12px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
     <div class="form-group" style="margin-bottom:12px">
@@ -337,6 +376,89 @@ let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
 let rateMode = 'day';
+
+// Pin Pad
+const isMobile = () => window.innerWidth <= 500;
+
+function buildPinPad(gridId, mode, onSubmit) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const keys = mode === 'password'
+    ? ['1','2','3','4','5','6','7','8','9','⌫','0','→']
+    : ['1','2','3','4','5','6','7','8','9','.','0','⌫'];
+  grid.innerHTML = keys.map(k => {
+    if (k === '→') return `<button class="pin-key accent" onclick="pinSubmit('${gridId}')">${k}</button>`;
+    if (k === '⌫') return `<button class="pin-key danger" onclick="pinDelete('${gridId}')">⌫</button>`;
+    return `<button class="pin-key" onclick="pinPress('${gridId}','${k}')">${k}</button>`;
+  }).join('');
+  grid.dataset.mode = mode;
+  grid.dataset.value = '';
+  grid.dataset.onsubmit = onSubmit;
+}
+
+function pinPress(gridId, key) {
+  const grid = document.getElementById(gridId);
+  let val = grid.dataset.value || '';
+  if (grid.dataset.mode === 'amount') {
+    // Prevent multiple dots, max 2 decimals
+    if (key === '.' && val.includes('.')) return;
+    if (val.includes('.') && val.split('.')[1].length >= 2) return;
+    val += key;
+  } else {
+    val += key;
+  }
+  grid.dataset.value = val;
+  updatePinDisplay(gridId);
+}
+
+function pinDelete(gridId) {
+  const grid = document.getElementById(gridId);
+  let val = grid.dataset.value || '';
+  grid.dataset.value = val.slice(0, -1);
+  updatePinDisplay(gridId);
+}
+
+function pinSubmit(gridId) {
+  const grid = document.getElementById(gridId);
+  const fn = grid.dataset.onsubmit;
+  if (fn && window[fn]) window[fn]();
+}
+
+function updatePinDisplay(gridId) {
+  const grid = document.getElementById(gridId);
+  const val = grid.dataset.value || '';
+  const displayId = gridId.replace('pin-grid-', 'pin-display-');
+  const display = document.getElementById(displayId);
+  if (!display) return;
+
+  if (grid.dataset.mode === 'password') {
+    display.textContent = val ? '●'.repeat(val.length) : '';
+    // Sync to hidden input
+    if (gridId === 'pin-grid-unlock') document.getElementById('auth-pw').value = val;
+    else if (gridId === 'pin-grid-bootstrap') document.getElementById('auth-bootstrap-pw').value = val;
+  } else {
+    display.textContent = val ? '€' + val : '0.00';
+    document.getElementById('f-amount').value = val || '';
+  }
+}
+
+function resetPinPad(gridId) {
+  const grid = document.getElementById(gridId);
+  if (grid) { grid.dataset.value = ''; updatePinDisplay(gridId); }
+}
+
+function initPinPads() {
+  if (!isMobile()) return;
+  document.body.classList.add('has-pin-pad');
+  buildPinPad('pin-grid-unlock', 'password', 'unlock');
+  buildPinPad('pin-grid-bootstrap', 'password', 'bootstrap');
+  buildPinPad('pin-grid-amount', 'amount', '');
+}
+
+window.addEventListener('resize', () => {
+  if (isMobile() && !document.body.classList.contains('has-pin-pad')) initPinPads();
+  if (!isMobile()) document.body.classList.remove('has-pin-pad');
+});
 
 function renderFormCats(){
   document.getElementById('f-cat-pills').innerHTML=Object.keys(CATEGORIES).map(c=>`<button type="button" class="cat-pill ${formCat===c?'active':''}" onclick="setFormCat('${c}')">${CATEGORIES[c].label}</button>`).join('');
@@ -543,7 +665,7 @@ async function unlock() {
   const m=localStorage.getItem(LOCAL_META_KEY); if(!m){toast('No credentials',true);return;} const{repo}=JSON.parse(m);
   const v=localStorage.getItem('exp_vault'); if(!v){document.getElementById('auth-unlock').style.display='none';document.getElementById('auth-bootstrap').style.display='block';toast('Re-sync needed',true);return;}
   try{const p=JSON.parse(await decryptData(v,pw));const t=typeof p==='string'?p:p.token;const r=typeof p==='string'?repo:(p.repo||repo);if(!t||t.length<10)throw 0;connectWith(GH_OWNER,r,t);}
-  catch(e){toast('Wrong password',true);document.getElementById('auth-pw').value='';document.getElementById('auth-pw').focus();}
+  catch(e){toast('Wrong password',true);document.getElementById('auth-pw').value='';resetPinPad('pin-grid-unlock');if(!isMobile())document.getElementById('auth-pw').focus();}
 }
 function showSyncMode(){document.getElementById('auth-setup').style.display='none';document.getElementById('auth-bootstrap').style.display='block';}
 function showSetupMode(){document.getElementById('auth-bootstrap').style.display='none';document.getElementById('auth-setup').style.display='block';}
@@ -555,12 +677,12 @@ async function bootstrap() {
     if(!t||t.length<10)throw 0; if(!r){toast('Vault outdated — run setup',true);return;}
     localStorage.setItem('exp_vault',enc); localStorage.setItem(LOCAL_META_KEY,JSON.stringify({repo:r}));
     toast('Synced'); connectWith(GH_OWNER,r,t);
-  }catch(e){if(e?.name==='OperationError')toast('Wrong password',true);else toast('Failed: '+(e.message||e),true);}
+  }catch(e){if(e?.name==='OperationError'){toast('Wrong password',true);resetPinPad('pin-grid-bootstrap');}else toast('Failed: '+(e.message||e),true);}
 }
 function resetVault(){if(!confirm('Clear credentials?'))return;localStorage.removeItem('exp_vault');localStorage.removeItem(LOCAL_META_KEY);document.getElementById('auth-bootstrap').style.display='none';showAuthMode();toast('Cleared');}
 function connectWith(o,r,t){state.owner=GH_OWNER;state.repo=r;state.token=t;document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';loadData();}
 function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],accounts:{bank:{offset:0},credit:{offset:0}},snapshots:[],sha:null,accountsSha:null,snapshotsSha:null};document.getElementById('auth-screen').style.display='flex';document.getElementById('app').style.display='none';showAuthMode();}
-function tryAutoConnect(){showAuthMode();}
+function tryAutoConnect(){initPinPads();showAuthMode();}
 
 // Offset modal
 function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('offset-modal-title').textContent=acct==='bank'?'Bank Balance':'Credit Card Balance';document.getElementById('offset-input').value='';document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
@@ -581,12 +703,16 @@ function editExpense(id){
   editingId=id;
   const f=document.getElementById('expense-form');
   f.classList.add('visible');
-  document.getElementById('f-amount').value=Math.abs(e.amount);
+  const absAmt=Math.abs(e.amount);
+  document.getElementById('f-amount').value=absAmt;
   document.getElementById('f-date').value=e.date;
   document.getElementById('f-desc').value=e.description||'';
   formCat=e.category||'basic'; renderFormCats();
   document.getElementById('f-save-btn').textContent='Update';
-  document.getElementById('f-amount').focus();
+  // Set pin pad amount
+  const grid=document.getElementById('pin-grid-amount');
+  if(grid){grid.dataset.value=String(absAmt);updatePinDisplay('pin-grid-amount');}
+  if(!isMobile())document.getElementById('f-amount').focus();
 }
 
 async function saveExpense(){
@@ -736,8 +862,8 @@ function renderList(){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';renderFormCats();document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('f-save-btn').textContent='Save';}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';renderFormCats();document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
