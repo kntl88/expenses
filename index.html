@@ -57,7 +57,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .auth-hint code { background: var(--surface); padding: 1px 5px; border-radius: 3px; color: var(--text-dim); }
 
 /* Balances */
-.balances { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.balances { margin-bottom: 16px; }
+.bal-row { display: grid; gap: 10px; margin-bottom: 8px; }
+.bal-row.main { grid-template-columns: 1fr 1fr 1fr; }
+.bal-row.detail { grid-template-columns: 1fr 1fr; }
 .balance-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
 .balance-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
 .balance-card .value { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -247,7 +250,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Responsive */
 @media (max-width: 500px) {
   .app { padding: 20px 14px 100px; }
-  .balances { gap: 8px; }
+  .bal-row.main { gap: 6px; }
+  .bal-row.detail { gap: 6px; }
   .balance-card { padding: 10px; }
   .balance-card .value { font-size: 15px; }
   .summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -696,15 +700,18 @@ async function checkMonthlySnapshot() {
   const bankBal = (state.accounts.bank?.offset || 0) + bankSum;
   const creditSum = confirmed.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
   const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
-  // Available
   const workPending = confirmed.filter(e => e.category==='work' && e.amount<0 && !e.reimbursed).reduce((s,e) => s+Math.abs(e.amount), 0);
-  let envelopeHeld = 0;
-  getEnvelopes().forEach(env => { const c = calcEnvelope(env); if(c.buffer > 0) envelopeHeld += c.buffer; });
-  const available = bankBal + creditBal - envelopeHeld + workPending;
-  // Savings delta
+  // Envelopes — sum ALL buffers
+  let envelopeTotal = 0;
+  getEnvelopes().forEach(env => { envelopeTotal += calcEnvelope(env).buffer; });
+  // Available = bank + credit + work pending - envelopes
+  const available = bankBal + creditBal + workPending - envelopeTotal;
+  // Savings: use available WITHOUT envelopes so envelope allocation doesn't count as spending
+  const availableForSavings = bankBal + creditBal + workPending;
   const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
-  const savingsDelta = prevSnapshot && prevSnapshot.available !== undefined ? available - prevSnapshot.available : null;
-  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal, available, envelopes: envelopeHeld, workPending, savings: savingsDelta });
+  const prevSavingsBase = prevSnapshot ? (prevSnapshot.availableForSavings !== undefined ? prevSnapshot.availableForSavings : (prevSnapshot.availableRaw !== undefined ? prevSnapshot.availableRaw : prevSnapshot.available)) : null;
+  const savings = prevSavingsBase !== null ? availableForSavings - prevSavingsBase : null;
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, available, availableForSavings, envelopes: envelopeTotal, workPending, savings });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
 }
@@ -1309,18 +1316,22 @@ function renderBalances(){
   const creditBal=(state.accounts.credit?.offset||0)+creditSum;
   // Work pending = unreimbursed work expenses
   const workPending=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed).reduce((s,e)=>s+Math.abs(e.amount),0);
-  // Envelopes
-  let envelopeHeld=0;
-  getEnvelopes().forEach(env=>{const c=calcEnvelope(env);if(c.buffer>0)envelopeHeld+=c.buffer;});
-  const available=bankBal+creditBal-envelopeHeld+workPending;
-  const notes=[];
-  if(envelopeHeld>0)notes.push(fmt(envelopeHeld)+' envelopes');
-  if(workPending>0)notes.push(fmt(workPending)+' work pending');
-  if(creditBal<0)notes.push(fmt(Math.abs(creditBal))+' CC debt');
-  document.getElementById('balances').innerHTML=`
+  // Envelopes — sum ALL buffers (positive and negative)
+  let envelopeTotal=0;
+  getEnvelopes().forEach(env=>{envelopeTotal+=calcEnvelope(env).buffer;});
+  // Available = bank + credit (negative=debt) + work pending - envelopes
+  const available=bankBal+creditBal+workPending-envelopeTotal;
+
+  let h=`<div class="bal-row main">
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
-    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${notes.join(' · ')}</div></div>
-    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
+    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div></div>
+    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>
+  </div>`;
+  h+=`<div class="bal-row detail">
+    <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
+    <div class="balance-card fade-in"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
+  </div>`;
+  document.getElementById('balances').innerHTML=h;
 }
 
 function renderSummary(){
@@ -1473,14 +1484,15 @@ function renderSnapshots(){
   let h='<div class="section-title">Monthly Balance Log</div>';
   state.snapshots.slice().reverse().slice(0,12).forEach(s=>{
     const avail=s.available!==undefined?fmt(s.available):'—';
-    const availColor=s.available>=0?'var(--accent)':'var(--red)';
+    const availColor=s.available!==undefined?(s.available>=0?'var(--accent)':'var(--red)'):'var(--text-dim)';
+    const envHtml=s.envelopes!==undefined?` <span style="color:var(--blue);font-size:10px">env ${fmt(s.envelopes)}</span>`:'';
     const savingsHtml=s.savings!==null&&s.savings!==undefined
       ?`<span class="snapshot-val" style="color:${s.savings>=0?'var(--accent)':'var(--red)'}"> ${s.savings>=0?'+':''}${fmt(s.savings)}</span>`
       :'';
     h+=`<div class="snapshot-row">
       <div class="snapshot-date">${s.month}</div>
-      <div><span class="snapshot-val" style="color:${availColor}">Avail ${avail}</span>${savingsHtml}</div>
-      <div><span class="snapshot-val" style="color:var(--text-dim)">Bank ${fmt(s.bank)}</span></div>
+      <div><span class="snapshot-val" style="color:${availColor}">Avail ${avail}</span>${envHtml}</div>
+      <div>${savingsHtml}</div>
     </div>`;
   });
   el.innerHTML=h;
