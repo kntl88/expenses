@@ -466,7 +466,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="category-filters" id="f-cat-pills" style="margin-bottom:0"></div>
     </div>
     <div class="subcat-picker" id="subcat-picker">
-      <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;display:block">Envelope</label>
+      <label id="subcat-label" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;display:block">Envelope</label>
       <div class="subcat-pills" id="subcat-pills"></div>
     </div>
     <div class="form-actions">
@@ -507,6 +507,7 @@ let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
 let formSubCat = '';
+let formWorkType = 'expense';
 let rateMode = 'day';
 let selectedCombos = new Set();
 
@@ -597,14 +598,23 @@ function renderFormCats(){
 function setFormCat(c){formCat=c;renderFormCats();
   const picker=document.getElementById('subcat-picker');
   if(c==='budgeted'){picker.classList.add('visible');renderSubCatPills();}
-  else{picker.classList.remove('visible');formSubCat='';}
+  else if(c==='work'){picker.classList.add('visible');renderWorkTypePills();}
+  else{picker.classList.remove('visible');formSubCat='';formWorkType='expense';}
 }
 function renderSubCatPills(){
   const envs=getEnvelopes();
+  document.getElementById('subcat-label').textContent='Envelope';
   document.getElementById('subcat-pills').innerHTML=envs.map(e=>
     `<button type="button" class="cat-pill ${formSubCat===e.id?'active':''}" onclick="setFormSubCat('${e.id}')">${esc(e.label)}</button>`
   ).join('')+(envs.length?'':'<span style="font-size:11px;color:var(--text-muted)">No envelopes — add one first</span>');
 }
+function renderWorkTypePills(){
+  document.getElementById('subcat-label').textContent='Type';
+  document.getElementById('subcat-pills').innerHTML=
+    `<button type="button" class="cat-pill ${formWorkType==='expense'?'active':''}" onclick="setWorkType('expense')">Expense</button>`+
+    `<button type="button" class="cat-pill ${formWorkType==='reimbursement'?'active':''}" onclick="setWorkType('reimbursement')">Reimbursement</button>`;
+}
+function setWorkType(t){formWorkType=t;renderWorkTypePills();}
 function setFormSubCat(id){formSubCat=id;renderSubCatPills();}
 
 // GitHub API
@@ -1228,13 +1238,17 @@ function editExpense(id){
   document.getElementById('f-date').value=e.date;
   document.getElementById('f-desc').value=e.description||'';
   formCat=e.category||'basic'; renderFormCats();
-  // Restore sub-category for budgeted items
+  // Restore sub-category for budgeted items, or work type
   if(e.category==='budgeted'&&e.subCategory){
     formSubCat=e.subCategory;
     document.getElementById('subcat-picker').classList.add('visible');
     renderSubCatPills();
+  } else if(e.category==='work'){
+    formWorkType=e.amount>0?'reimbursement':'expense';
+    document.getElementById('subcat-picker').classList.add('visible');
+    renderWorkTypePills();
   } else {
-    formSubCat='';
+    formSubCat='';formWorkType='expense';
     document.getElementById('subcat-picker').classList.remove('visible');
   }
   document.getElementById('f-save-btn').textContent='Update';
@@ -1246,19 +1260,22 @@ function editExpense(id){
 async function saveExpense(){
   const amount=parseFloat(document.getElementById('f-amount').value);
   const date=document.getElementById('f-date').value, desc=document.getElementById('f-desc').value.trim();
-  const cat=formCat, type=cat==='income'?'income':'expense';
+  const cat=formCat;
+  const isPositive = cat==='income' || (cat==='work' && formWorkType==='reimbursement');
+  const type = isPositive ? 'income' : 'expense';
   const subCat=cat==='budgeted'?formSubCat:undefined;
+  const signedAmount = isPositive ? Math.abs(amount) : -Math.abs(amount);
   if(!amount||!date){toast('Fill in amount and date',true);return;}
   if(cat==='budgeted'&&!subCat){toast('Pick an envelope',true);return;}
   if(editingId){
     const idx=state.expenses.findIndex(x=>x.id===editingId);
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
-    state.expenses[idx]={...state.expenses[idx], amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, subCategory:subCat};
+    state.expenses[idx]={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat};
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');toggleForm();clearForm();render();}else{state.expenses[idx]=backup;}
   } else {
-    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:type==='expense'?-Math.abs(amount):Math.abs(amount), date, description:desc||cat, category:cat, type, subCategory:subCat, created:new Date().toISOString()};
+    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, created:new Date().toISOString()};
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
   }
@@ -1488,8 +1505,8 @@ function renderList(){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';formSubCat='';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
