@@ -57,20 +57,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .auth-hint code { background: var(--surface); padding: 1px 5px; border-radius: 3px; color: var(--text-dim); }
 
 /* Balances */
-.balances { margin-bottom: 16px; }
-.balances-row { display: grid; gap: 10px; margin-bottom: 10px; }
-.balances-row.top { grid-template-columns: 1fr 1fr; }
-.balances-row.cards { grid-template-columns: repeat(3, 1fr); }
+.balances { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .balance-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
-.balance-card.small { padding: 10px; }
 .balance-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
-.balance-card.small .label { font-size: 9px; }
 .balance-card .value { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.balance-card.small .value { font-size: 14px; }
 .balance-card .offset-btn { font-family: var(--mono); font-size: 9px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 2px 0; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .balance-card .offset-btn:hover { color: var(--text-dim); }
-.cards-total { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; }
-.cards-total .ct-val { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* Summary */
 .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -220,43 +212,38 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .subcat-picker.visible { display: block; }
 .subcat-picker .subcat-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 
-/* Pin Pad (mobile only) */
+/* Pin Pad (mobile) */
 .pin-pad { display: none; }
-@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
-  .pin-pad { display: block; margin-top: 8px; }
+@media (max-width: 768px) {
+  .pin-pad { display: block; margin-top: 6px; }
   .pin-pad .pin-display {
-    text-align: center; font-size: 28px; font-weight: 500; font-family: var(--mono);
-    font-variant-numeric: tabular-nums; padding: 12px; margin-bottom: 8px;
+    text-align: center; font-size: 24px; font-weight: 500; font-family: var(--mono);
+    font-variant-numeric: tabular-nums; padding: 8px; margin-bottom: 6px;
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); min-height: 54px; letter-spacing: 2px;
+    color: var(--text); min-height: 44px; letter-spacing: 2px;
   }
   .pin-pad .pin-display.password { letter-spacing: 6px; }
-  .pin-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
-  }
+  .pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
   .pin-key {
-    font-family: var(--mono); font-size: 20px; font-weight: 400;
-    padding: 14px 0; border-radius: 8px; border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 18px; font-weight: 400;
+    padding: 10px 0; border-radius: 8px; border: 1px solid var(--border);
     background: var(--surface); color: var(--text); cursor: pointer;
     transition: all 0.1s; text-align: center; user-select: none;
   }
   .pin-key:active { background: var(--surface-2); border-color: var(--accent-dim); }
-  .pin-key.accent { background: var(--accent); color: var(--bg); border-color: var(--accent); font-size: 14px; font-weight: 500; }
-  .pin-key.danger { color: var(--red); font-size: 14px; }
-  /* Hide native inputs on mobile when pin pad is active */
-  .has-pin-pad #auth-unlock input[type="password"] { display: none; }
-  .has-pin-pad #auth-bootstrap input[type="password"] { display: none; }
-  .has-pin-pad #f-amount { display: none; }
+  .pin-key.accent { background: var(--accent); color: var(--bg); border-color: var(--accent); font-size: 13px; font-weight: 500; }
+  .pin-key.danger { color: var(--red); font-size: 13px; }
+  #auth-unlock input[type="password"],
+  #auth-bootstrap input[type="password"] { display: none; }
+  #f-amount { display: none; }
 }
 
 /* Responsive */
 @media (max-width: 500px) {
   .app { padding: 20px 14px 100px; }
-  .balances-row.top { gap: 8px; }
-  .balances-row.cards { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .balances { gap: 8px; }
   .balance-card { padding: 10px; }
   .balance-card .value { font-size: 15px; }
-  .balance-card.small .value { font-size: 12px; }
   .summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .summary-card { padding: 10px; }
   .summary-card .value { font-size: 13px; }
@@ -512,7 +499,6 @@ const DAILY_COMBOS = [
   { label: 'Gas', cats: ['gas'] },
 ];
 const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSHOTS_PATH='data/snapshots.json', VAULT_PATH='data/vault.json';
-const CREDIT_CARDS=[{id:'gold',label:'Gold'},{id:'work',label:'Work'},{id:'norwegian',label:'Norwegian'}];
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
 const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
 
@@ -525,7 +511,7 @@ let rateMode = 'day';
 let selectedCombos = new Set();
 
 // Pin Pad
-const isMobile = () => window.matchMedia('(max-width: 768px) and (hover: none) and (pointer: coarse)').matches;
+const isMobile = () => window.innerWidth <= 768;
 
 function buildPinPad(gridId, mode, onSubmit) {
   const grid = document.getElementById(gridId);
@@ -595,8 +581,6 @@ function resetPinPad(gridId) {
 }
 
 function initPinPads() {
-  if (!isMobile()) return;
-  document.body.classList.add('has-pin-pad');
   buildPinPad('pin-grid-unlock', 'password', 'unlock');
   buildPinPad('pin-grid-bootstrap', 'password', 'bootstrap');
   buildPinPad('pin-grid-amount', 'amount', '');
@@ -605,10 +589,7 @@ function initPinPads() {
   resetPinPad('pin-grid-amount');
 }
 
-window.addEventListener('resize', () => {
-  if (isMobile() && !document.body.classList.contains('has-pin-pad')) initPinPads();
-  if (!isMobile()) document.body.classList.remove('has-pin-pad');
-});
+window.addEventListener('resize', () => { initPinPads(); });
 
 function renderFormCats(){
   document.getElementById('f-cat-pills').innerHTML=Object.keys(CATEGORIES).map(c=>`<button type="button" class="cat-pill ${formCat===c?'active':''}" onclick="setFormCat('${c}')">${CATEGORIES[c].label}</button>`).join('');
@@ -650,6 +631,8 @@ async function loadData() {
   await checkMonthlySnapshot();
   generateProposedExpenses();
   render();
+  // Auto-open the expense form on login
+  toggleForm();
 }
 
 async function saveData() {
@@ -695,9 +678,8 @@ async function checkMonthlySnapshot() {
   const confirmed = state.expenses.filter(e => !e.proposed && !e.dismissed);
   const bankSum = confirmed.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
   const bankBal = (state.accounts.bank?.offset || 0) + bankSum;
-  // Credit cards total
-  let creditTotal = 0;
-  CREDIT_CARDS.forEach(card => { creditTotal += state.accounts[card.id]?.offset || 0; });
+  const creditSum = confirmed.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
+  const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
   // Available
   const workSpent = confirmed.filter(e => e.category==='work' && e.amount<0).reduce((s,e) => s+Math.abs(e.amount), 0);
   const workReimbursed = confirmed.filter(e => e.category==='work' && e.amount>0).reduce((s,e) => s+e.amount, 0);
@@ -708,7 +690,7 @@ async function checkMonthlySnapshot() {
   // Savings delta
   const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
   const savingsDelta = prevSnapshot && prevSnapshot.available !== undefined ? available - prevSnapshot.available : null;
-  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditTotal, total: bankBal + creditTotal, available, envelopes: envelopeHeld, workPending, savings: savingsDelta });
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, total: bankBal + creditBal, available, envelopes: envelopeHeld, workPending, savings: savingsDelta });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
 }
@@ -1170,12 +1152,12 @@ function showAuthMode() {
   document.getElementById('auth-setup').style.display='none'; document.getElementById('auth-unlock').style.display='none'; document.getElementById('auth-bootstrap').style.display='none';
   if(m&&v){
     document.getElementById('auth-unlock').style.display='block';
-    if(isMobile()){document.body.classList.add('has-pin-pad');buildPinPad('pin-grid-unlock','password','unlock');resetPinPad('pin-grid-unlock');}
-    else{setTimeout(()=>document.getElementById('auth-pw')?.focus(),50);}
+    buildPinPad('pin-grid-unlock','password','unlock');resetPinPad('pin-grid-unlock');
+    if(!isMobile())setTimeout(()=>document.getElementById('auth-pw')?.focus(),50);
   } else {
     document.getElementById('auth-bootstrap').style.display='block';
-    if(isMobile()){document.body.classList.add('has-pin-pad');buildPinPad('pin-grid-bootstrap','password','bootstrap');resetPinPad('pin-grid-bootstrap');}
-    else{setTimeout(()=>document.getElementById('auth-bootstrap-pw')?.focus(),50);}
+    buildPinPad('pin-grid-bootstrap','password','bootstrap');resetPinPad('pin-grid-bootstrap');
+    if(!isMobile())setTimeout(()=>document.getElementById('auth-bootstrap-pw')?.focus(),50);
   }
 }
 async function setupVault() {
@@ -1190,16 +1172,21 @@ async function setupVault() {
   }catch(e){toast('Setup failed: '+e.message,true);}
 }
 async function unlock() {
-  const pw=document.getElementById('auth-pw').value; if(!pw){toast('Enter password',true);return;}
+  let pw=document.getElementById('auth-pw').value;
+  // On mobile, read from pin pad directly
+  if(isMobile()){const g=document.getElementById('pin-grid-unlock');if(g&&g.dataset.value)pw=g.dataset.value;}
+  if(!pw){toast('Enter password',true);return;}
   const m=localStorage.getItem(LOCAL_META_KEY); if(!m){toast('No credentials',true);return;} const{repo}=JSON.parse(m);
   const v=localStorage.getItem('exp_vault'); if(!v){document.getElementById('auth-unlock').style.display='none';document.getElementById('auth-bootstrap').style.display='block';toast('Re-sync needed',true);return;}
   try{const p=JSON.parse(await decryptData(v,pw));const t=typeof p==='string'?p:p.token;const r=typeof p==='string'?repo:(p.repo||repo);if(!t||t.length<10)throw 0;connectWith(GH_OWNER,r,t);}
   catch(e){toast('Wrong password',true);document.getElementById('auth-pw').value='';resetPinPad('pin-grid-unlock');if(!isMobile())document.getElementById('auth-pw').focus();}
 }
-function showSyncMode(){document.getElementById('auth-setup').style.display='none';document.getElementById('auth-bootstrap').style.display='block';if(isMobile()){buildPinPad('pin-grid-bootstrap','password','bootstrap');resetPinPad('pin-grid-bootstrap');}}
+function showSyncMode(){document.getElementById('auth-setup').style.display='none';document.getElementById('auth-bootstrap').style.display='block';buildPinPad('pin-grid-bootstrap','password','bootstrap');resetPinPad('pin-grid-bootstrap');}
 function showSetupMode(){document.getElementById('auth-bootstrap').style.display='none';document.getElementById('auth-setup').style.display='block';}
 async function bootstrap() {
-  const pw=document.getElementById('auth-bootstrap-pw').value; if(!pw){toast('Enter password',true);return;}
+  let pw=document.getElementById('auth-bootstrap-pw').value;
+  if(isMobile()){const g=document.getElementById('pin-grid-bootstrap');if(g&&g.dataset.value)pw=g.dataset.value;}
+  if(!pw){toast('Enter password',true);return;}
   try{
     const enc=await loadVaultFromPublicRepo(GH_OWNER,GH_PUBLIC_REPO); if(!enc){toast('No vault — use setup',true);return;}
     const p=JSON.parse(await decryptData(enc,pw));const t=typeof p==='string'?p:p.token;const r=typeof p==='string'?'':p.repo;
@@ -1214,19 +1201,18 @@ function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],acco
 function tryAutoConnect(){initPinPads();showAuthMode();}
 
 // Offset modal
-function openOffsetModal(acct){offsetModalAccount=acct;const card=CREDIT_CARDS.find(c=>c.id===acct);const title=acct==='bank'?'Bank Balance':card?card.label+' Balance':'Balance';document.getElementById('offset-modal-title').textContent=title;document.getElementById('offset-input').value='';document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
+function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('offset-modal-title').textContent=acct==='bank'?'Bank Balance':'Credit Card Balance';document.getElementById('offset-input').value='';document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
   if(!state.accounts[offsetModalAccount])state.accounts[offsetModalAccount]={};
   if(offsetModalAccount==='bank'){
-    // Bank: offset = actual minus tracked income sum
-    const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
     const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-    state.accounts[offsetModalAccount].offset=actual-bankSum;
+    state.accounts.bank.offset=actual-bankSum;
   } else {
-    // Credit cards: offset IS the balance (negative means you owe)
-    state.accounts[offsetModalAccount].offset=actual;
+    const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
+    state.accounts.credit.offset=actual-creditSum;
   }
   if(await saveAccounts()){toast('Balance saved');closeOffsetModal();render();}
 }
@@ -1290,16 +1276,7 @@ function renderBalances(){
   const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   const bankBal=(state.accounts.bank?.offset||0)+bankSum;
-  // Individual credit cards — each has its own offset, all share the same creditSum
-  // The total across cards should equal creditSum + sum of offsets
-  let totalCredit=0;
-  const cardBalances=CREDIT_CARDS.map(card=>{
-    const offset=state.accounts[card.id]?.offset||0;
-    // Each card's balance is just its offset (user adjusts each to match statement)
-    // The tracked creditSum is distributed implicitly — offsets ARE the balances
-    totalCredit+=offset;
-    return {id:card.id, label:card.label, balance:offset};
-  });
+  const creditBal=(state.accounts.credit?.offset||0)+creditSum;
   // Work pending
   const workSpent=confirmed.filter(e=>e.category==='work'&&e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const workReimbursed=confirmed.filter(e=>e.category==='work'&&e.amount>0).reduce((s,e)=>s+e.amount,0);
@@ -1311,18 +1288,10 @@ function renderBalances(){
   const notes=[];
   if(envelopeHeld>0)notes.push(fmt(envelopeHeld)+' envelopes');
   if(workPending>0)notes.push(fmt(workPending)+' work pending');
-
-  let h=`<div class="balances-row top">
+  document.getElementById('balances').innerHTML=`
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${notes.join(' · ')}</div></div>
-  </div>`;
-  h+=`<div class="cards-total"><span>Credit Cards</span><span class="ct-val" style="color:${totalCredit>=0?'var(--accent)':'var(--red)'}">${fmt(totalCredit)}</span></div>`;
-  h+=`<div class="balances-row cards">`;
-  cardBalances.forEach(c=>{
-    h+=`<div class="balance-card small fade-in"><div class="label">${c.label}</div><div class="value" style="color:${c.balance>=0?'var(--accent)':'var(--red)'}">${fmt(c.balance)}</div><button class="offset-btn" onclick="openOffsetModal('${c.id}')">adjust</button></div>`;
-  });
-  h+=`</div>`;
-  document.getElementById('balances').innerHTML=h;
+    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>`;
 }
 
 function renderSummary(){
