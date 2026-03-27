@@ -159,6 +159,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .expense-item .delete-btn { display: none; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 6px; font-size: 14px; }
 .expense-item:hover .delete-btn { display: inline; }
 .expense-item .delete-btn:hover { color: var(--red); }
+.expense-item.work-pending { border-left-color: var(--orange) !important; }
+.expense-item.work-reimbursed { border-left-color: var(--accent) !important; opacity: 0.6; }
+.expense-item.work-reimbursed .expense-desc { text-decoration: line-through; }
+.work-badge { font-family: var(--mono); font-size: 8px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: none; }
+.work-badge.pending { background: rgba(240,160,84,0.15); color: var(--orange); }
+.work-badge.reimbursed { background: rgba(196,245,74,0.1); color: var(--accent); }
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
 
 /* Toast */
@@ -691,9 +697,7 @@ async function checkMonthlySnapshot() {
   const creditSum = confirmed.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
   const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
   // Available
-  const workSpent = confirmed.filter(e => e.category==='work' && e.amount<0).reduce((s,e) => s+Math.abs(e.amount), 0);
-  const workReimbursed = confirmed.filter(e => e.category==='work' && e.amount>0).reduce((s,e) => s+e.amount, 0);
-  const workPending = Math.max(0, workSpent - workReimbursed);
+  const workPending = confirmed.filter(e => e.category==='work' && e.amount<0 && !e.reimbursed).reduce((s,e) => s+Math.abs(e.amount), 0);
   let envelopeHeld = 0;
   getEnvelopes().forEach(env => { const c = calcEnvelope(env); if(c.buffer > 0) envelopeHeld += c.buffer; });
   const available = bankBal - envelopeHeld + workPending;
@@ -1282,6 +1286,15 @@ async function saveExpense(){
 }
 async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...state.expenses];state.expenses=state.expenses.filter(e=>e.id!==id);if(await saveData()){toast('Deleted');render();}else{state.expenses=bk;}}
 
+async function toggleReimbursed(id){
+  const idx=state.expenses.findIndex(e=>e.id===id);
+  if(idx===-1)return;
+  const backup={...state.expenses[idx]};
+  state.expenses[idx]={...state.expenses[idx], reimbursed:!state.expenses[idx].reimbursed};
+  if(await saveData()){toast(state.expenses[idx].reimbursed?'Marked reimbursed':'Marked pending');render();}
+  else{state.expenses[idx]=backup;}
+}
+
 // Render
 function render(){renderBalances();renderSummary();renderBudgeted();renderDailyRates();renderWeekly();renderSnapshots();renderFilters();renderList();}
 
@@ -1294,10 +1307,8 @@ function renderBalances(){
   const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
   const bankBal=(state.accounts.bank?.offset||0)+bankSum;
   const creditBal=(state.accounts.credit?.offset||0)+creditSum;
-  // Work pending
-  const workSpent=confirmed.filter(e=>e.category==='work'&&e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
-  const workReimbursed=confirmed.filter(e=>e.category==='work'&&e.amount>0).reduce((s,e)=>s+e.amount,0);
-  const workPending=Math.max(0, workSpent-workReimbursed);
+  // Work pending = unreimbursed work expenses
+  const workPending=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed).reduce((s,e)=>s+Math.abs(e.amount),0);
   // Envelopes
   let envelopeHeld=0;
   getEnvelopes().forEach(env=>{const c=calcEnvelope(env);if(c.buffer>0)envelopeHeld+=c.buffer;});
@@ -1318,10 +1329,9 @@ function renderSummary(){
   const spent=personal.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
   const savings=income-spent;
   // Work balance this month
-  const workItems=items.filter(e=>e.category==='work');
-  const workSpent=workItems.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
-  const workBack=workItems.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-  const workNet=workSpent-workBack;
+  const workItems=items.filter(e=>e.category==='work'&&e.amount<0);
+  const workPendingAmt=workItems.filter(e=>!e.reimbursed).reduce((s,e)=>s+Math.abs(e.amount),0);
+  const workTotal=workItems.reduce((s,e)=>s+Math.abs(e.amount),0);
   // Fixed monthly
   const templates=getRecurringTemplates();
   let recurringMo=0;
@@ -1334,8 +1344,8 @@ function renderSummary(){
     <div class="summary-card fade-in"><div class="label">Spent</div><div class="value" style="color:var(--red)">${fmt(spent)}</div></div>
     <div class="summary-card fade-in"><div class="label">Savings</div><div class="value" style="color:${savings>=0?'var(--accent)':'var(--red)'}">${savings>=0?'+':''}${fmt(savings)}</div></div>
     <div class="summary-card fade-in"><div class="label">Fixed/mo</div><div class="value" style="color:var(--blue)">${fmt(fixedMo)}</div></div>`;
-  if(workSpent>0||workBack>0){
-    html+=`<div class="summary-card fade-in"><div class="label">Work pending</div><div class="value" style="color:${workNet>0?'var(--orange)':'var(--accent)'}">${workNet>0?fmt(workNet):fmt(0)}</div></div>`;
+  if(workTotal>0){
+    html+=`<div class="summary-card fade-in"><div class="label">Work pending</div><div class="value" style="color:${workPendingAmt>0?'var(--orange)':'var(--accent)'}">${fmt(workPendingAmt)}</div></div>`;
   }
   document.getElementById('summary').innerHTML=html;
   const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1488,19 +1498,75 @@ function renderList(){
   const g={}; items.forEach(e=>{if(!g[e.date])g[e.date]=[];g[e.date].push(e);});
   let h=''; Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
-    g[date].forEach(e=>{const cat=CATEGORIES[e.category]||CATEGORIES.basic;
+    // Aggregate same category+description (non-proposed only)
+    const dayItems=g[date];
+    const agg={}, solo=[];
+    dayItems.forEach(e=>{
+      if(e.proposed||e._expanded||e.category==='work'){solo.push(e);return;}
+      const key=e.category+'||'+(e.description||'').toLowerCase();
+      if(!agg[key])agg[key]={items:[],cat:e.category,description:e.description};
+      agg[key].items.push(e);
+    });
+    const renderItem=(e,count)=>{
+      const cat=CATEGORIES[e.category]||CATEGORIES.basic;
       const envLabel=e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
       const metaLabel=envLabel?cat.label+' · '+envLabel:cat.label;
       const hasDesc=e.description && e.description.toLowerCase()!==e.category;
-      const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${metaLabel}</div>`;
-      const proposedClass=e.proposed?' proposed':'';
-      const actionHtml=e.proposed
-        ?`<div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div>`
-        :`<button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button>`;
-      h+=`<div class="expense-item fade-in${proposedClass}" style="border-left-color:${cat.color}" onclick="${e.proposed?'':`editExpense('${e.id}')`}"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div>${actionHtml}</div></div>`;
+      const countLabel=count>1?` <span style="color:var(--text-muted);font-size:10px">×${count}</span>`:'';
+      const workBadge=(e.category==='work'&&e.amount<0)?`<span class="work-badge ${e.reimbursed?'reimbursed':'pending'}" onclick="event.stopPropagation();toggleReimbursed('${e.id}')">${e.reimbursed?'reimbursed':'pending'}</span> `:'';
+      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}</div>`;
+      return descHtml;
+    };
+    // Render aggregated groups
+    Object.values(agg).forEach(group=>{
+      const cat=CATEGORIES[group.cat]||CATEGORIES.basic;
+      const totalAmt=group.items.reduce((s,e)=>s+e.amount,0);
+      if(group.items.length===1){
+        const e=group.items[0];
+        const descHtml=renderItem(e,1);
+        h+=`<div class="expense-item fade-in" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
+      } else {
+        const e=group.items[0];
+        const descHtml=renderItem(e,group.items.length);
+        const ids=group.items.map(x=>x.id).join(',');
+        h+=`<div class="expense-item fade-in" style="border-left-color:${cat.color}" onclick="expandGroup('${ids}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${totalAmt<0?'negative':'positive'}">${totalAmt<0?'-':'+'}€${Math.abs(totalAmt).toFixed(2)}</div></div></div>`;
+      }
+    });
+    // Render solo items (proposed + expanded)
+    solo.forEach(e=>{
+      const cat=CATEGORIES[e.category]||CATEGORIES.basic;
+      const descHtml=renderItem(e,1);
+      if(e.proposed){
+        h+=`<div class="expense-item fade-in proposed" style="border-left-color:${cat.color}"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div></div></div>`;
+      } else {
+        const workClass=e.category==='work'&&e.amount<0?(e.reimbursed?' work-reimbursed':' work-pending'):'';
+        h+=`<div class="expense-item fade-in${workClass}" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
+      }
     });
   });
   container.innerHTML=h;
+}
+
+function expandGroup(idsStr){
+  const ids=idsStr.split(',');
+  let h='';
+  ids.forEach(id=>{
+    const e=state.expenses.find(x=>x.id===id);if(!e)return;
+    const cat=CATEGORIES[e.category]||CATEGORIES.basic;
+    const envLabel=e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
+    const metaLabel=envLabel?cat.label+' · '+envLabel:cat.label;
+    const hasDesc=e.description && e.description.toLowerCase()!==e.category;
+    const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${metaLabel}</div>`;
+    h+=`<div class="expense-item fade-in" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
+  });
+  // Replace just the clicked group — simplest: re-render with expansion state
+  // For simplicity, show in a toast-like expansion
+  const modal=document.getElementById('offset-modal');
+  // Actually, just re-render the full list with these items ungrouped
+  toast('Tap individual items to edit');
+  // Temporarily mark these as expanded
+  ids.forEach(id=>{const e=state.expenses.find(x=>x.id===id);if(e)e._expanded=true;});
+  renderList();
 }
 
 function fmt(n){return '€'+n.toFixed(2);}
