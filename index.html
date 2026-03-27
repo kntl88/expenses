@@ -700,7 +700,7 @@ async function checkMonthlySnapshot() {
   const workPending = confirmed.filter(e => e.category==='work' && e.amount<0 && !e.reimbursed).reduce((s,e) => s+Math.abs(e.amount), 0);
   let envelopeHeld = 0;
   getEnvelopes().forEach(env => { const c = calcEnvelope(env); if(c.buffer > 0) envelopeHeld += c.buffer; });
-  const available = bankBal - envelopeHeld + workPending;
+  const available = bankBal + creditBal - envelopeHeld + workPending;
   // Savings delta
   const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
   const savingsDelta = prevSnapshot && prevSnapshot.available !== undefined ? available - prevSnapshot.available : null;
@@ -1312,10 +1312,11 @@ function renderBalances(){
   // Envelopes
   let envelopeHeld=0;
   getEnvelopes().forEach(env=>{const c=calcEnvelope(env);if(c.buffer>0)envelopeHeld+=c.buffer;});
-  const available=bankBal-envelopeHeld+workPending;
+  const available=bankBal+creditBal-envelopeHeld+workPending;
   const notes=[];
   if(envelopeHeld>0)notes.push(fmt(envelopeHeld)+' envelopes');
   if(workPending>0)notes.push(fmt(workPending)+' work pending');
+  if(creditBal<0)notes.push(fmt(Math.abs(creditBal))+' CC debt');
   document.getElementById('balances').innerHTML=`
     <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div><div style="font-size:9px;color:var(--text-muted);margin-top:4px">${notes.join(' · ')}</div></div>
