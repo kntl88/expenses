@@ -904,12 +904,29 @@ function renderBudgeted() {
   if (!envs.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
 
+  // Calculate raw buffers
+  const calcs = envs.map(env => ({ env, calc: calcEnvelope(env) }));
+
+  // Redistribution: negative envelopes get covered evenly by positive ones
+  const totalDeficit = calcs.filter(c => c.calc.buffer < 0).reduce((s, c) => s + Math.abs(c.calc.buffer), 0);
+  const positiveEnvs = calcs.filter(c => c.calc.buffer > 0);
+  const totalPositive = positiveEnvs.reduce((s, c) => s + c.calc.buffer, 0);
+  const coverageRatio = totalPositive > 0 ? Math.min(1, totalDeficit / totalPositive) : 0;
+
   let totalEffective = 0;
   let h = '<div class="section-title">Budget Envelopes</div><div class="envelope-grid">';
-  envs.forEach(env => {
-    const c = calcEnvelope(env);
+  calcs.forEach(({ env, calc: c }) => {
     totalEffective += c.effectiveRate;
-    const bufColor = c.buffer >= 0 ? 'var(--accent)' : 'var(--red)';
+    const rawBuffer = c.buffer;
+    // Effective balance after redistribution
+    let effectiveBuffer = rawBuffer;
+    let contribution = 0;
+    if (rawBuffer > 0 && totalDeficit > 0) {
+      contribution = rawBuffer * coverageRatio;
+      effectiveBuffer = rawBuffer - contribution;
+    }
+
+    const bufColor = rawBuffer >= 0 ? 'var(--accent)' : 'var(--red)';
     const rateHtml = c.recovering
       ? `<span class="elevated">€${c.effectiveRate.toFixed(0)}/mo</span> (base €${c.baseAlloc}/mo · recovers in ~${c.recoveryEta}mo)`
       : `€${c.baseAlloc}/mo`;
@@ -917,16 +934,27 @@ function renderBudgeted() {
       ? `<div class="env-progress"><div class="env-progress-bar" style="width:${(c.progress*100).toFixed(0)}%"></div></div>`
       : '';
     const targetHtml = c.target ? ` · target €${c.target}` : '';
+    const contribHtml = contribution > 0
+      ? `<div style="font-size:9px;color:var(--orange);margin-top:2px">Covering €${contribution.toFixed(0)} deficit → effective ${effectiveBuffer>=0?'+':''}€${effectiveBuffer.toFixed(0)}</div>`
+      : '';
     h += `<div class="envelope-card">
       <div class="env-label">${esc(env.label)}</div>
-      <div class="env-buffer" style="color:${bufColor}">${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
+      <div class="env-buffer" style="color:${bufColor}">${rawBuffer>=0?'+':''}€${rawBuffer.toFixed(2)}</div>
       <div class="env-rate">${rateHtml}</div>
       <div class="env-meta">Allocated €${c.totalAllocated.toFixed(0)} · Spent €${c.totalSpent.toFixed(0)}${targetHtml}</div>
+      ${contribHtml}
       ${progressHtml}
     </div>`;
   });
   h += '</div>';
+
+  // Summary: total, covered deficit, net
+  const totalEnvBalance = calcs.reduce((s, c) => s + c.calc.buffer, 0);
+  const coveredNote = totalDeficit > 0
+    ? ` <span style="font-size:10px;color:var(--orange)">(€${totalDeficit.toFixed(0)} deficit covered by others)</span>`
+    : '';
   h += `<div class="budgeted-total"><span>Total effective budgeted</span><span class="bt-val">€${totalEffective.toFixed(2)}/mo</span></div>`;
+  h += `<div class="budgeted-total"><span>Net envelope balance${coveredNote}</span><span class="bt-val" style="color:${totalEnvBalance>=0?'var(--blue)':'var(--red)'}">${totalEnvBalance>=0?'+':''}€${totalEnvBalance.toFixed(2)}</span></div>`;
   el.innerHTML = h;
 }
 
