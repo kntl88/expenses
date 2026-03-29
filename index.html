@@ -316,7 +316,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   <div class="modal">
     <h3>Bulk Add</h3>
     <p>One transaction per line: <code>date category amount description</code><br>
-       Date: YYYY-MM-DD or DD.MM. &nbsp; Category: first letters work (ba, pu, ga, fu, fi, un, ne, in)<br>
+       Date: YYYY-MM-DD or DD.MM. &nbsp; Category: first letters work (ba, pu, ga, fu, fi, un, bu, wo, in)<br>
+       <code>pu</code> = budgeted purchase<br>
        Example: <code>2026-03-25 ba 12.50 Groceries</code></p>
     <textarea id="bulk-input" placeholder="2026-03-25 basic 12.50 Groceries
 25.3. fun 8 Cinema
@@ -499,13 +500,14 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 </div>
 
 <script>
-const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, purchase:{label:'Purchase',color:'#54a0f0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, work:{label:'Work',color:'#40c8c8'}, income:{label:'Income',color:'#c4f54a'} };
+const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, work:{label:'Work',color:'#40c8c8'}, income:{label:'Income',color:'#c4f54a'} };
+const PURCHASES_ENVELOPE_ID = 'purchases';
 const DAILY_COMBOS = [
   { label: 'Basic', cats: ['basic'] },
   { label: 'Fun', cats: ['fun'] },
   { label: 'Unnecessary', cats: ['unnecessary'] },
   { label: 'Ba+Fu+Un', cats: ['basic','fun','unnecessary'] },
-  { label: 'Purchases', cats: ['purchase'] },
+  { label: 'Purchases', cats: ['purchase'], subCat: PURCHASES_ENVELOPE_ID },
   { label: 'Gas', cats: ['gas'] },
 ];
 const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSHOTS_PATH='data/snapshots.json', VAULT_PATH='data/vault.json';
@@ -1021,6 +1023,9 @@ async function deleteEnvelope(id) {
 // Bulk add
 const CAT_ALIASES = {};
 Object.keys(CATEGORIES).forEach(k => { CAT_ALIASES[k] = k; for (let i = 2; i <= k.length; i++) { const prefix = k.slice(0, i); if (!CAT_ALIASES[prefix]) CAT_ALIASES[prefix] = k; } });
+// purchase aliases → budgeted
+CAT_ALIASES['purchase'] = 'budgeted'; CAT_ALIASES['pu'] = 'budgeted';
+const PURCHASE_ALIASES = new Set(['purchase','pu']);
 
 function parseBulkLine(line) {
   line = line.trim();
@@ -1046,8 +1051,10 @@ function parseBulkLine(line) {
 
   const desc = parts.slice(3).join(' ') || cat;
   const type = cat === 'income' ? 'income' : 'expense';
+  // Auto-assign purchases envelope for purchase aliases
+  const subCategory = PURCHASE_ALIASES.has(catInput) ? PURCHASES_ENVELOPE_ID : undefined;
 
-  return { date: dateStr, category: cat, amount: type === 'expense' ? -amount : amount, description: desc, type };
+  return { date: dateStr, category: cat, amount: type === 'expense' ? -amount : amount, description: desc, type, subCategory };
 }
 
 function openBulkModal() {
@@ -1079,6 +1086,7 @@ async function bulkAdd() {
   const newEntries = parsed.map(p => ({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     amount: p.amount, date: p.date, description: p.description, category: p.category, type: p.type,
+    subCategory: p.subCategory,
     created: new Date().toISOString()
   }));
 
@@ -1427,7 +1435,7 @@ function renderDailyRates(){
   // Grid
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   DAILY_COMBOS.forEach((combo,i)=>{
-    const total=periodItems.filter(e=>combo.cats.includes(e.category)).reduce((s,e)=>s+Math.abs(e.amount),0);
+    const total=periodItems.filter(e=>combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat)).reduce((s,e)=>s+Math.abs(e.amount),0);
     const daily=perDayDivisor>0?total/perDayDivisor:0;
     const sel=selectedCombos.has(i)?'selected':'';
     h+=`<div class="rate-item ${sel}" onclick="toggleCombo(${i})"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)} / day</div></div></div>`;
@@ -1437,8 +1445,9 @@ function renderDailyRates(){
   // Bar chart (if any combos selected)
   if(selectedCombos.size>0){
     const selCats=new Set();
-    selectedCombos.forEach(i=>{if(DAILY_COMBOS[i])DAILY_COMBOS[i].cats.forEach(c=>selCats.add(c));});
-    const filteredItems=periodItems.filter(e=>selCats.has(e.category));
+    const selSubCats=new Set();
+    selectedCombos.forEach(i=>{if(DAILY_COMBOS[i]){DAILY_COMBOS[i].cats.forEach(c=>selCats.add(c));if(DAILY_COMBOS[i].subCat)selSubCats.add(DAILY_COMBOS[i].subCat);}});
+    const filteredItems=periodItems.filter(e=>selCats.has(e.category)||(e.subCategory&&selSubCats.has(e.subCategory)));
     const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const todayStr=fmtLocal(now);
 
