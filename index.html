@@ -509,6 +509,8 @@ const DAILY_COMBOS = [
   { label: 'Ba+Fu+Un', cats: ['basic','fun','unnecessary'] },
   { label: 'Purchases', cats: ['purchase'], subCat: PURCHASES_ENVELOPE_ID },
   { label: 'Gas', cats: ['gas'] },
+  { label: 'Everything', allCats: true },
+  { label: 'All-Purch', allCats: true, excludeSubCat: PURCHASES_ENVELOPE_ID },
 ];
 const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSHOTS_PATH='data/snapshots.json', VAULT_PATH='data/vault.json';
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
@@ -520,7 +522,7 @@ let editingId = null;
 let formCat = 'basic';
 let formSubCat = '';
 let formWorkType = 'expense';
-let rateMode = 'day';
+let rateMode = 'week';
 let selectedCombos = new Set();
 
 // Pin Pad
@@ -1461,7 +1463,7 @@ function renderDailyRates(){
   // Grid
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   DAILY_COMBOS.forEach((combo,i)=>{
-    const total=periodItems.filter(e=>combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat)).reduce((s,e)=>s+Math.abs(e.amount),0);
+    const total=periodItems.filter(e=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat)).reduce((s,e)=>s+Math.abs(e.amount),0);
     const daily=perDayDivisor>0?total/perDayDivisor:0;
     const sel=selectedCombos.has(i)?'selected':'';
     h+=`<div class="rate-item ${sel}" onclick="toggleCombo(${i})"><div class="rate-label">${combo.label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(daily)} / day</div></div></div>`;
