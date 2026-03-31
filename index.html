@@ -92,7 +92,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
-.rate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.rate-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.rate-item.avail { background: var(--surface-1); border-color: var(--border); cursor: default; }
+.rate-item.avail .rate-total { color: #6cc070; }
+.rate-item.avail .rate-daily { color: #509050; }
+.rate-item.avail.over .rate-total { color: var(--red); }
+.rate-item.avail.over .rate-daily { color: #c05050; }
 .rate-item { padding: 5px 7px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .rate-item:hover { border-color: var(--border-hover); }
 .rate-item.selected { border-color: var(--accent-dim); background: rgba(196,245,74,0.05); }
@@ -261,7 +266,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .summary-card .label { font-size: 8px; }
   .weekly-breakdown { padding: 12px; }
   .week-row { padding: 5px 0; }
-  .rate-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .rate-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
   .rate-item .rate-total { font-size: 12px; }
   .rate-item .rate-daily { font-size: 9px; }
   .rate-chart { height: 100px; }
@@ -1462,20 +1467,23 @@ function renderDailyRates(){
   const perDayDivisor=periodDays;
 
   // Grid - compute totals for each combo
+  const WEEKLY_TARGET=200;
   const comboTotals=DAILY_COMBOS.map(combo=>periodItems.filter(e=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat)).reduce((s,e)=>s+Math.abs(e.amount),0));
   const cItem=(i)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'';return `<div class="rate-item ${sel}" onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)} / day</div></div></div>`;};
   const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)} / day</div></div></div>`;};
+  const dow=now.getDay(); const daysElapsed=dow===0?7:dow; const daysLeft=7-daysElapsed;
+  const availItem=(cumTotal)=>{const rem=WEEKLY_TARGET-cumTotal;const over=rem<0?'over':'';if(daysLeft<=0)return `<div class="rate-item avail ${over}"><div class="rate-label">Left</div><div class="rate-values"><div class="rate-total">${fmt(rem)}</div><div class="rate-daily">0 days</div></div></div>`;const perDay=rem/daysLeft;return `<div class="rate-item avail ${over}"><div class="rate-label">Avail</div><div class="rate-values"><div class="rate-total">${fmt(perDay)}/d</div><div class="rate-daily">${daysLeft}d left</div></div></div>`;};
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un
+  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un | Avail
   const cum1=comboTotals[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1);
-  // Row 2: Gas | cumulative (+Gas)
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+availItem(cum1);
+  // Row 2: Gas | cumulative (+Gas) | Avail
   const cum2=cum1+comboTotals[5];
-  h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2);
-  // Row 3: Purchases | cumulative (+Purch)
+  h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2)+availItem(cum2);
+  // Row 3: Purchases | cumulative (+Purch) | Avail
   const cum3=cum2+comboTotals[4];
-  h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3);
+  h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3)+availItem(cum3);
   h+='</div>';
 
   // Bar chart (if any combos selected)
