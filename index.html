@@ -92,14 +92,13 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
-.rate-grid { display: flex; flex-direction: column; gap: 5px; }
-.rate-row { display: flex; gap: 5px; }
-.rate-item { padding: 5px 7px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; flex: 1; min-width: 0; }
+.rate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.rate-item { padding: 5px 7px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .rate-item:hover { border-color: var(--border-hover); }
 .rate-item.selected { border-color: var(--accent-dim); background: rgba(196,245,74,0.05); }
-.rate-item.cum { background: var(--surface-1); border-color: var(--border); cursor: default; flex: 1.1; }
-.rate-item .rate-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rate-item .rate-values { display: flex; flex-direction: column; gap: 0; }
+.rate-item.cum { background: var(--surface-1); border-color: var(--border); cursor: default; }
+.rate-item .rate-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
+.rate-item .rate-values { display: flex; flex-direction: column; align-items: flex-end; gap: 0; flex-shrink: 0; }
 .rate-item .rate-total { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
 .rate-item .rate-daily { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--text-dim); }
 
@@ -262,7 +261,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .summary-card .label { font-size: 8px; }
   .weekly-breakdown { padding: 12px; }
   .week-row { padding: 5px 0; }
-  .rate-row { flex-wrap: wrap; gap: 4px; }
+  .rate-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
   .rate-item .rate-total { font-size: 12px; }
   .rate-item .rate-daily { font-size: 9px; }
   .rate-chart { height: 100px; }
@@ -1470,15 +1469,15 @@ function renderDailyRates(){
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un
   const cum1=comboTotals[3];
-  h+=`<div class="rate-row">${cItem(0)}${cItem(1)}${cItem(2)}${cumItem('Ba+Fu+Un',cum1)}</div>`;
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1);
   // Row 2: Gas | cumulative (+Gas)
   const cum2=cum1+comboTotals[5];
-  h+=`<div class="rate-row">${cItem(5)}${cumItem('+Gas',cum2)}</div>`;
+  h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2);
   // Row 3: Purchases | cumulative (+Purch)
   const cum3=cum2+comboTotals[4];
-  h+=`<div class="rate-row">${cItem(4)}${cumItem('+Purch',cum3)}</div>`;
+  h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3);
   // Row 4: Everything, All-Purch
-  h+=`<div class="rate-row">${cItem(6)}${cItem(7)}</div>`;
+  h+=cItem(6)+`<div></div><div></div>`+cItem(7);
   h+='</div>';
 
   // Bar chart (if any combos selected)
