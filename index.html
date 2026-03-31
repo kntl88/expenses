@@ -93,12 +93,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
-.rate-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+.rate-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
 .rate-item.avail { background: var(--surface-1); border-color: var(--border); cursor: default; }
 .rate-item.avail .rate-total { color: #6cc070; }
 .rate-item.avail .rate-daily { color: #509050; }
 .rate-item.avail.over .rate-total { color: var(--red); }
 .rate-item.avail.over .rate-daily { color: #c05050; }
+.rate-item.avail-stack { background: var(--surface-1); border-color: var(--border); cursor: default; flex-direction: column; align-items: stretch; gap: 2px; }
+.rate-item.avail-stack .avs-row { display: flex; justify-content: flex-end; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.rate-item.avail-stack .avs-budget { color: var(--orange); }
+.rate-item.avail-stack .avs-spent { color: var(--red); }
+.rate-item.avail-stack .avs-surplus { color: #6cc070; }
+.rate-item.avail-stack .avs-surplus.neg { color: var(--red); }
 .rate-item { padding: 5px 7px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .rate-item:hover { border-color: var(--border-hover); }
 .rate-item.selected { border-color: var(--accent-dim); background: rgba(196,245,74,0.05); }
@@ -453,7 +459,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v1.3</div>
+  <div class="auth-version">v1.4</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1486,26 +1492,24 @@ function renderDailyRates(){
   const daysAfter=daysIncToday-1;
   const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const tdName=dayNames[dayOfWeek];
-  const remainLabel=daysAfter>0?`${dayNames[dayOfWeek+1]}\u2013${dayNames[6]}`:'—';
   const availCols=(cumBefore,cumToday)=>{
-    if(!isCurrentMonth)return '<div></div><div></div><div></div><div></div>';
+    if(!isCurrentMonth)return '<div></div><div></div>';
     const bs=WEEKLY_TARGET-cumBefore;const tb=bs>0?bs/daysIncToday:0;
-    const tl=tb-cumToday;const surpCls=tl>=0?'':'over';
+    const tl=tb-cumToday;const surpNeg=tl<0?'neg':'';
     const pda=daysAfter>0?(bs-cumToday)/daysAfter:0;const pdaCls=pda<0?'over':'';
-    return `<div class="rate-item avail"><div class="rate-label">Budget</div><div class="rate-values"><div class="rate-total">${fmt(tb)}</div><div class="rate-daily">${tdName}</div></div></div>`
-      +`<div class="rate-item avail"><div class="rate-label">Spent</div><div class="rate-values"><div class="rate-total">${fmt(cumToday)}</div><div class="rate-daily">${tdName}</div></div></div>`
-      +`<div class="rate-item avail ${surpCls}"><div class="rate-label">Surplus</div><div class="rate-values"><div class="rate-total">${tl>=0?'+':''}${fmt(tl)}</div><div class="rate-daily">${tdName}</div></div></div>`
-      +`<div class="rate-item avail ${pdaCls}"><div class="rate-label">Avail</div><div class="rate-values"><div class="rate-total">${fmt(pda)}/d</div><div class="rate-daily">${remainLabel}</div></div></div>`;
+    const surpPerDay=daysAfter>0?tl/daysAfter:0;
+    return `<div class="rate-item avail-stack"><div class="avs-row avs-budget">${fmt(tb)}</div><div class="avs-row avs-spent">${fmt(cumToday)}</div><div class="avs-row avs-surplus ${surpNeg}">${tl>=0?'+':''}${fmt(tl)}</div></div>`
+      +`<div class="rate-item avail ${pdaCls}"><div class="rate-values"><div class="rate-daily">${surpPerDay>=0?'+':''}${fmt(surpPerDay)}/d</div><div class="rate-total">${fmt(pda)}/d</div></div></div>`;
   };
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un | Budget | Spent | Surplus | Avail
+  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un | Today stack | Avail
   const cum1=comboTotals[3];const c1b=comboBefore[3],c1t=comboTdy[3];
   h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+availCols(c1b,c1t);
-  // Row 2: Gas | cumulative (+Gas) | Budget | Spent | Surplus | Avail
+  // Row 2: Gas | cumulative (+Gas) | Today stack | Avail
   const cum2=cum1+comboTotals[5];const c2b=c1b+comboBefore[5],c2t=c1t+comboTdy[5];
   h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2)+availCols(c2b,c2t);
-  // Row 3: Purchases | cumulative (+Purch) | Budget | Spent | Surplus | Avail
+  // Row 3: Purchases | cumulative (+Purch) | Today stack | Avail
   const cum3=cum2+comboTotals[4];const c3b=c2b+comboBefore[4],c3t=c2t+comboTdy[4];
   h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3)+availCols(c3b,c3t);
   h+='</div>';
