@@ -93,7 +93,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
-.rate-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.rate-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
 .rate-item.avail { background: var(--surface-1); border-color: var(--border); cursor: default; }
 .rate-item.avail .rate-total { color: #6cc070; }
 .rate-item.avail .rate-daily { color: #509050; }
@@ -453,7 +453,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v1.2</div>
+  <div class="auth-version">v1.3</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1486,24 +1486,28 @@ function renderDailyRates(){
   const daysAfter=daysIncToday-1;
   const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const tdName=dayNames[dayOfWeek];
-  const availItem=(cumBefore,cumToday)=>{
-    if(!isCurrentMonth)return '<div></div>';
-    const bs=WEEKLY_TARGET-cumBefore;const tb=bs>0?bs/daysIncToday:0;const tl=tb-cumToday;const over=tl<0?'over':'';
-    if(daysAfter<=0)return `<div class="rate-item avail ${over}"><div class="rate-label">${tdName}</div><div class="rate-values"><div class="rate-total">${tl>=0?'':'-'}${fmt(Math.abs(tl))}</div><div class="rate-daily">${tl>=0?'left':'over'} of ${fmt(tb)}</div></div></div>`;
-    const pda=(bs-cumToday)/daysAfter;const sign=tl>=0?'+':'-';
-    return `<div class="rate-item avail ${pda<0?'over':''}"><div class="rate-label">${tdName}: ${sign}${fmt(Math.abs(tl))}</div><div class="rate-values"><div class="rate-total">${pda<0?'-':''}${fmt(Math.abs(pda))}/d</div><div class="rate-daily">${dayNames[dayOfWeek+1]}\u2013${dayNames[6]}</div></div></div>`;
+  const remainLabel=daysAfter>0?`${dayNames[dayOfWeek+1]}\u2013${dayNames[6]}`:'—';
+  const availCols=(cumBefore,cumToday)=>{
+    if(!isCurrentMonth)return '<div></div><div></div><div></div><div></div>';
+    const bs=WEEKLY_TARGET-cumBefore;const tb=bs>0?bs/daysIncToday:0;
+    const tl=tb-cumToday;const surpCls=tl>=0?'':'over';
+    const pda=daysAfter>0?(bs-cumToday)/daysAfter:0;const pdaCls=pda<0?'over':'';
+    return `<div class="rate-item avail"><div class="rate-label">Budget</div><div class="rate-values"><div class="rate-total">${fmt(tb)}</div><div class="rate-daily">${tdName}</div></div></div>`
+      +`<div class="rate-item avail"><div class="rate-label">Spent</div><div class="rate-values"><div class="rate-total">${fmt(cumToday)}</div><div class="rate-daily">${tdName}</div></div></div>`
+      +`<div class="rate-item avail ${surpCls}"><div class="rate-label">Surplus</div><div class="rate-values"><div class="rate-total">${tl>=0?'+':''}${fmt(tl)}</div><div class="rate-daily">${tdName}</div></div></div>`
+      +`<div class="rate-item avail ${pdaCls}"><div class="rate-label">Avail</div><div class="rate-values"><div class="rate-total">${fmt(pda)}/d</div><div class="rate-daily">${remainLabel}</div></div></div>`;
   };
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un | Avail
+  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un | Budget | Spent | Surplus | Avail
   const cum1=comboTotals[3];const c1b=comboBefore[3],c1t=comboTdy[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+availItem(c1b,c1t);
-  // Row 2: Gas | cumulative (+Gas) | Avail
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+availCols(c1b,c1t);
+  // Row 2: Gas | cumulative (+Gas) | Budget | Spent | Surplus | Avail
   const cum2=cum1+comboTotals[5];const c2b=c1b+comboBefore[5],c2t=c1t+comboTdy[5];
-  h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2)+availItem(c2b,c2t);
-  // Row 3: Purchases | cumulative (+Purch) | Avail
+  h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2)+availCols(c2b,c2t);
+  // Row 3: Purchases | cumulative (+Purch) | Budget | Spent | Surplus | Avail
   const cum3=cum2+comboTotals[4];const c3b=c2b+comboBefore[4],c3t=c2t+comboTdy[4];
-  h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3)+availItem(c3b,c3t);
+  h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3)+availCols(c3b,c3t);
   h+='</div>';
 
   // Bar chart (if any combos selected)
