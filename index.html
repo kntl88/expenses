@@ -99,8 +99,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-item.cum { background: var(--surface-1); border-color: var(--border); cursor: default; }
 .rate-item .rate-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
 .rate-item .rate-values { display: flex; flex-direction: column; align-items: flex-end; gap: 0; flex-shrink: 0; }
-.rate-item .rate-total { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
-.rate-item .rate-daily { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.rate-item .rate-total { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: #e8a050; }
+.rate-item .rate-daily { font-size: 10px; font-variant-numeric: tabular-nums; color: #c08040; }
 
 /* Rate bar chart (vertical) */
 .rate-chart { margin-top: 12px; display: flex; align-items: flex-end; gap: 4px; height: 120px; padding-top: 4px; }
@@ -1476,8 +1476,6 @@ function renderDailyRates(){
   // Row 3: Purchases | cumulative (+Purch)
   const cum3=cum2+comboTotals[4];
   h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3);
-  // Row 4: Everything, All-Purch
-  h+=cItem(6)+`<div></div><div></div>`+cItem(7);
   h+='</div>';
 
   // Bar chart (if any combos selected)
