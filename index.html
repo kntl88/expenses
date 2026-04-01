@@ -459,7 +459,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v1.4</div>
+  <div class="auth-version">v1.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1455,7 +1455,8 @@ function getCurrentWeekRange(){
 }
 
 function renderDailyRates(){
-  const allItems=getMonthConfirmed().filter(e=>e.amount<0);
+  const monthItems=getMonthConfirmed().filter(e=>e.amount<0);
+  const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
   const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
@@ -1463,12 +1464,12 @@ function renderDailyRates(){
   const monthDaysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
 
   let periodItems, periodDays;
-  if(rateMode==='week' && isCurrentMonth){
+  if(rateMode==='week'){
     const wr=getCurrentWeekRange();
-    periodItems=allItems.filter(e=>e.date>=wr.start && e.date<=wr.end);
+    periodItems=allExpenses.filter(e=>e.date>=wr.start && e.date<=wr.end);
     periodDays=wr.daysElapsed;
   } else {
-    periodItems=allItems;
+    periodItems=monthItems;
     periodDays=monthDaysElapsed;
   }
 
@@ -1483,7 +1484,7 @@ function renderDailyRates(){
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(now);
   const cwk=getCurrentWeekRange();
-  const weekItems=allItems.filter(e=>e.date>=cwk.start&&e.date<=cwk.end);
+  const weekItems=allExpenses.filter(e=>e.date>=cwk.start&&e.date<=cwk.end&&e.category!=='budgeted');
   const comboFilter=(combo,items)=>items.filter(e=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat)).reduce((s,e)=>s+Math.abs(e.amount),0);
   const comboBefore=DAILY_COMBOS.map(combo=>comboFilter(combo,weekItems.filter(e=>e.date<todayStr)));
   const comboTdy=DAILY_COMBOS.map(combo=>comboFilter(combo,weekItems.filter(e=>e.date===todayStr)));
@@ -1493,7 +1494,6 @@ function renderDailyRates(){
   const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const tdName=dayNames[dayOfWeek];
   const availCols=(cumBefore,cumToday)=>{
-    if(!isCurrentMonth)return '<div></div><div></div>';
     const bs=WEEKLY_TARGET-cumBefore;const tb=bs>0?bs/daysIncToday:0;
     const tl=tb-cumToday;const surpNeg=tl<0?'neg':'';
     const pda=daysAfter>0?(bs-cumToday)/daysAfter:0;const pdaCls=pda<0?'over':'';
