@@ -403,13 +403,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Add envelope</div>
       <input id="env-label" type="text" placeholder="Label (e.g. Medical, Travel)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <input id="env-alloc" type="number" step="0.01" placeholder="€/month" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
-        <input id="env-recovery" type="number" min="1" placeholder="Recovery months (def 6)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <input id="env-start" type="month" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
-        <input id="env-target" type="number" step="0.01" placeholder="Target € (optional)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="env-target" type="number" step="0.01" placeholder="Target € (opt)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
       </div>
       <button class="btn btn-accent" style="width:100%" onclick="addEnvelope()">Add Envelope</button>
     </div>
@@ -953,23 +950,11 @@ function calcEnvelope(env) {
     .filter(e => e.subCategory === env.id && !e.proposed && !e.dismissed)
     .reduce((s, e) => s + Math.abs(e.amount), 0);
   const buffer = totalAllocated - totalSpent;
-  const recoveryMonths = env.recoveryMonths || 6;
-
-  let effectiveRate = baseAlloc;
-  let recovering = false;
-  let recoveryEta = 0;
-  if (buffer < 0) {
-    const deficit = Math.abs(buffer);
-    const extra = deficit / recoveryMonths;
-    effectiveRate = baseAlloc + extra;
-    recovering = true;
-    recoveryEta = Math.ceil(deficit / effectiveRate);
-  }
 
   const target = env.target || null;
   const progress = target ? Math.min(1, Math.max(0, (totalAllocated - totalSpent) / target)) : null;
 
-  return { buffer, totalAllocated, totalSpent, effectiveRate, baseAlloc, recovering, recoveryEta, target, progress, monthsElapsed };
+  return { buffer, totalAllocated, totalSpent, effectiveRate: baseAlloc, baseAlloc, target, progress, monthsElapsed };
 }
 
 function renderBudgeted() {
@@ -978,57 +963,30 @@ function renderBudgeted() {
   if (!envs.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
 
-  // Calculate raw buffers
   const calcs = envs.map(env => ({ env, calc: calcEnvelope(env) }));
 
-  // Redistribution: negative envelopes get covered evenly by positive ones
-  const totalDeficit = calcs.filter(c => c.calc.buffer < 0).reduce((s, c) => s + Math.abs(c.calc.buffer), 0);
-  const positiveEnvs = calcs.filter(c => c.calc.buffer > 0);
-  const totalPositive = positiveEnvs.reduce((s, c) => s + c.calc.buffer, 0);
-  const coverageRatio = totalPositive > 0 ? Math.min(1, totalDeficit / totalPositive) : 0;
-
-  let totalEffective = 0;
+  let totalRate = 0;
   let h = '<div class="section-title">Budget Envelopes</div><div class="envelope-grid">';
   calcs.forEach(({ env, calc: c }) => {
-    totalEffective += c.effectiveRate;
-    const rawBuffer = c.buffer;
-    // Effective balance after redistribution
-    let effectiveBuffer = rawBuffer;
-    let contribution = 0;
-    if (rawBuffer > 0 && totalDeficit > 0) {
-      contribution = rawBuffer * coverageRatio;
-      effectiveBuffer = rawBuffer - contribution;
-    }
-
-    const bufColor = rawBuffer >= 0 ? 'var(--accent)' : 'var(--red)';
-    const rateHtml = c.recovering
-      ? `<span class="elevated">€${c.effectiveRate.toFixed(0)}/mo</span> (base €${c.baseAlloc}/mo · recovers in ~${c.recoveryEta}mo)`
-      : `€${c.baseAlloc}/mo`;
+    totalRate += c.baseAlloc;
+    const bufColor = c.buffer >= 0 ? 'var(--accent)' : 'var(--red)';
     const progressHtml = c.target
       ? `<div class="env-progress"><div class="env-progress-bar" style="width:${(c.progress*100).toFixed(0)}%"></div></div>`
       : '';
     const targetHtml = c.target ? ` · target €${c.target}` : '';
-    const contribHtml = contribution > 0
-      ? `<div style="font-size:9px;color:var(--orange);margin-top:2px">Covering €${contribution.toFixed(0)} deficit → effective ${effectiveBuffer>=0?'+':''}€${effectiveBuffer.toFixed(0)}</div>`
-      : '';
     h += `<div class="envelope-card">
       <div class="env-label">${esc(env.label)}</div>
-      <div class="env-buffer" style="color:${bufColor}">${rawBuffer>=0?'+':''}€${rawBuffer.toFixed(2)}</div>
-      <div class="env-rate">${rateHtml}</div>
+      <div class="env-buffer" style="color:${bufColor}">${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
+      <div class="env-rate">€${c.baseAlloc}/mo</div>
       <div class="env-meta">Allocated €${c.totalAllocated.toFixed(0)} · Spent €${c.totalSpent.toFixed(0)}${targetHtml}</div>
-      ${contribHtml}
       ${progressHtml}
     </div>`;
   });
   h += '</div>';
 
-  // Summary: total, covered deficit, net
   const totalEnvBalance = calcs.reduce((s, c) => s + c.calc.buffer, 0);
-  const coveredNote = totalDeficit > 0
-    ? ` <span style="font-size:10px;color:var(--orange)">(€${totalDeficit.toFixed(0)} deficit covered by others)</span>`
-    : '';
-  h += `<div class="budgeted-total"><span>Total effective budgeted</span><span class="bt-val">€${totalEffective.toFixed(2)}/mo</span></div>`;
-  h += `<div class="budgeted-total"><span>Net envelope balance${coveredNote}</span><span class="bt-val" style="color:${totalEnvBalance>=0?'var(--blue)':'var(--red)'}">${totalEnvBalance>=0?'+':''}€${totalEnvBalance.toFixed(2)}</span></div>`;
+  h += `<div class="budgeted-total"><span>Total budgeted</span><span class="bt-val">€${totalRate.toFixed(2)}/mo</span></div>`;
+  h += `<div class="budgeted-total"><span>Net envelope balance</span><span class="bt-val" style="color:${totalEnvBalance>=0?'var(--blue)':'var(--red)'}">${totalEnvBalance>=0?'+':''}€${totalEnvBalance.toFixed(2)}</span></div>`;
   el.innerHTML = h;
 }
 
@@ -1049,7 +1007,7 @@ function renderEnvelopeList() {
   if (!envs.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No envelopes yet.</div>'; return; }
   el.innerHTML = envs.map(env => {
     const c = calcEnvelope(env);
-    const rateStr = c.recovering ? `€${c.effectiveRate.toFixed(0)}/mo (recovering)` : `€${c.baseAlloc}/mo`;
+    const rateStr = `€${c.baseAlloc}/mo`;
     return `<div class="recurring-item">
       <div>
         <div class="ri-info">${esc(env.label)} — buffer ${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
@@ -1063,7 +1021,6 @@ function renderEnvelopeList() {
 async function addEnvelope() {
   const label = document.getElementById('env-label').value.trim();
   const alloc = parseFloat(document.getElementById('env-alloc').value);
-  const recovery = parseInt(document.getElementById('env-recovery').value) || 6;
   const startDate = document.getElementById('env-start').value;
   const target = parseFloat(document.getElementById('env-target').value) || null;
 
@@ -1074,14 +1031,13 @@ async function addEnvelope() {
   // Ensure unique
   if (state.accounts.budgeted.find(e => e.id === id)) id += '_' + Date.now().toString(36).slice(-4);
   state.accounts.budgeted.push({
-    id, label, monthlyAlloc: alloc, recoveryMonths: recovery, startDate, target
+    id, label, monthlyAlloc: alloc, startDate, target
   });
 
   if (await saveAccounts()) {
     toast('Envelope added');
     document.getElementById('env-label').value = '';
     document.getElementById('env-alloc').value = '';
-    document.getElementById('env-recovery').value = '';
     document.getElementById('env-target').value = '';
     renderEnvelopeList();
     render();
