@@ -314,10 +314,11 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 <div id="offset-modal" class="modal-overlay">
   <div class="modal">
-    <h3 id="offset-modal-title">Set Balance</h3>
-    <p>Enter your actual current balance for this account. The app calculates the offset automatically.</p>
+    <h3 id="offset-modal-title">Adjust Balance</h3>
+    <p>Enter the actual balance. An adjustment entry will be created for the difference.</p>
     <input id="offset-input" type="number" step="0.01" placeholder="Actual balance right now"
            onkeydown="if(event.key==='Enter')saveOffset()">
+    <input id="offset-date" type="date" style="margin-top:8px">
     <div class="modal-actions">
       <button class="btn" onclick="closeOffsetModal()">Cancel</button>
       <button class="btn btn-accent" onclick="saveOffset()">Save</button>
@@ -459,7 +460,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v1.5</div>
+  <div class="auth-version">v1.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -488,6 +489,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     </div>
     <div class="form-group" style="margin-bottom:8px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
     <div class="form-group" style="margin-bottom:8px">
+      <label>Account</label>
+      <div class="category-filters" id="f-acct-pills" style="margin-bottom:0"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
       <label>Category</label>
       <div class="category-filters" id="f-cat-pills" style="margin-bottom:0"></div>
     </div>
@@ -515,6 +520,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 
 <script>
 const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, work:{label:'Work',color:'#40c8c8'}, income:{label:'Income',color:'#c4f54a'} };
+const ACCOUNTS = { bank:{label:'Bank'}, work:{label:'Work'}, gold:{label:'Gold'}, norwegian:{label:'Norwegian'} };
+const DEFAULT_ACCOUNTS = () => ({bank:{offset:0},work:{offset:0},gold:{offset:0},norwegian:{offset:0}});
 const PURCHASES_ENVELOPE_ID = 'purchases';
 const DAILY_COMBOS = [
   { label: 'Basic', cats: ['basic'] },
@@ -530,12 +537,13 @@ const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSH
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
 const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
 
-let state = { owner:'', repo:'', token:'', expenses:[], accounts:{bank:{offset:0},credit:{offset:0}}, snapshots:[], sha:null, accountsSha:null, snapshotsSha:null, currentMonth:new Date(), activeCategory:'all', loading:false };
+let state = { owner:'', repo:'', token:'', expenses:[], accounts:DEFAULT_ACCOUNTS(), snapshots:[], sha:null, accountsSha:null, snapshotsSha:null, currentMonth:new Date(), activeCategory:'all', loading:false };
 let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
 let formSubCat = '';
 let formWorkType = 'expense';
+let formAccount = 'norwegian';
 let rateMode = 'week';
 let selectedCombos = new Set();
 
@@ -620,6 +628,10 @@ function initPinPads() {
 
 window.addEventListener('resize', () => { initPinPads(); });
 
+function renderFormAccts(){
+  document.getElementById('f-acct-pills').innerHTML=Object.keys(ACCOUNTS).map(a=>`<button type="button" class="cat-pill ${formAccount===a?'active':''}" onclick="setFormAcct('${a}')">${ACCOUNTS[a].label}</button>`).join('');
+}
+function setFormAcct(a){formAccount=a;renderFormAccts();}
 function renderFormCats(){
   document.getElementById('f-cat-pills').innerHTML=Object.keys(CATEGORIES).map(c=>`<button type="button" class="cat-pill ${formCat===c?'active':''}" onclick="setFormCat('${c}')">${CATEGORIES[c].label}</button>`).join('');
 }
@@ -628,6 +640,8 @@ function setFormCat(c){formCat=c;renderFormCats();
   if(c==='budgeted'){picker.classList.add('visible');renderSubCatPills();}
   else if(c==='work'){picker.classList.add('visible');renderWorkTypePills();}
   else{picker.classList.remove('visible');formSubCat='';formWorkType='expense';}
+  // Auto-switch account for income
+  if(c==='income'){formAccount='bank';renderFormAccts();}
 }
 function renderSubCatPills(){
   const envs=getEnvelopes();
@@ -661,7 +675,7 @@ async function loadData() {
     else if (res.status===404) { state.expenses=[]; state.sha=null; }
     else throw new Error(`${res.status}`);
     if (ares.ok) { const j = await ares.json(); state.accountsSha = j.sha; state.accounts = JSON.parse(atob(j.content.replace(/\n/g,''))); }
-    else if (ares.status===404) { state.accounts={bank:{offset:0},credit:{offset:0}}; state.accountsSha=null; }
+    else if (ares.status===404) { state.accounts=DEFAULT_ACCOUNTS(); state.accountsSha=null; }
     if (sres.ok) { const j = await sres.json(); state.snapshotsSha = j.sha; state.snapshots = JSON.parse(atob(j.content.replace(/\n/g,''))); }
     else if (sres.status===404) { state.snapshots=[]; state.snapshotsSha=null; }
   } catch(e) { toast('Failed to load: '+e.message, true); state.expenses=[]; }
@@ -675,6 +689,22 @@ async function loadData() {
       migrated = true;
     }
   });
+  // Migrate: add account field to expenses that don't have one
+  state.expenses.forEach(e => {
+    if (!e.account) {
+      e.account = e.amount > 0 ? 'bank' : 'norwegian';
+      migrated = true;
+    }
+  });
+  // Migrate: old single credit account → norwegian
+  if (state.accounts.credit !== undefined) {
+    if (!state.accounts.norwegian) state.accounts.norwegian = { offset: 0 };
+    state.accounts.norwegian.offset = (state.accounts.norwegian.offset || 0) + (state.accounts.credit.offset || 0);
+    delete state.accounts.credit;
+    // Ensure all accounts exist
+    Object.keys(ACCOUNTS).forEach(k => { if (!state.accounts[k]) state.accounts[k] = { offset: 0 }; });
+    await saveAccounts();
+  }
   if (migrated) await saveData();
   // Fix existing purchases envelope id if it doesn't match constant
   const envs = state.accounts.budgeted || [];
@@ -738,22 +768,23 @@ async function checkMonthlySnapshot() {
   const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   if (state.snapshots.find(s => s.month === monthKey)) return;
   const confirmed = state.expenses.filter(e => !e.proposed && !e.dismissed);
-  const bankSum = confirmed.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
-  const bankBal = (state.accounts.bank?.offset || 0) + bankSum;
-  const creditSum = confirmed.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0);
-  const creditBal = (state.accounts.credit?.offset || 0) + creditSum;
+  const bankBal = getAccountBal('bank', confirmed);
+  const workAcctBal = getAccountBal('work', confirmed);
+  const goldBal = getAccountBal('gold', confirmed);
+  const norwegianBal = getAccountBal('norwegian', confirmed);
+  const totalBal = bankBal + workAcctBal + goldBal + norwegianBal;
   const workPending = confirmed.filter(e => e.category==='work' && e.amount<0 && !e.reimbursed).reduce((s,e) => s+Math.abs(e.amount), 0);
   // Envelopes — sum ALL buffers
   let envelopeTotal = 0;
   getEnvelopes().forEach(env => { envelopeTotal += calcEnvelope(env).buffer; });
-  // Available = bank + credit + work pending - envelopes
-  const available = bankBal + creditBal + workPending - envelopeTotal;
+  // Available = all accounts + work pending - envelopes
+  const available = totalBal + workPending - envelopeTotal;
   // Savings: use available WITHOUT envelopes so envelope allocation doesn't count as spending
-  const availableForSavings = bankBal + creditBal + workPending;
+  const availableForSavings = totalBal + workPending;
   const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
   const prevSavingsBase = prevSnapshot ? (prevSnapshot.availableForSavings !== undefined ? prevSnapshot.availableForSavings : (prevSnapshot.availableRaw !== undefined ? prevSnapshot.availableRaw : prevSnapshot.available)) : null;
   const savings = prevSavingsBase !== null ? availableForSavings - prevSavingsBase : null;
-  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, credit: creditBal, available, availableForSavings, envelopes: envelopeTotal, workPending, savings });
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, work: workAcctBal, gold: goldBal, norwegian: norwegianBal, available, availableForSavings, envelopes: envelopeTotal, workPending, savings });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
 }
@@ -791,6 +822,7 @@ function generateProposedExpenses() {
           description: t.description,
           category: 'recurring',
           type: t.type || 'expense',
+          account: t.type === 'income' ? 'bank' : 'norwegian',
           proposed: true,
           created: new Date().toISOString()
         });
@@ -1096,7 +1128,8 @@ function parseBulkLine(line) {
   // Auto-assign purchases envelope for purchase aliases
   const subCategory = PURCHASE_ALIASES.has(catInput) ? PURCHASES_ENVELOPE_ID : undefined;
 
-  return { date: dateStr, category: cat, amount: type === 'expense' ? -amount : amount, description: desc, type, subCategory };
+  const account = type === 'income' ? 'bank' : 'norwegian';
+  return { date: dateStr, category: cat, amount: type === 'expense' ? -amount : amount, description: desc, type, subCategory, account };
 }
 
 function openBulkModal() {
@@ -1128,7 +1161,7 @@ async function bulkAdd() {
   const newEntries = parsed.map(p => ({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     amount: p.amount, date: p.date, description: p.description, category: p.category, type: p.type,
-    subCategory: p.subCategory,
+    subCategory: p.subCategory, account: p.account,
     created: new Date().toISOString()
   }));
 
@@ -1296,24 +1329,23 @@ async function bootstrap() {
 }
 function resetVault(){if(!confirm('Clear credentials?'))return;localStorage.removeItem('exp_vault');localStorage.removeItem(LOCAL_META_KEY);document.getElementById('auth-bootstrap').style.display='none';showAuthMode();toast('Cleared');}
 function connectWith(o,r,t){state.owner=GH_OWNER;state.repo=r;state.token=t;document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';loadData();}
-function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],accounts:{bank:{offset:0},credit:{offset:0}},snapshots:[],sha:null,accountsSha:null,snapshotsSha:null};document.getElementById('auth-screen').style.display='flex';document.getElementById('app').style.display='none';showAuthMode();}
+function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],accounts:DEFAULT_ACCOUNTS(),snapshots:[],sha:null,accountsSha:null,snapshotsSha:null};document.getElementById('auth-screen').style.display='flex';document.getElementById('app').style.display='none';showAuthMode();}
 function tryAutoConnect(){initPinPads();showAuthMode();}
 
 // Offset modal
-function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('offset-modal-title').textContent=acct==='bank'?'Bank Balance':'Credit Card Balance';document.getElementById('offset-input').value='';document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
+function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('offset-modal-title').textContent=(ACCOUNTS[acct]?.label||acct)+' Balance';document.getElementById('offset-input').value='';document.getElementById('offset-date').value=new Date().toISOString().slice(0,10);document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
+  const date=document.getElementById('offset-date').value; if(!date){toast('Pick a date',true);return;}
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
-  if(!state.accounts[offsetModalAccount])state.accounts[offsetModalAccount]={};
-  if(offsetModalAccount==='bank'){
-    const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-    state.accounts.bank.offset=actual-bankSum;
-  } else {
-    const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
-    state.accounts.credit.offset=actual-creditSum;
-  }
-  if(await saveAccounts()){toast('Balance saved');closeOffsetModal();render();}
+  const currentBal=getAccountBal(offsetModalAccount,confirmed);
+  const diff=actual-currentBal;
+  if(Math.abs(diff)<0.005){toast('Balance already matches');closeOffsetModal();return;}
+  // Create adjustment entry
+  const adj={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:diff, date, description:'Adjustment', account:offsetModalAccount, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+  state.expenses.push(adj); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+  if(await saveData()){toast('Adjustment saved');closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==adj.id);}
 }
 
 // CRUD
@@ -1327,6 +1359,7 @@ function editExpense(id){
   document.getElementById('f-date').value=e.date;
   document.getElementById('f-desc').value=e.description||'';
   formCat=e.category||'basic'; renderFormCats();
+  formAccount=e.account||'norwegian'; renderFormAccts();
   // Restore sub-category for budgeted items, or work type
   if(e.category==='budgeted'&&e.subCategory){
     formSubCat=e.subCategory;
@@ -1360,11 +1393,11 @@ async function saveExpense(){
     const idx=state.expenses.findIndex(x=>x.id===editingId);
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
-    state.expenses[idx]={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat};
+    state.expenses[idx]={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount};
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');toggleForm();clearForm();render();}else{state.expenses[idx]=backup;}
   } else {
-    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, created:new Date().toISOString()};
+    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount, created:new Date().toISOString()};
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
   }
@@ -1386,26 +1419,31 @@ function render(){renderBalances();renderSummary();renderBudgeted();renderDailyR
 function getMonthExpenses(){const y=state.currentMonth.getFullYear(),m=state.currentMonth.getMonth();return state.expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()===m;});}
 function getMonthConfirmed(){return getMonthExpenses().filter(e=>!e.proposed&&!e.dismissed);}
 
+function getAccountBal(acctKey, confirmed) {
+  const sum = confirmed.filter(e => e.account === acctKey).reduce((s, e) => s + e.amount, 0);
+  return (state.accounts[acctKey]?.offset || 0) + sum;
+}
 function renderBalances(){
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
-  const bankSum=confirmed.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-  const creditSum=confirmed.filter(e=>e.amount<0).reduce((s,e)=>s+e.amount,0);
-  const bankBal=(state.accounts.bank?.offset||0)+bankSum;
-  const creditBal=(state.accounts.credit?.offset||0)+creditSum;
+  const bankBal=getAccountBal('bank',confirmed);
+  const workBal=getAccountBal('work',confirmed);
+  const goldBal=getAccountBal('gold',confirmed);
+  const norwegianBal=getAccountBal('norwegian',confirmed);
+  const totalBal=bankBal+workBal+goldBal+norwegianBal;
   // Work pending = unreimbursed work expenses
   const workPending=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed).reduce((s,e)=>s+Math.abs(e.amount),0);
   // Envelopes — sum ALL buffers (positive and negative)
   let envelopeTotal=0;
   getEnvelopes().forEach(env=>{envelopeTotal+=calcEnvelope(env).buffer;});
-  // Available = bank + credit (negative=debt) + work pending - envelopes
-  const available=bankBal+creditBal+workPending-envelopeTotal;
+  // Available = all accounts + work pending - envelopes
+  const available=totalBal+workPending-envelopeTotal;
 
-  let h=`<div class="bal-row main">
-    <div class="balance-card fade-in"><div class="label">Bank</div><div class="value" style="color:${bankBal>=0?'var(--accent)':'var(--red)'}">${fmt(bankBal)}</div><button class="offset-btn" onclick="openOffsetModal('bank')">adjust</button></div>
-    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div></div>
-    <div class="balance-card fade-in"><div class="label">Credit Card</div><div class="value" style="color:${creditBal>=0?'var(--accent)':'var(--red)'}">${fmt(creditBal)}</div><button class="offset-btn" onclick="openOffsetModal('credit')">adjust</button></div>
+  const acctCard=(label,bal,key)=>`<div class="balance-card fade-in"><div class="label">${label}</div><div class="value" style="color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</div><button class="offset-btn" onclick="openOffsetModal('${key}')">adjust</button></div>`;
+  let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
+    ${acctCard('Bank',bankBal,'bank')}${acctCard('Work',workBal,'work')}${acctCard('Gold',goldBal,'gold')}${acctCard('Norwegian',norwegianBal,'norwegian')}
   </div>`;
-  h+=`<div class="bal-row detail">
+  h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div></div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
   </div>`;
@@ -1413,7 +1451,7 @@ function renderBalances(){
 }
 
 function renderSummary(){
-  const items=getMonthConfirmed();
+  const items=getMonthConfirmed().filter(e=>!e.adjustment);
   const personal=items.filter(e=>e.category!=='work');
   const income=personal.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
   const spent=personal.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
@@ -1455,8 +1493,8 @@ function getCurrentWeekRange(){
 }
 
 function renderDailyRates(){
-  const monthItems=getMonthConfirmed().filter(e=>e.amount<0);
-  const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0);
+  const monthItems=getMonthConfirmed().filter(e=>e.amount<0&&!e.adjustment);
+  const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0&&!e.adjustment);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
   const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
@@ -1496,7 +1534,7 @@ function renderDailyRates(){
   const availCols=(cumBefore,cumToday)=>{
     const bs=WEEKLY_TARGET-cumBefore;const tb=bs>0?bs/daysIncToday:0;
     const tl=tb-cumToday;const surpNeg=tl<0?'neg':'';
-    const pda=daysAfter>0?(bs-cumToday)/daysAfter:0;const pdaCls=pda<0?'over':'';
+    const remaining=bs-cumToday;const pda=daysIncToday>0?remaining/daysIncToday:0;const pdaCls=pda<0?'over':'';
     const surpPerDay=daysAfter>0?tl/daysAfter:0;
     return `<div class="rate-item avail-stack"><div class="avs-row avs-budget">${fmt(tb)}</div><div class="avs-row avs-spent">${fmt(cumToday)}</div><div class="avs-row avs-surplus ${surpNeg}">${tl>=0?'+':''}${fmt(tl)}</div></div>`
       +`<div class="rate-item avail ${pdaCls}"><div class="rate-values"><div class="rate-daily">${surpPerDay>=0?'+':''}${fmt(surpPerDay)}/d</div><div class="rate-total">${fmt(pda)}/d</div></div></div>`;
@@ -1565,7 +1603,7 @@ function renderDailyRates(){
 }
 
 function renderWeekly(){
-  const items=getMonthConfirmed().filter(e=>e.amount<0);
+  const items=getMonthConfirmed().filter(e=>e.amount<0&&!e.adjustment);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const first=new Date(y,m,1), last=new Date(y,m+1,0);
   const weeks=[]; let ws=new Date(first);
@@ -1624,7 +1662,7 @@ function renderList(){
     const dayItems=g[date];
     const agg={}, solo=[];
     dayItems.forEach(e=>{
-      if(e.proposed||e._expanded||e.category==='work'){solo.push(e);return;}
+      if(e.proposed||e._expanded||e.category==='work'||e.adjustment){solo.push(e);return;}
       const key=e.category+'||'+(e.description||'').toLowerCase();
       if(!agg[key])agg[key]={items:[],cat:e.category,description:e.description};
       agg[key].items.push(e);
@@ -1632,8 +1670,12 @@ function renderList(){
     const renderItem=(e,count)=>{
       const cat=CATEGORIES[e.category]||CATEGORIES.basic;
       const envLabel=e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
-      const metaLabel=envLabel?cat.label+' · '+envLabel:cat.label;
-      const hasDesc=e.description && e.description.toLowerCase()!==e.category;
+      const acctLabel=e.account?(ACCOUNTS[e.account]?.label||e.account):'';
+      const metaParts=[e.adjustment?'Adjustment':cat.label];
+      if(envLabel)metaParts[0]+=' · '+envLabel;
+      if(acctLabel&&e.adjustment)metaParts.push(acctLabel);
+      const metaLabel=metaParts.join(' · ');
+      const hasDesc=e.description && e.description.toLowerCase()!==e.category && !(e.adjustment && e.description==='Adjustment');
       const countLabel=count>1?` <span style="color:var(--text-muted);font-size:10px">×${count}</span>`:'';
       const workBadge=(e.category==='work'&&e.amount<0)?`<span class="work-badge ${e.reimbursed?'reimbursed':'pending'}" onclick="event.stopPropagation();toggleReimbursed('${e.id}')">${e.reimbursed?'reimbursed':'pending'}</span> `:'';
       const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}</div>`;
@@ -1660,6 +1702,8 @@ function renderList(){
       const descHtml=renderItem(e,1);
       if(e.proposed){
         h+=`<div class="expense-item fade-in proposed" style="border-left-color:${cat.color}"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div></div></div>`;
+      } else if(e.adjustment){
+        h+=`<div class="expense-item fade-in" style="border-left-color:var(--text-muted);opacity:0.6"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
       } else {
         const workClass=e.category==='work'&&e.amount<0?(e.reimbursed?' work-reimbursed':' work-pending'):'';
         h+=`<div class="expense-item fade-in${workClass}" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
@@ -1693,11 +1737,11 @@ function expandGroup(idsStr){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
-function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
+function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Account','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.account||'',e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
 function toast(msg,err){const el=document.getElementById('toast');el.textContent=msg;el.className='toast visible'+(err?' error':'');clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='toast',2500);}
 window.addEventListener('DOMContentLoaded',tryAutoConnect);
 </script>
