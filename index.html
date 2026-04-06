@@ -1641,20 +1641,21 @@ function renderWeekly(){
   });
   h+='</div>';
 
+  const BAR_H=172; // 180px chart - 8px padding
   visible.forEach(w=>{
     const surplus=Math.max(0,weeklyIncome-w.total);
-    const surplusPct=(surplus/SM)*100;
+    const surplusPx=Math.min(Math.round(surplus/SM*BAR_H),BAR_H);
     h+=`<div class="week-pair">`;
     // Spending column
     h+=`<div class="week-col">`;
     for(let j=stackCats.length-1;j>=0;j--){
-      const pct=(w.stacks[j]/SM)*100;
-      if(pct>0)h+=`<div class="week-stack" style="height:${Math.min(pct,100)}%;background:${stackCats[j].color}"></div>`;
+      const px=Math.min(Math.round(w.stacks[j]/SM*BAR_H),BAR_H);
+      if(px>0)h+=`<div class="week-stack" style="height:${px}px;background:${stackCats[j].color}"></div>`;
     }
     h+=`</div>`;
     // Surplus column
     h+=`<div class="week-col">`;
-    if(surplusPct>0)h+=`<div class="week-surplus" style="height:${Math.min(surplusPct,100)}%"></div>`;
+    if(surplusPx>0)h+=`<div class="week-surplus" style="height:${surplusPx}px"></div>`;
     h+=`</div>`;
     h+=`</div>`;
   });
