@@ -77,14 +77,19 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Weekly */
 .weekly-breakdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
 .weekly-breakdown .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
-.week-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
+.week-chart { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 180px; padding-top: 8px; padding-left: 32px; }
+.week-chart-grid { position: absolute; top: 8px; left: 32px; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+.week-grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+.week-grid-label { position: absolute; right: 100%; padding-right: 6px; font-size: 8px; color: var(--text-muted); top: -6px; white-space: nowrap; }
+.week-pair { flex: 1; display: flex; gap: 2px; align-items: flex-end; height: 100%; }
 .week-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
-.week-col-bar { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; }
+.week-col-bar { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; z-index: 1; }
 .week-stack { width: 100%; min-height: 1px; transition: height 0.3s; }
-.week-budget-line { position: absolute; left: -2px; right: -2px; border-top: 2px dashed var(--accent-dim); z-index: 1; pointer-events: none; }
+.week-income-bar { width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; background: var(--accent); opacity: 0.35; }
+.week-budget-line { position: absolute; left: -4px; right: -4px; border-top: 2px dashed var(--accent-dim); z-index: 2; pointer-events: none; }
 .week-budget-label { position: absolute; right: 0; top: -14px; font-size: 8px; color: var(--accent-dim); white-space: nowrap; }
-.week-col-label { font-size: 10px; color: var(--text-dim); margin-top: 4px; text-align: center; line-height: 1.2; }
-.week-col-amount { font-size: 10px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.week-pair-label { font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.2; margin-top: 4px; width: 100%; }
+.week-pair-amount { font-size: 10px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; margin-top: 1px; text-align: center; width: 100%; }
 .week-legend { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .week-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-dim); }
 .week-legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
@@ -1569,19 +1574,20 @@ function getISOWeek(d){
   return 1+Math.round(((t-w1)/864e5-3+(w1.getDay()+6)%7)/7);
 }
 function renderWeekly(){
-  const allItems=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0&&!e.adjustment);
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);
+  const allSpend=confirmed.filter(e=>e.amount<0);
+  const allIncome=confirmed.filter(e=>e.amount>0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const first=new Date(y,m,1), last=new Date(y,m+1,0);
+  const today=new Date(); const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   // Find Monday of the week containing the 1st
   let ws=new Date(first); const dow=ws.getDay(); if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
-  // Find Sunday of the week containing the last day
   const weeks=[];
   while(ws<=last){
     const we=new Date(ws); we.setDate(we.getDate()+6);
     weeks.push({start:new Date(ws),end:new Date(we)});
     ws=new Date(ws); ws.setDate(ws.getDate()+7);
   }
-  // Stacked categories (rendered bottom-up: basic at bottom)
   const stackCats=[
     {key:'basic',label:'Basic',color:'#60c0a0'},
     {key:'fun',label:'Fun',color:'#f0d454'},
@@ -1590,7 +1596,7 @@ function renderWeekly(){
     {key:'purchase',label:'Purchases',color:'#f07498',filter:e=>e.subCategory===PURCHASES_ENVELOPE_ID}
   ];
   const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
-  // Weekly budget line: average income/mo - recurring/mo - budgeted/mo, divided by ~4.33
+  // Budget line: income - recurring - budgeted per week
   const templates=getRecurringTemplates();
   let incomeMo=0, recurringMo=0;
   templates.forEach(t=>{const avg=getRecurringAverage(t.id,t.amount);if(t.type==='income')incomeMo+=avg/(t.intervalMonths||1);else recurringMo+=avg/(t.intervalMonths||1);});
@@ -1601,33 +1607,59 @@ function renderWeekly(){
   const SCALE_MAX=300;
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const fd=d=>`${d.getDate()}/${d.getMonth()+1}`;
+  let budgetedDeducted=false;
   const wt=weeks.map(w=>{
     const s=fmtD(w.start),e=fmtD(w.end);
-    const weekItems=allItems.filter(x=>x.date>=s&&x.date<=e);
-    const stacks=stackCats.map(sc=>weekItems.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+Math.abs(x.amount),0));
+    const weekSpend=allSpend.filter(x=>x.date>=s&&x.date<=e);
+    const stacks=stackCats.map(sc=>weekSpend.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+Math.abs(x.amount),0));
     const total=stacks.reduce((a,v)=>a+v,0);
+    // Income for this week: actual income minus budgeted (deducted with first paycheck)
+    let weekIncome=allIncome.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amount,0);
+    if(weekIncome>0&&!budgetedDeducted){weekIncome=Math.max(0,weekIncome-budgetedMo);budgetedDeducted=true;}
     const wn=getISOWeek(w.start);
-    return{...w,stacks,total,wn};
+    return{...w,stacks,total,weekIncome,wn,sStr:s,eStr:e};
   });
+  // Filter out future weeks with no entries
+  const visible=wt.filter(w=>w.total>0||w.weekIncome>0||w.eStr<=todayStr);
 
-  let h='<div class="section-title">Weekly Spending</div><div class="week-chart">';
-  wt.forEach((w,i)=>{
+  // Grid lines
+  const gridLines=[50,100,200,300];
+  let h='<div class="section-title">Weekly Spending</div><div class="week-chart"><div class="week-chart-grid">';
+  gridLines.forEach(v=>{
+    const pct=Math.min((v/SCALE_MAX)*100,100);
+    h+=`<div class="week-grid-line" style="bottom:${pct}%"><div class="week-grid-label">${v}</div></div>`;
+  });
+  h+='</div>';
+
+  visible.forEach((w,i)=>{
     const budgetPct=Math.min((weeklyBudget/SCALE_MAX)*100,100);
+    // Spending column
+    h+=`<div class="week-pair">`;
     h+=`<div class="week-col"><div class="week-col-bar">`;
     if(i===0)h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"><div class="week-budget-label">${fmt(weeklyBudget)}</div></div>`;
     else h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"></div>`;
-    // Render in reverse so basic ends up at the bottom visually
     for(let j=stackCats.length-1;j>=0;j--){
       const pct=Math.min((w.stacks[j]/SCALE_MAX)*100,100);
       if(pct>0)h+=`<div class="week-stack" style="height:${pct}%;background:${stackCats[j].color}"></div>`;
     }
-    h+=`</div><div class="week-col-label">W${w.wn}<br>${fd(w.start)}</div>`;
-    h+=`<div class="week-col-amount">${Math.round(w.total)}</div></div>`;
+    h+=`</div></div>`;
+    // Income column
+    const incPct=Math.min((w.weekIncome/SCALE_MAX)*100,100);
+    h+=`<div class="week-col"><div class="week-col-bar"><div class="week-income-bar" style="height:${incPct}%"></div></div></div>`;
+    h+=`</div>`;
+    // Label + amount below the pair — rendered outside the pair flex
+  });
+  h+='</div>';
+  // Labels row
+  h+='<div style="display:flex;gap:4px;padding-left:32px">';
+  visible.forEach(w=>{
+    h+=`<div style="flex:1;text-align:center"><div class="week-pair-label">W${w.wn}<br>${fd(w.start)}</div><div class="week-pair-amount">${Math.round(w.total)}</div></div>`;
   });
   h+='</div>';
   // Legend
   h+='<div class="week-legend">';
   stackCats.forEach(sc=>{h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:${sc.color}"></div>${sc.label}</div>`;});
+  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:var(--accent);opacity:0.35"></div>Income</div>`;
   h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:transparent;border:1px dashed var(--accent-dim)"></div>Budget</div>`;
   h+='</div>';
   document.getElementById('weekly-breakdown').innerHTML=h;
