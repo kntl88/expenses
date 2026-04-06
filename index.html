@@ -1562,18 +1562,26 @@ function renderDailyRates(){
   document.getElementById('daily-rates').innerHTML=h;
 }
 
+function getISOWeek(d){
+  const t=new Date(d.getTime());t.setHours(0,0,0,0);
+  t.setDate(t.getDate()+3-(t.getDay()+6)%7);
+  const w1=new Date(t.getFullYear(),0,4);
+  return 1+Math.round(((t-w1)/864e5-3+(w1.getDay()+6)%7)/7);
+}
 function renderWeekly(){
-  const items=getMonthConfirmed().filter(e=>e.amount<0&&!e.adjustment);
+  const allItems=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0&&!e.adjustment);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const first=new Date(y,m,1), last=new Date(y,m+1,0);
-  const weeks=[]; let ws=new Date(first);
-  const dow=ws.getDay(); if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
+  // Find Monday of the week containing the 1st
+  let ws=new Date(first); const dow=ws.getDay(); if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
+  // Find Sunday of the week containing the last day
+  const weeks=[];
   while(ws<=last){
     const we=new Date(ws); we.setDate(we.getDate()+6);
-    weeks.push({start:new Date(Math.max(ws,first)),end:new Date(Math.min(we,last))});
+    weeks.push({start:new Date(ws),end:new Date(we)});
     ws=new Date(ws); ws.setDate(ws.getDate()+7);
   }
-  // Stacked categories
+  // Stacked categories (rendered bottom-up: basic at bottom)
   const stackCats=[
     {key:'basic',label:'Basic',color:'#60c0a0'},
     {key:'fun',label:'Fun',color:'#f0d454'},
@@ -1591,13 +1599,15 @@ function renderWeekly(){
   const weeklyBudget=(incomeMo-recurringMo-budgetedMo)/4.333;
 
   const SCALE_MAX=300;
+  const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const fd=d=>`${d.getDate()}/${d.getMonth()+1}`;
   const wt=weeks.map(w=>{
-    const s=w.start.toISOString().slice(0,10),e=w.end.toISOString().slice(0,10);
-    const weekItems=items.filter(x=>x.date>=s&&x.date<=e);
+    const s=fmtD(w.start),e=fmtD(w.end);
+    const weekItems=allItems.filter(x=>x.date>=s&&x.date<=e);
     const stacks=stackCats.map(sc=>weekItems.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+Math.abs(x.amount),0));
     const total=stacks.reduce((a,v)=>a+v,0);
-    return{...w,stacks,total};
+    const wn=getISOWeek(w.start);
+    return{...w,stacks,total,wn};
   });
 
   let h='<div class="section-title">Weekly Spending</div><div class="week-chart">';
@@ -1606,12 +1616,12 @@ function renderWeekly(){
     h+=`<div class="week-col"><div class="week-col-bar">`;
     if(i===0)h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"><div class="week-budget-label">${fmt(weeklyBudget)}</div></div>`;
     else h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"></div>`;
-    // Stacks bottom-up
-    for(let j=0;j<stackCats.length;j++){
+    // Render in reverse so basic ends up at the bottom visually
+    for(let j=stackCats.length-1;j>=0;j--){
       const pct=Math.min((w.stacks[j]/SCALE_MAX)*100,100);
       if(pct>0)h+=`<div class="week-stack" style="height:${pct}%;background:${stackCats[j].color}"></div>`;
     }
-    h+=`</div><div class="week-col-label">Wk${i+1}<br>${fd(w.start)}</div>`;
+    h+=`</div><div class="week-col-label">W${w.wn}<br>${fd(w.start)}</div>`;
     h+=`<div class="week-col-amount">${Math.round(w.total)}</div></div>`;
   });
   h+='</div>';
