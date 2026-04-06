@@ -77,7 +77,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Weekly */
 .weekly-breakdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
 .weekly-breakdown .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
-.week-chart { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 180px; padding-top: 8px; padding-left: 32px; }
+.week-chart { position: relative; display: flex; align-items: stretch; gap: 4px; height: 180px; padding-top: 8px; padding-left: 32px; }
 .week-chart-grid { position: absolute; top: 8px; left: 32px; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
 .week-grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
 .week-grid-label { position: absolute; right: 100%; padding-right: 6px; font-size: 8px; color: var(--text-muted); top: -6px; white-space: nowrap; }
@@ -85,7 +85,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .week-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
 .week-col-bar { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; z-index: 1; }
 .week-stack { width: 100%; min-height: 1px; transition: height 0.3s; }
-.week-income-bar { width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; background: var(--accent); opacity: 0.35; }
+.week-income-bar { width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; background: var(--accent); opacity: 0.5; }
 .week-budget-line { position: absolute; left: -4px; right: -4px; border-top: 2px dashed var(--accent-dim); z-index: 2; pointer-events: none; }
 .week-budget-label { position: absolute; right: 0; top: -14px; font-size: 8px; color: var(--accent-dim); white-space: nowrap; }
 .week-pair-label { font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.2; margin-top: 4px; width: 100%; }
@@ -412,9 +412,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Add envelope</div>
       <input id="env-label" type="text" placeholder="Label (e.g. Medical, Travel)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-        <input id="env-alloc" type="number" step="0.01" placeholder="€/month" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
-        <input id="env-start" type="month" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input id="env-alloc" type="number" step="0.01" placeholder="€/set" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
         <input id="env-target" type="number" step="0.01" placeholder="Target € (opt)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
       </div>
       <button class="btn btn-accent" style="width:100%" onclick="addEnvelope()">Add Envelope</button>
@@ -726,6 +725,17 @@ async function loadData() {
       await saveData();
     }
   }
+  // Migrate envelopes: compute allocations from startDate if not set
+  let envMigrated = false;
+  (state.accounts.budgeted || []).forEach(env => {
+    if (env.allocations === undefined && env.startDate) {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      env.allocations = Math.max(0, getMonthsBetween(env.startDate, currentMonth) + 1);
+      envMigrated = true;
+    }
+  });
+  if (envMigrated) await saveAccounts();
   await checkMonthlySnapshot();
   generateProposedExpenses();
   render();
@@ -950,11 +960,9 @@ function getMonthsBetween(startMonth, endMonth) {
 }
 
 function calcEnvelope(env) {
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const monthsElapsed = Math.max(0, getMonthsBetween(env.startDate, currentMonth) + 1); // +1 to include start month
   const baseAlloc = env.monthlyAlloc || 0;
-  const totalAllocated = monthsElapsed * baseAlloc;
+  const allocations = env.allocations || 0;
+  const totalAllocated = allocations * baseAlloc;
   const totalSpent = state.expenses
     .filter(e => e.subCategory === env.id && !e.proposed && !e.dismissed)
     .reduce((s, e) => s + Math.abs(e.amount), 0);
@@ -963,7 +971,7 @@ function calcEnvelope(env) {
   const target = env.target || null;
   const progress = target ? Math.min(1, Math.max(0, (totalAllocated - totalSpent) / target)) : null;
 
-  return { buffer, totalAllocated, totalSpent, effectiveRate: baseAlloc, baseAlloc, target, progress, monthsElapsed };
+  return { buffer, totalAllocated, totalSpent, effectiveRate: baseAlloc, baseAlloc, target, progress, allocations };
 }
 
 function renderBudgeted() {
@@ -974,10 +982,10 @@ function renderBudgeted() {
 
   const calcs = envs.map(env => ({ env, calc: calcEnvelope(env) }));
 
-  let totalRate = 0;
-  let h = '<div class="section-title">Budget Envelopes</div><div class="envelope-grid">';
+  const totalAlloc = calcs.reduce((s, c) => s + c.calc.baseAlloc, 0);
+  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="section-title" style="margin:0">Budget Envelopes</div><div style="display:flex;gap:6px;align-items:center"><span style="font-size:10px;color:var(--text-dim)">€${totalAlloc.toFixed(0)}/set</span><button class="btn btn-sm" onclick="adjustAllocations(-1)">−1</button><button class="btn btn-sm btn-accent" onclick="adjustAllocations(1)">+1</button></div></div>`;
+  h += '<div class="envelope-grid">';
   calcs.forEach(({ env, calc: c }) => {
-    totalRate += c.baseAlloc;
     const bufColor = c.buffer >= 0 ? 'var(--accent)' : 'var(--red)';
     const progressHtml = c.target
       ? `<div class="env-progress"><div class="env-progress-bar" style="width:${(c.progress*100).toFixed(0)}%"></div></div>`
@@ -986,7 +994,7 @@ function renderBudgeted() {
     h += `<div class="envelope-card">
       <div class="env-label">${esc(env.label)}</div>
       <div class="env-buffer" style="color:${bufColor}">${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
-      <div class="env-rate">€${c.baseAlloc}/mo</div>
+      <div class="env-rate">€${c.baseAlloc}/set · ${c.allocations}× allocated</div>
       <div class="env-meta">Allocated €${c.totalAllocated.toFixed(0)} · Spent €${c.totalSpent.toFixed(0)}${targetHtml}</div>
       ${progressHtml}
     </div>`;
@@ -994,7 +1002,6 @@ function renderBudgeted() {
   h += '</div>';
 
   const totalEnvBalance = calcs.reduce((s, c) => s + c.calc.buffer, 0);
-  h += `<div class="budgeted-total"><span>Total budgeted</span><span class="bt-val">€${totalRate.toFixed(2)}/mo</span></div>`;
   h += `<div class="budgeted-total"><span>Net envelope balance</span><span class="bt-val" style="color:${totalEnvBalance>=0?'var(--blue)':'var(--red)'}">${totalEnvBalance>=0?'+':''}€${totalEnvBalance.toFixed(2)}</span></div>`;
   el.innerHTML = h;
 }
@@ -1002,8 +1009,6 @@ function renderBudgeted() {
 // Budgeted modal
 function openBudgetedModal() {
   document.getElementById('budgeted-modal').classList.add('visible');
-  const now = new Date();
-  document.getElementById('env-start').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   renderEnvelopeList();
 }
 function closeBudgetedModal() {
@@ -1016,11 +1021,10 @@ function renderEnvelopeList() {
   if (!envs.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No envelopes yet.</div>'; return; }
   el.innerHTML = envs.map(env => {
     const c = calcEnvelope(env);
-    const rateStr = `€${c.baseAlloc}/mo`;
     return `<div class="recurring-item">
       <div>
         <div class="ri-info">${esc(env.label)} — buffer ${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
-        <div class="ri-meta">${rateStr} · ${c.monthsElapsed} months · spent €${c.totalSpent.toFixed(0)}${env.target?' · target €'+env.target:''}</div>
+        <div class="ri-meta">€${c.baseAlloc}/set · ${c.allocations}× · spent €${c.totalSpent.toFixed(0)}${env.target?' · target €'+env.target:''}</div>
       </div>
       <button class="ri-del" onclick="deleteEnvelope('${env.id}')">✕</button>
     </div>`;
@@ -1030,17 +1034,16 @@ function renderEnvelopeList() {
 async function addEnvelope() {
   const label = document.getElementById('env-label').value.trim();
   const alloc = parseFloat(document.getElementById('env-alloc').value);
-  const startDate = document.getElementById('env-start').value;
   const target = parseFloat(document.getElementById('env-target').value) || null;
 
-  if (!label || !alloc || !startDate) { toast('Fill in label, monthly amount, and start', true); return; }
+  if (!label || !alloc) { toast('Fill in label and amount', true); return; }
 
   if (!state.accounts.budgeted) state.accounts.budgeted = [];
   let id = label.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g,'_').replace(/^_|_$/g,'').slice(0, 30);
   // Ensure unique
   if (state.accounts.budgeted.find(e => e.id === id)) id += '_' + Date.now().toString(36).slice(-4);
   state.accounts.budgeted.push({
-    id, label, monthlyAlloc: alloc, startDate, target
+    id, label, monthlyAlloc: alloc, allocations: 0, target
   });
 
   if (await saveAccounts()) {
@@ -1057,6 +1060,13 @@ async function deleteEnvelope(id) {
   if (!confirm('Delete this envelope?')) return;
   state.accounts.budgeted = (state.accounts.budgeted || []).filter(e => e.id !== id);
   if (await saveAccounts()) { toast('Deleted'); renderEnvelopeList(); render(); }
+}
+
+async function adjustAllocations(delta) {
+  const envs = getEnvelopes();
+  if (!envs.length) return;
+  envs.forEach(env => { env.allocations = Math.max(0, (env.allocations || 0) + delta); });
+  if (await saveAccounts()) { toast(delta > 0 ? '+1 allocation' : '−1 allocation'); render(); }
 }
 
 // Bulk add
@@ -1580,8 +1590,9 @@ function renderWeekly(){
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const first=new Date(y,m,1), last=new Date(y,m+1,0);
   const today=new Date(); const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  // Find Monday of the week containing the 1st
+  // Start 4 weeks before the Monday of the week containing the 1st
   let ws=new Date(first); const dow=ws.getDay(); if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
+  ws.setDate(ws.getDate()-28);
   const weeks=[];
   while(ws<=last){
     const we=new Date(ws); we.setDate(we.getDate()+6);
