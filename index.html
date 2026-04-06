@@ -1605,10 +1605,18 @@ function renderWeekly(){
     {key:'purchase',label:'Purchases',color:'#f07498',filter:e=>e.subCategory===PURCHASES_ENVELOPE_ID}
   ];
   const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
-  // Weekly income: spread monthly income evenly across weeks
+  // Weekly income: compute average monthly income from actual data
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);
+  const incomeItems=confirmed.filter(e=>e.amount>0&&e.category!=='work');
+  // Get distinct months with income
+  const incomeMonths=new Set(incomeItems.map(e=>e.date.slice(0,7)));
+  const numMonths=Math.max(1,incomeMonths.size);
+  const totalIncome=incomeItems.reduce((s,e)=>s+e.amount,0);
+  const incomeMo=totalIncome/numMonths;
+  // Recurring expense rate
   const templates=getRecurringTemplates();
-  let incomeMo=0, recurringMo=0;
-  templates.forEach(t=>{const avg=getRecurringAverage(t.id,t.amount);if(t.type==='income')incomeMo+=avg/(t.intervalMonths||1);else recurringMo+=avg/(t.intervalMonths||1);});
+  let recurringMo=0;
+  templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});
   let budgetedMo=0;
   getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});
   const weeklyIncome=(incomeMo-recurringMo-budgetedMo)/4.333;
