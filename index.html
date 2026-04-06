@@ -77,14 +77,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Weekly */
 .weekly-breakdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
 .weekly-breakdown .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
-.week-chart { position: relative; display: flex; gap: 4px; height: 180px; padding-top: 8px; padding-left: 32px; }
+.week-chart { position: relative; display: flex; gap: 6px; height: 180px; padding-top: 8px; padding-left: 32px; }
 .week-chart-grid { position: absolute; top: 8px; left: 32px; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
 .week-grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
 .week-grid-label { position: absolute; right: 100%; padding-right: 6px; font-size: 8px; color: var(--text-muted); top: -6px; white-space: nowrap; }
-.week-pair { flex: 1; display: flex; gap: 1px; height: 100%; }
-.week-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; position: relative; z-index: 1; }
-.week-stack { width: 100%; min-height: 1px; }
-.week-surplus { width: 100%; background: var(--accent); opacity: 0.5; }
+.week-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; z-index: 1; }
+.week-stack { width: 100%; }
 .week-col-label { font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.2; margin-top: 4px; }
 .week-col-amount { font-size: 10px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; text-align: center; margin-top: 1px; }
 .week-legend { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
@@ -1648,27 +1646,17 @@ function renderWeekly(){
   });
   h+='</div>';
 
-  const BAR_H=172; // 180px chart - 8px padding
   visible.forEach(w=>{
-    const surplus=Math.max(0,weeklyIncome-w.total);
-    const surplusPx=Math.min(Math.round(surplus/SM*BAR_H),BAR_H);
-    h+=`<div class="week-pair">`;
-    // Spending column
     h+=`<div class="week-col">`;
     for(let j=stackCats.length-1;j>=0;j--){
-      const px=Math.min(Math.round(w.stacks[j]/SM*BAR_H),BAR_H);
-      if(px>0)h+=`<div class="week-stack" style="height:${px}px;background:${stackCats[j].color}"></div>`;
+      const pct=(w.stacks[j]/SM)*100;
+      if(pct>0)h+=`<div class="week-stack" style="height:${Math.min(pct,100)}%;background:${stackCats[j].color}"></div>`;
     }
-    h+=`</div>`;
-    // Surplus column
-    h+=`<div class="week-col">`;
-    if(surplusPx>0)h+=`<div class="week-surplus" style="height:${surplusPx}px"></div>`;
-    h+=`</div>`;
     h+=`</div>`;
   });
   h+='</div>';
-  // Labels row
-  h+=`<div style="display:flex;gap:4px;padding-left:32px">`;
+  // Labels
+  h+=`<div style="display:flex;gap:6px;padding-left:32px">`;
   visible.forEach(w=>{
     const surplus=weeklyIncome-w.total;
     const surpStr=`<div style="font-size:9px;color:${surplus>=0?'var(--accent)':'var(--red)'}">${surplus>=0?'+':''}${Math.round(surplus)}</div>`;
@@ -1678,7 +1666,7 @@ function renderWeekly(){
   // Legend
   h+='<div class="week-legend">';
   stackCats.forEach(sc=>{h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:${sc.color}"></div>${sc.label}</div>`;});
-  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:var(--accent);opacity:0.5"></div>Surplus (${fmt(weeklyIncome)}/wk)</div>`;
+  h+=`<div class="week-legend-item" style="margin-left:auto;color:var(--text-muted)">Budget ${fmt(weeklyIncome)}/wk</div>`;
   h+='</div>';
   document.getElementById('weekly-breakdown').innerHTML=h;
 }
