@@ -1606,7 +1606,6 @@ function renderWeekly(){
   ];
   const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
   // Weekly income: compute average monthly income from actual data
-  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);
   const incomeItems=confirmed.filter(e=>e.amount>0&&e.category!=='work');
   // Get distinct months with income
   const incomeMonths=new Set(incomeItems.map(e=>e.date.slice(0,7)));
