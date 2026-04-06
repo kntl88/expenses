@@ -550,6 +550,7 @@ let formSubCat = '';
 let formWorkType = 'expense';
 let formAccount = 'norwegian';
 let rateMode = 'week';
+let weeklyScale = 300;
 let selectedCombos = new Set();
 
 // Pin Pad
@@ -1583,10 +1584,10 @@ function getISOWeek(d){
   const w1=new Date(t.getFullYear(),0,4);
   return 1+Math.round(((t-w1)/864e5-3+(w1.getDay()+6)%7)/7);
 }
+function setWeeklyScale(s){weeklyScale=s;renderWeekly();}
 function renderWeekly(){
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);
   const allSpend=confirmed.filter(e=>e.amount<0);
-  const allIncome=confirmed.filter(e=>e.amount>0);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const first=new Date(y,m,1), last=new Date(y,m+1,0);
   const today=new Date(); const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -1607,71 +1608,80 @@ function renderWeekly(){
     {key:'purchase',label:'Purchases',color:'#f07498',filter:e=>e.subCategory===PURCHASES_ENVELOPE_ID}
   ];
   const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
-  // Budget line: income - recurring - budgeted per week
+  // Weekly income: spread monthly income evenly across weeks
   const templates=getRecurringTemplates();
   let incomeMo=0, recurringMo=0;
   templates.forEach(t=>{const avg=getRecurringAverage(t.id,t.amount);if(t.type==='income')incomeMo+=avg/(t.intervalMonths||1);else recurringMo+=avg/(t.intervalMonths||1);});
   let budgetedMo=0;
   getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});
-  const weeklyBudget=(incomeMo-recurringMo-budgetedMo)/4.333;
+  const weeklyIncome=(incomeMo-recurringMo-budgetedMo)/4.333;
 
-  const SCALE_MAX=300;
+  const SM=weeklyScale;
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const fd=d=>`${d.getDate()}/${d.getMonth()+1}`;
-  let budgetedDeducted=false;
+  // Compute per-week data
   const wt=weeks.map(w=>{
     const s=fmtD(w.start),e=fmtD(w.end);
     const weekSpend=allSpend.filter(x=>x.date>=s&&x.date<=e);
     const stacks=stackCats.map(sc=>weekSpend.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+Math.abs(x.amount),0));
     const total=stacks.reduce((a,v)=>a+v,0);
-    // Income for this week: actual income minus budgeted (deducted with first paycheck)
-    let weekIncome=allIncome.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+x.amount,0);
-    if(weekIncome>0&&!budgetedDeducted){weekIncome=Math.max(0,weekIncome-budgetedMo);budgetedDeducted=true;}
     const wn=getISOWeek(w.start);
-    return{...w,stacks,total,weekIncome,wn,sStr:s,eStr:e};
+    return{...w,stacks,total,wn,sStr:s,eStr:e};
   });
   // Filter out future weeks with no entries
-  const visible=wt.filter(w=>w.total>0||w.weekIncome>0||w.eStr<=todayStr);
+  const visible=wt.filter(w=>w.total>0||w.eStr<=todayStr);
+
+  // Cumulative savings for month weeks
+  const monthStart=fmtD(first);
+  let cumSaved=0;
+
+  // Header with scale control
+  const scales=[200,300,500,800];
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="section-title" style="margin:0">Weekly Spending</div><div class="rate-toggle">${scales.map(s=>`<button class="${weeklyScale===s?'active':''}" onclick="setWeeklyScale(${s})">${s}</button>`).join('')}</div></div>`;
 
   // Grid lines
-  const gridLines=[50,100,200,300];
-  let h='<div class="section-title">Weekly Spending</div><div class="week-chart"><div class="week-chart-grid">';
+  const gridLines=SM<=200?[50,100,150,200]:SM<=300?[50,100,200,300]:SM<=500?[100,200,300,500]:[200,400,600,800];
+  h+='<div class="week-chart"><div class="week-chart-grid">';
   gridLines.forEach(v=>{
-    const pct=Math.min((v/SCALE_MAX)*100,100);
+    const pct=Math.min((v/SM)*100,100);
     h+=`<div class="week-grid-line" style="bottom:${pct}%"><div class="week-grid-label">${v}</div></div>`;
   });
   h+='</div>';
 
   visible.forEach((w,i)=>{
-    const budgetPct=Math.min((weeklyBudget/SCALE_MAX)*100,100);
+    const incPct=Math.min((weeklyIncome/SM)*100,100);
+    // Track cumulative savings for weeks in this month
+    const inMonth=w.sStr>=monthStart;
+    if(inMonth) cumSaved+=weeklyIncome-w.total;
     // Spending column
     h+=`<div class="week-pair">`;
     h+=`<div class="week-col"><div class="week-col-bar">`;
-    if(i===0)h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"><div class="week-budget-label">${fmt(weeklyBudget)}</div></div>`;
-    else h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"></div>`;
     for(let j=stackCats.length-1;j>=0;j--){
-      const pct=Math.min((w.stacks[j]/SCALE_MAX)*100,100);
+      const pct=Math.min((w.stacks[j]/SM)*100,100);
       if(pct>0)h+=`<div class="week-stack" style="height:${pct}%;background:${stackCats[j].color}"></div>`;
     }
     h+=`</div></div>`;
     // Income column
-    const incPct=Math.min((w.weekIncome/SCALE_MAX)*100,100);
     h+=`<div class="week-col"><div class="week-col-bar"><div class="week-income-bar" style="height:${incPct}%"></div></div></div>`;
     h+=`</div>`;
-    // Label + amount below the pair — rendered outside the pair flex
   });
   h+='</div>';
   // Labels row
   h+='<div style="display:flex;gap:4px;padding-left:32px">';
+  let cumSaved2=0;
   visible.forEach(w=>{
-    h+=`<div style="flex:1;text-align:center"><div class="week-pair-label">W${w.wn}<br>${fd(w.start)}</div><div class="week-pair-amount">${Math.round(w.total)}</div></div>`;
+    const inMonth=w.sStr>=monthStart;
+    if(inMonth) cumSaved2+=weeklyIncome-w.total;
+    const savedStr=inMonth?`<div style="font-size:9px;color:${cumSaved2>=0?'var(--accent)':'var(--red)'}">${cumSaved2>=0?'+':''}${Math.round(cumSaved2)}</div>`:'';
+    h+=`<div style="flex:1;text-align:center"><div class="week-pair-label">W${w.wn}<br>${fd(w.start)}</div><div class="week-pair-amount">${Math.round(w.total)}</div>${savedStr}</div>`;
   });
   h+='</div>';
-  // Legend
+  // Legend + projected
+  const weeksInMonth=Math.ceil((last-first)/(7*864e5));
+  const projected=weeklyIncome*weeksInMonth - wt.filter(w=>w.sStr>=monthStart).reduce((s,w)=>s+w.total,0) - weeklyIncome*(weeksInMonth-wt.filter(w=>w.sStr>=monthStart&&w.eStr<=todayStr).length);
   h+='<div class="week-legend">';
   stackCats.forEach(sc=>{h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:${sc.color}"></div>${sc.label}</div>`;});
-  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:var(--accent);opacity:0.35"></div>Income</div>`;
-  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:transparent;border:1px dashed var(--accent-dim)"></div>Budget</div>`;
+  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:var(--accent);opacity:0.5"></div>Budget ${fmt(weeklyIncome)}/wk</div>`;
   h+='</div>';
   document.getElementById('weekly-breakdown').innerHTML=h;
 }
