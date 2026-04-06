@@ -77,13 +77,17 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Weekly */
 .weekly-breakdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
 .weekly-breakdown .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
-.week-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
-.week-row:last-child { border-bottom: none; }
-.week-label { font-size: 11px; color: var(--text-dim); }
-.week-dates { font-size: 10px; color: var(--text-muted); }
-.week-amount { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--red); }
-.week-bar-wrap { flex: 1; margin: 0 12px; height: 4px; background: var(--surface-2); border-radius: 2px; }
-.week-bar { height: 100%; border-radius: 2px; background: var(--red); transition: width 0.3s; min-width: 0; }
+.week-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
+.week-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.week-col-bar { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; }
+.week-stack { width: 100%; min-height: 1px; transition: height 0.3s; }
+.week-budget-line { position: absolute; left: -2px; right: -2px; border-top: 2px dashed var(--accent-dim); z-index: 1; pointer-events: none; }
+.week-budget-label { position: absolute; right: 0; top: -14px; font-size: 8px; color: var(--accent-dim); white-space: nowrap; }
+.week-col-label { font-size: 10px; color: var(--text-dim); margin-top: 4px; text-align: center; line-height: 1.2; }
+.week-col-amount { font-size: 10px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.week-legend { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.week-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-dim); }
+.week-legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
 
 /* Daily rates */
 .daily-rates { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
@@ -1569,14 +1573,53 @@ function renderWeekly(){
     weeks.push({start:new Date(Math.max(ws,first)),end:new Date(Math.min(we,last))});
     ws=new Date(ws); ws.setDate(ws.getDate()+7);
   }
-  const wt=weeks.map(w=>{const s=w.start.toISOString().slice(0,10),e=w.end.toISOString().slice(0,10);
-    return{...w,total:items.filter(x=>x.date>=s&&x.date<=e).reduce((a,x)=>a+Math.abs(x.amount),0)};});
-  const mx=Math.max(...wt.map(w=>w.total),1);
+  // Stacked categories
+  const stackCats=[
+    {key:'basic',label:'Basic',color:'#60c0a0'},
+    {key:'fun',label:'Fun',color:'#f0d454'},
+    {key:'unnecessary',label:'Unnecessary',color:'#f05454'},
+    {key:'gas',label:'Gas',color:'#f0a054'},
+    {key:'purchase',label:'Purchases',color:'#f07498',filter:e=>e.subCategory===PURCHASES_ENVELOPE_ID}
+  ];
+  const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
+  // Weekly budget line: average income/mo - recurring/mo - budgeted/mo, divided by ~4.33
+  const templates=getRecurringTemplates();
+  let incomeMo=0, recurringMo=0;
+  templates.forEach(t=>{const avg=getRecurringAverage(t.id,t.amount);if(t.type==='income')incomeMo+=avg/(t.intervalMonths||1);else recurringMo+=avg/(t.intervalMonths||1);});
+  let budgetedMo=0;
+  getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});
+  const weeklyBudget=(incomeMo-recurringMo-budgetedMo)/4.333;
+
+  const SCALE_MAX=300;
   const fd=d=>`${d.getDate()}/${d.getMonth()+1}`;
-  let h='<div class="section-title">Weekly Spending</div>';
-  wt.forEach((w,i)=>{const pct=(w.total/mx*100).toFixed(0);
-    h+=`<div class="week-row"><div style="min-width:50px"><div class="week-label">Wk ${i+1}</div><div class="week-dates">${fd(w.start)}–${fd(w.end)}</div></div><div class="week-bar-wrap"><div class="week-bar" style="width:${pct}%"></div></div><div class="week-amount">${fmt(w.total)}</div></div>`;
+  const wt=weeks.map(w=>{
+    const s=w.start.toISOString().slice(0,10),e=w.end.toISOString().slice(0,10);
+    const weekItems=items.filter(x=>x.date>=s&&x.date<=e);
+    const stacks=stackCats.map(sc=>weekItems.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+Math.abs(x.amount),0));
+    const total=stacks.reduce((a,v)=>a+v,0);
+    return{...w,stacks,total};
   });
+
+  let h='<div class="section-title">Weekly Spending</div><div class="week-chart">';
+  wt.forEach((w,i)=>{
+    const budgetPct=Math.min((weeklyBudget/SCALE_MAX)*100,100);
+    h+=`<div class="week-col"><div class="week-col-bar">`;
+    if(i===0)h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"><div class="week-budget-label">${fmt(weeklyBudget)}</div></div>`;
+    else h+=`<div class="week-budget-line" style="bottom:${budgetPct}%"></div>`;
+    // Stacks bottom-up
+    for(let j=0;j<stackCats.length;j++){
+      const pct=Math.min((w.stacks[j]/SCALE_MAX)*100,100);
+      if(pct>0)h+=`<div class="week-stack" style="height:${pct}%;background:${stackCats[j].color}"></div>`;
+    }
+    h+=`</div><div class="week-col-label">Wk${i+1}<br>${fd(w.start)}</div>`;
+    h+=`<div class="week-col-amount">${Math.round(w.total)}</div></div>`;
+  });
+  h+='</div>';
+  // Legend
+  h+='<div class="week-legend">';
+  stackCats.forEach(sc=>{h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:${sc.color}"></div>${sc.label}</div>`;});
+  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:transparent;border:1px dashed var(--accent-dim)"></div>Budget</div>`;
+  h+='</div>';
   document.getElementById('weekly-breakdown').innerHTML=h;
 }
 
