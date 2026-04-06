@@ -81,7 +81,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .week-chart-grid { position: absolute; top: 8px; left: 32px; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
 .week-grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
 .week-grid-label { position: absolute; right: 100%; padding-right: 6px; font-size: 8px; color: var(--text-muted); top: -6px; white-space: nowrap; }
-.week-pair { flex: 1; display: flex; gap: 2px; align-items: flex-end; height: 100%; }
+.week-pair { flex: 1; display: flex; gap: 2px; align-items: stretch; height: 100%; }
 .week-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
 .week-col-bar { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; z-index: 1; }
 .week-stack { width: 100%; min-height: 1px; transition: height 0.3s; }
@@ -1631,10 +1631,6 @@ function renderWeekly(){
   // Filter out future weeks with no entries
   const visible=wt.filter(w=>w.total>0||w.eStr<=todayStr);
 
-  // Cumulative savings for month weeks
-  const monthStart=fmtD(first);
-  let cumSaved=0;
-
   // Header with scale control
   const scales=[200,300,500,800];
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="section-title" style="margin:0">Weekly Spending</div><div class="rate-toggle">${scales.map(s=>`<button class="${weeklyScale===s?'active':''}" onclick="setWeeklyScale(${s})">${s}</button>`).join('')}</div></div>`;
@@ -1648,11 +1644,9 @@ function renderWeekly(){
   });
   h+='</div>';
 
-  visible.forEach((w,i)=>{
-    const incPct=Math.min((weeklyIncome/SM)*100,100);
-    // Track cumulative savings for weeks in this month
-    const inMonth=w.sStr>=monthStart;
-    if(inMonth) cumSaved+=weeklyIncome-w.total;
+  visible.forEach(w=>{
+    const surplus=Math.max(0,weeklyIncome-w.total);
+    const surplusPct=Math.min((surplus/SM)*100,100);
     // Spending column
     h+=`<div class="week-pair">`;
     h+=`<div class="week-col"><div class="week-col-bar">`;
@@ -1661,27 +1655,23 @@ function renderWeekly(){
       if(pct>0)h+=`<div class="week-stack" style="height:${pct}%;background:${stackCats[j].color}"></div>`;
     }
     h+=`</div></div>`;
-    // Income column
-    h+=`<div class="week-col"><div class="week-col-bar"><div class="week-income-bar" style="height:${incPct}%"></div></div></div>`;
+    // Surplus column (income - spending)
+    h+=`<div class="week-col"><div class="week-col-bar"><div class="week-income-bar" style="height:${surplusPct}%"></div></div></div>`;
     h+=`</div>`;
   });
   h+='</div>';
   // Labels row
   h+='<div style="display:flex;gap:4px;padding-left:32px">';
-  let cumSaved2=0;
   visible.forEach(w=>{
-    const inMonth=w.sStr>=monthStart;
-    if(inMonth) cumSaved2+=weeklyIncome-w.total;
-    const savedStr=inMonth?`<div style="font-size:9px;color:${cumSaved2>=0?'var(--accent)':'var(--red)'}">${cumSaved2>=0?'+':''}${Math.round(cumSaved2)}</div>`:'';
-    h+=`<div style="flex:1;text-align:center"><div class="week-pair-label">W${w.wn}<br>${fd(w.start)}</div><div class="week-pair-amount">${Math.round(w.total)}</div>${savedStr}</div>`;
+    const surplus=weeklyIncome-w.total;
+    const surpStr=`<div style="font-size:9px;color:${surplus>=0?'var(--accent)':'var(--red)'}">${surplus>=0?'+':''}${Math.round(surplus)}</div>`;
+    h+=`<div style="flex:1;text-align:center"><div class="week-pair-label">W${w.wn}<br>${fd(w.start)}</div><div class="week-pair-amount">${Math.round(w.total)}</div>${surpStr}</div>`;
   });
   h+='</div>';
-  // Legend + projected
-  const weeksInMonth=Math.ceil((last-first)/(7*864e5));
-  const projected=weeklyIncome*weeksInMonth - wt.filter(w=>w.sStr>=monthStart).reduce((s,w)=>s+w.total,0) - weeklyIncome*(weeksInMonth-wt.filter(w=>w.sStr>=monthStart&&w.eStr<=todayStr).length);
+  // Legend
   h+='<div class="week-legend">';
   stackCats.forEach(sc=>{h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:${sc.color}"></div>${sc.label}</div>`;});
-  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:var(--accent);opacity:0.5"></div>Budget ${fmt(weeklyIncome)}/wk</div>`;
+  h+=`<div class="week-legend-item"><div class="week-legend-swatch" style="background:var(--accent);opacity:0.5"></div>Surplus (${fmt(weeklyIncome)}/wk)</div>`;
   h+='</div>';
   document.getElementById('weekly-breakdown').innerHTML=h;
 }
