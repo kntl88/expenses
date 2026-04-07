@@ -1491,8 +1491,8 @@ function renderDailyRates(){
   const comboMatch=(combo,e)=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat);
   const comboSpread=(combo,items,rs,re)=>items.filter(e=>comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
   const comboTotals=DAILY_COMBOS.map(combo=>comboSpread(combo,periodItems,periodStart,periodEnd));
-  const cItem=(i,span)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'',sp=span?` style="grid-column:span ${span}"`:'';return `<div class="rate-item ${sel}"${sp} onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)}/d</div></div></div>`;};
-  const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}/d</div></div></div>`;};
+  const cItem=(i,span)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'',sp=span?` style="grid-column:span ${span}"`:'';return `<div class="rate-item ${sel}"${sp} onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
+  const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
   // Saving: weekly budget vs actual
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(now);
@@ -1503,7 +1503,7 @@ function renderDailyRates(){
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
   const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
   const daysElapsed=cwk.daysElapsed;
-  const savingCol=(weekSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ws=daysElapsed*dailyBudget-weekSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}/w</div><div class="rate-daily" style="color:${ds>=0?'#6cc070':'var(--red)'}">today ${ds>=0?'+':''}${fmt(ds)}</div></div></div>`;};
+  const savingCol=(weekSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ws=daysElapsed*dailyBudget-weekSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(dailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving
