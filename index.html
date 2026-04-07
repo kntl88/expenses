@@ -488,6 +488,11 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="pin-grid" id="pin-grid-amount"></div>
     </div>
     <div class="form-group" style="margin-bottom:8px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
+    <div class="form-group" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked"> Spread over</label>
+      <input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:50px" disabled>
+      <span style="font-size:12px;color:var(--text-muted)">days</span>
+    </div>
     <div class="form-group" style="margin-bottom:8px">
       <label>Account</label>
       <div class="category-filters" id="f-acct-pills" style="margin-bottom:0"></div>
@@ -1344,6 +1349,7 @@ function editExpense(id){
     formSubCat='';formWorkType='expense';
     document.getElementById('subcat-picker').classList.remove('visible');
   }
+  if(e.spreadDays&&e.spreadDays>1){document.getElementById('f-spread-check').checked=true;document.getElementById('f-spread-days').disabled=false;document.getElementById('f-spread-days').value=e.spreadDays;}else{document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';}
   document.getElementById('f-save-btn').textContent='Update';
   const grid=document.getElementById('pin-grid-amount');
   if(grid){grid.dataset.value=String(absAmt);updatePinDisplay('pin-grid-amount');}
@@ -1358,17 +1364,22 @@ async function saveExpense(){
   const type = isPositive ? 'income' : 'expense';
   const subCat=cat==='budgeted'?formSubCat:undefined;
   const signedAmount = isPositive ? Math.abs(amount) : -Math.abs(amount);
+  const spreadCheck=document.getElementById('f-spread-check').checked;
+  const spreadDays=spreadCheck?Math.max(2,parseInt(document.getElementById('f-spread-days').value)||7):undefined;
   if(!amount||!date){toast('Fill in amount and date',true);return;}
   if(cat==='budgeted'&&!subCat){toast('Pick an envelope',true);return;}
   if(editingId){
     const idx=state.expenses.findIndex(x=>x.id===editingId);
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
-    state.expenses[idx]={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount};
+    const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount};
+    if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
+    state.expenses[idx]=upd;
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');toggleForm();clearForm();render();}else{state.expenses[idx]=backup;}
   } else {
     const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount, created:new Date().toISOString()};
+    if(spreadDays)e.spreadDays=spreadDays;
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
   }
@@ -1463,8 +1474,11 @@ function getCurrentWeekRange(){
   return {start:fmtLocal(mon), end:fmtLocal(sun), daysElapsed:diff+1};
 }
 
+function addDaysStr(dateStr,n){const d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function overlapsRange(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;return e.date<=re&&eEnd>=rs;}
+function getSpreadAmount(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eStart=e.date;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;const os=eStart>rs?eStart:rs;const oe=eEnd<re?eEnd:re;if(os>oe)return 0;const da=new Date(os+'T00:00:00'),db=new Date(oe+'T00:00:00');const overlap=Math.round((db-da)/864e5)+1;return Math.abs(e.amount)*overlap/sd;}
+
 function renderDailyRates(){
-  const monthItems=getMonthConfirmed().filter(e=>e.amount<0&&!e.adjustment);
   const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0&&!e.adjustment);
   const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
@@ -1472,31 +1486,35 @@ function renderDailyRates(){
   const daysInMonth=new Date(y,m+1,0).getDate();
   const monthDaysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
 
-  let periodItems, periodDays;
+  let periodItems, periodDays, periodStart, periodEnd;
   if(rateMode==='week'){
     const wr=getCurrentWeekRange();
-    periodItems=allExpenses.filter(e=>e.date>=wr.start && e.date<=wr.end);
+    periodStart=wr.start; periodEnd=wr.end;
+    periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
     periodDays=wr.daysElapsed;
   } else {
-    periodItems=monthItems;
+    periodStart=`${y}-${String(m+1).padStart(2,'0')}-01`;
+    periodEnd=`${y}-${String(m+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+    periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
     periodDays=monthDaysElapsed;
   }
 
   const perDayDivisor=periodDays;
 
-  // Grid - compute totals for each combo
+  // Grid - compute totals for each combo (spread-aware)
   const WEEKLY_TARGET=200;
-  const comboTotals=DAILY_COMBOS.map(combo=>periodItems.filter(e=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat)).reduce((s,e)=>s+Math.abs(e.amount),0));
+  const comboMatch=(combo,e)=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat);
+  const comboSpread=(combo,items,rs,re)=>items.filter(e=>comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
+  const comboTotals=DAILY_COMBOS.map(combo=>comboSpread(combo,periodItems,periodStart,periodEnd));
   const cItem=(i)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'';return `<div class="rate-item ${sel}" onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)} / day</div></div></div>`;};
   const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)} / day</div></div></div>`;};
   // Weekly budget: split spending into before-today and today for surplus/overflow
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(now);
   const cwk=getCurrentWeekRange();
-  const weekItems=allExpenses.filter(e=>e.date>=cwk.start&&e.date<=cwk.end&&e.category!=='budgeted');
-  const comboFilter=(combo,items)=>items.filter(e=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat)).reduce((s,e)=>s+Math.abs(e.amount),0);
-  const comboBefore=DAILY_COMBOS.map(combo=>comboFilter(combo,weekItems.filter(e=>e.date<todayStr)));
-  const comboTdy=DAILY_COMBOS.map(combo=>comboFilter(combo,weekItems.filter(e=>e.date===todayStr)));
+  const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
+  const comboBefore=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,addDaysStr(todayStr,-1)));
+  const comboTdy=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
   const dayOfWeek=(now.getDay()+6)%7;
   const daysIncToday=7-dayOfWeek;
   const daysAfter=daysIncToday-1;
@@ -1542,7 +1560,7 @@ function renderDailyRates(){
         const dt=new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()+d);
         const ds=fmtLocal(dt);
         if(ds>todayStr)break;
-        const total=filteredItems.filter(e=>e.date===ds).reduce((s,e)=>s+Math.abs(e.amount),0);
+        const total=filteredItems.reduce((s,e)=>s+getSpreadAmount(e,ds,ds),0);
         bars.push({label:dayNames[d],total});
       }
     } else {
@@ -1555,7 +1573,7 @@ function renderDailyRates(){
         const csD=new Date(Math.max(ws,first));
         const ceD=new Date(Math.min(we,last));
         const cs=fmtLocal(csD), ce=fmtLocal(ceD);
-        const total=filteredItems.filter(e=>e.date>=cs&&e.date<=ce).reduce((s,e)=>s+Math.abs(e.amount),0);
+        const total=filteredItems.reduce((s,e)=>s+getSpreadAmount(e,cs,ce),0);
         bars.push({label:'Wk'+wIdx,total});
         ws=new Date(ws);ws.setDate(ws.getDate()+7);wIdx++;
       }
@@ -1624,8 +1642,8 @@ function renderWeekly(){
   // Compute per-week data
   const wt=weeks.map(w=>{
     const s=fmtD(w.start),e=fmtD(w.end);
-    const weekSpend=allSpend.filter(x=>x.date>=s&&x.date<=e);
-    const stacks=stackCats.map(sc=>weekSpend.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+Math.abs(x.amount),0));
+    const weekSpend=allSpend.filter(x=>overlapsRange(x,s,e));
+    const stacks=stackCats.map(sc=>weekSpend.filter(x=>matchCat(x,sc)).reduce((a,x)=>a+getSpreadAmount(x,s,e),0));
     const total=stacks.reduce((a,v)=>a+v,0);
     const wn=getISOWeek(w.start);
     return{...w,stacks,total,wn,sStr:s,eStr:e};
@@ -1724,8 +1742,9 @@ function renderList(){
       const metaLabel=metaParts.join(' · ');
       const hasDesc=e.description && e.description.toLowerCase()!==e.category && !(e.adjustment && e.description==='Adjustment');
       const countLabel=count>1?` <span style="color:var(--text-muted);font-size:10px">×${count}</span>`:'';
+      const spreadLabel=e.spreadDays?` <span style="color:var(--blue);font-size:10px">÷${e.spreadDays}d</span>`:'';
       const workBadge=(e.category==='work'&&e.amount<0)?`<span class="work-badge ${e.reimbursed?'reimbursed':'pending'}" onclick="event.stopPropagation();toggleReimbursed('${e.id}')">${e.reimbursed?'reimbursed':'pending'}</span> `:'';
-      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}</div>`;
+      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}${spreadLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}${spreadLabel}</div>`;
       return descHtml;
     };
     // Render aggregated groups
@@ -1784,8 +1803,8 @@ function expandGroup(idsStr){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';resetPinPad('pin-grid-amount');}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';resetPinPad('pin-grid-amount');}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Account','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.account||'',e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
