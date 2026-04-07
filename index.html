@@ -97,19 +97,9 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
-.rate-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
-.rate-item.avail { background: var(--surface-1); border-color: var(--border); cursor: default; }
-.rate-item.avail .rate-total { color: #6cc070; }
-.rate-item.avail .rate-daily { color: #509050; }
-.rate-item.avail.over .rate-total { color: var(--red); }
-.rate-item.avail.over .rate-daily { color: #c05050; }
-.rate-item.avail-stack { background: var(--surface-1); border-color: var(--border); cursor: default; flex-direction: column; align-items: stretch; gap: 2px; }
-.rate-item.avail-stack .avs-row { display: flex; justify-content: flex-end; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.rate-item.avail-stack .avs-budget { color: var(--orange); }
-.rate-item.avail-stack .avs-spent { color: var(--red); }
-.rate-item.avail-stack .avs-surplus { color: #6cc070; }
-.rate-item.avail-stack .avs-surplus.neg { color: var(--red); }
-.rate-item { padding: 5px 7px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.rate-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.rate-item.saving { background: var(--surface-1); border-color: var(--border); cursor: default; }
+.rate-item { padding: 4px 6px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; display: flex; flex-direction: column; gap: 1px; }
 .rate-item:hover { border-color: var(--border-hover); }
 .rate-item.selected { border-color: var(--accent-dim); background: rgba(196,245,74,0.05); }
 .rate-item.cum { background: var(--surface-1); border-color: var(--border); cursor: default; }
@@ -277,8 +267,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .summary-card .label { font-size: 8px; }
   .weekly-breakdown { padding: 12px; }
   .week-row { padding: 5px 0; }
-  .rate-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
-  .rate-item .rate-total { font-size: 12px; }
+  .rate-item .rate-total { font-size: 11px; }
   .rate-item .rate-daily { font-size: 9px; }
   .rate-chart { height: 100px; }
   .rate-chart-val { font-size: 8px; }
@@ -1470,6 +1459,7 @@ function getCurrentWeekRange(){
   return {start:fmtLocal(mon), end:fmtLocal(sun), daysElapsed:diff+1};
 }
 
+function getWeeklyBudget(){const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);const incomeItems=confirmed.filter(e=>e.amount>0&&e.category!=='work');const incomeMonths=new Set(incomeItems.map(e=>e.date.slice(0,7)));const numMonths=Math.max(1,incomeMonths.size);const totalIncome=incomeItems.reduce((s,e)=>s+e.amount,0);const incomeMo=totalIncome/numMonths;const templates=getRecurringTemplates();let recurringMo=0;templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});let budgetedMo=0;getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});return(incomeMo-recurringMo-budgetedMo)/4.333;}
 function addDaysStr(dateStr,n){const d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function overlapsRange(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;return e.date<=re&&eEnd>=rs;}
 function getSpreadAmount(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eStart=e.date;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;const os=eStart>rs?eStart:rs;const oe=eEnd<re?eEnd:re;if(os>oe)return 0;const da=new Date(os+'T00:00:00'),db=new Date(oe+'T00:00:00');const overlap=Math.round((db-da)/864e5)+1;return Math.abs(e.amount)*overlap/sd;}
@@ -1498,43 +1488,32 @@ function renderDailyRates(){
   const perDayDivisor=periodDays;
 
   // Grid - compute totals for each combo (spread-aware)
-  const WEEKLY_TARGET=200;
   const comboMatch=(combo,e)=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat);
   const comboSpread=(combo,items,rs,re)=>items.filter(e=>comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
   const comboTotals=DAILY_COMBOS.map(combo=>comboSpread(combo,periodItems,periodStart,periodEnd));
-  const cItem=(i)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'';return `<div class="rate-item ${sel}" onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)} / day</div></div></div>`;};
-  const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)} / day</div></div></div>`;};
-  // Weekly budget: split spending into before-today and today for surplus/overflow
+  const cItem=(i,span)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'',sp=span?` style="grid-column:span ${span}"`:'';return `<div class="rate-item ${sel}"${sp} onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)}/d</div></div></div>`;};
+  const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}/d</div></div></div>`;};
+  // Saving: weekly budget vs actual
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(now);
+  const weeklyBudget=getWeeklyBudget();
+  const dailyBudget=weeklyBudget/7;
   const cwk=getCurrentWeekRange();
   const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
-  const comboBefore=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,addDaysStr(todayStr,-1)));
-  const comboTdy=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
-  const dayOfWeek=(now.getDay()+6)%7;
-  const daysIncToday=7-dayOfWeek;
-  const daysAfter=daysIncToday-1;
-  const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const tdName=dayNames[dayOfWeek];
-  const availCols=(cumBefore,cumToday)=>{
-    const bs=WEEKLY_TARGET-cumBefore;const tb=bs>0?bs/daysIncToday:0;
-    const tl=tb-cumToday;const surpNeg=tl<0?'neg':'';
-    const remaining=bs-cumToday;const pda=daysIncToday>0?remaining/daysIncToday:0;const pdaCls=pda<0?'over':'';
-    const surpPerDay=daysAfter>0?tl/daysAfter:0;
-    return `<div class="rate-item avail-stack"><div class="avs-row avs-budget">${fmt(tb)}</div><div class="avs-row avs-spent">${fmt(cumToday)}</div><div class="avs-row avs-surplus ${surpNeg}">${tl>=0?'+':''}${fmt(tl)}</div></div>`
-      +`<div class="rate-item avail ${pdaCls}"><div class="rate-values"><div class="rate-daily">${surpPerDay>=0?'+':''}${fmt(surpPerDay)}/d</div><div class="rate-total">${fmt(pda)}/d</div></div></div>`;
-  };
+  const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
+  const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
+  const savingCol=(weekSpent,todaySpent)=>{const ws=weeklyBudget-weekSpent,ds=dailyBudget-todaySpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}/w</div><div class="rate-daily" style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}/d</div></div></div>`;};
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  // Row 1: Basic, Fun, Unnecessary | Ba+Fu+Un | Today stack | Avail
-  const cum1=comboTotals[3];const c1b=comboBefore[3],c1t=comboTdy[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+availCols(c1b,c1t);
-  // Row 2: Gas | cumulative (+Gas) | Today stack | Avail
-  const cum2=cum1+comboTotals[5];const c2b=c1b+comboBefore[5],c2t=c1t+comboTdy[5];
-  h+=cItem(5)+`<div></div><div></div>`+cumItem('+Gas',cum2)+availCols(c2b,c2t);
-  // Row 3: Purchases | cumulative (+Purch) | Today stack | Avail
-  const cum3=cum2+comboTotals[4];const c3b=c2b+comboBefore[4],c3t=c2t+comboTdy[4];
-  h+=cItem(4)+`<div></div><div></div>`+cumItem('+Purch',cum3)+availCols(c3b,c3t);
+  // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving
+  const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(wk1,td1);
+  // Row 2: Gas (span 3), +Gas, Saving
+  const cum2=cum1+comboTotals[5];const wk2=wk1+weekCombo[5],td2=td1+todayCombo[5];
+  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(wk2,td2);
+  // Row 3: Purchases (span 3), +Purch, Saving
+  const cum3=cum2+comboTotals[4];const wk3=wk2+weekCombo[4],td3=td2+todayCombo[4];
+  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(wk3,td3);
   h+='</div>';
 
   // Bar chart (if any combos selected)
@@ -1617,20 +1596,7 @@ function renderWeekly(){
     {key:'purchase',label:'Purchases',color:'#f07498',filter:e=>e.subCategory===PURCHASES_ENVELOPE_ID}
   ];
   const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
-  // Weekly income: compute average monthly income from actual data
-  const incomeItems=confirmed.filter(e=>e.amount>0&&e.category!=='work');
-  // Get distinct months with income
-  const incomeMonths=new Set(incomeItems.map(e=>e.date.slice(0,7)));
-  const numMonths=Math.max(1,incomeMonths.size);
-  const totalIncome=incomeItems.reduce((s,e)=>s+e.amount,0);
-  const incomeMo=totalIncome/numMonths;
-  // Recurring expense rate
-  const templates=getRecurringTemplates();
-  let recurringMo=0;
-  templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});
-  let budgetedMo=0;
-  getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});
-  const weeklyIncome=(incomeMo-recurringMo-budgetedMo)/4.333;
+  const weeklyIncome=getWeeklyBudget();
 
   const SM=weeklyScale;
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
