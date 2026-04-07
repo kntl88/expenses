@@ -488,11 +488,6 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="pin-grid" id="pin-grid-amount"></div>
     </div>
     <div class="form-group" style="margin-bottom:8px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
-    <div class="form-group" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked"> Spread over</label>
-      <input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:50px" disabled>
-      <span style="font-size:12px;color:var(--text-muted)">days</span>
-    </div>
     <div class="form-group" style="margin-bottom:8px">
       <label>Account</label>
       <div class="category-filters" id="f-acct-pills" style="margin-bottom:0"></div>
@@ -505,7 +500,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <label id="subcat-label" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:4px;display:block">Envelope</label>
       <div class="subcat-pills" id="subcat-pills"></div>
     </div>
-    <div class="form-actions">
+    <div class="form-actions" style="display:flex;align-items:center;gap:8px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin-right:auto"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked"> ÷<input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:40px;padding:2px 4px;font-size:11px" disabled>d</label>
       <button class="btn" onclick="toggleForm()">Cancel</button>
       <button class="btn btn-accent" id="f-save-btn" onclick="saveExpense()">Save</button>
     </div>
