@@ -97,7 +97,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-toggle button { font-family: var(--mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s; }
 .rate-toggle button:hover { color: var(--text-dim); border-color: var(--border-hover); }
 .rate-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
-.rate-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.rate-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
 .rate-item.saving { background: var(--surface-1); border-color: var(--border); cursor: default; }
 .rate-item { padding: 4px 6px; background: var(--surface-2); border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; display: flex; flex-direction: column; gap: 1px; }
 .rate-item:hover { border-color: var(--border-hover); }
@@ -1504,17 +1504,18 @@ function renderDailyRates(){
   const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
   const daysElapsed=cwk.daysElapsed;
   const savingCol=(weekSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ws=daysElapsed*dailyBudget-weekSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(dailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
+  const projCol=(weekSpent)=>{const max=weeklyBudget-weekSpent;const proj=daysElapsed>0?weeklyBudget-(weekSpent/daysElapsed)*7:weeklyBudget;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div></div></div>`;};
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving
+  // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving, Forecast
   const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(wk1,td1);
-  // Row 2: Gas (span 3), +Gas, Saving
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(wk1,td1)+projCol(wk1);
+  // Row 2: Gas (span 3), +Gas, Saving, Forecast
   const cum2=cum1+comboTotals[5];const wk2=wk1+weekCombo[5],td2=td1+todayCombo[5];
-  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(wk2,td2);
-  // Row 3: Purchases (span 3), +Purch, Saving
+  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(wk2,td2)+projCol(wk2);
+  // Row 3: Purchases (span 3), +Purch, Saving, Forecast
   const cum3=cum2+comboTotals[4];const wk3=wk2+weekCombo[4],td3=td2+todayCombo[4];
-  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(wk3,td3);
+  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(wk3,td3)+projCol(wk3);
   h+='</div>';
 
   // Bar chart (if any combos selected)
