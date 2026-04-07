@@ -1502,7 +1502,8 @@ function renderDailyRates(){
   const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
   const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
-  const savingCol=(weekSpent,todaySpent)=>{const ws=weeklyBudget-weekSpent,ds=dailyBudget-todaySpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}/w</div><div class="rate-daily" style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}/d</div></div></div>`;};
+  const daysElapsed=cwk.daysElapsed;
+  const savingCol=(weekSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ws=daysElapsed*dailyBudget-weekSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}/w</div><div class="rate-daily" style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}/d</div></div></div>`;};
 
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving
