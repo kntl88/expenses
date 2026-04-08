@@ -1514,7 +1514,7 @@ function renderDailyRates(){
   const isVarSpend=e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID;
   let cumSavings=0;
   const cwkStartDate=new Date(cwk.start+'T00:00:00');
-  for(let i=1;i<=savingsWeeks;i++){
+  for(let i=1;i<savingsWeeks;i++){
     const ws=new Date(cwkStartDate);ws.setDate(ws.getDate()-i*7);
     const we=new Date(ws);we.setDate(we.getDate()+6);
     const wsStr=fmtD(ws),weStr=fmtD(we);
