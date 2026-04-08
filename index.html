@@ -1410,8 +1410,24 @@ function renderBalances(){
   let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
     ${acctCard('Bank',bankBal,'bank')}${acctCard('Work',workBal,'work')}${acctCard('Gold',goldBal,'gold')}${acctCard('Norwegian',norwegianBal,'norwegian')}
   </div>`;
+  // Saved since last paycheck
+  const lastPaycheck=confirmed.filter(e=>e.category==='income'&&e.amount>0).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  let savedSincePayHtml='';
+  if(lastPaycheck){
+    const fmtDbal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayBal=fmtDbal(new Date());
+    const payDate=lastPaycheck.date;
+    const daysSince=Math.round((new Date(todayBal+'T00:00:00')-new Date(payDate+'T00:00:00'))/864e5)+1;
+    const varCats=new Set(['basic','fun','unnecessary','gas']);
+    const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
+    const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
+    const varSpent=varItems.filter(e=>overlapsRange(e,payDate,todayBal)).reduce((s,e)=>s+getSpreadAmount(e,payDate,todayBal),0);
+    const db=getWeeklyBudget()/7;
+    const saved=daysSince*db-varSpent;
+    savedSincePayHtml=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved</div>`;
+  }
   h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr">
-    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div></div>
+    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
   </div>`;
@@ -1497,7 +1513,7 @@ function renderDailyRates(){
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
   const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
   const daysElapsed=cwk.daysElapsed;
-  const savingCol=(weekSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ws=daysElapsed*dailyBudget-weekSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(dailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
+  const savingCol=(periodSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ps=periodDays*dailyBudget-periodSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ps>=0?'#6cc070':'var(--red)'}">${ps>=0?'+':''}${fmt(ps)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(dailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
   const daysRemaining=7-daysElapsed;
   const projCol=(weekSpent)=>{const max=daysRemaining*dailyBudget;const proj=daysElapsed>0?weeklyBudget-(weekSpent/daysElapsed)*7:weeklyBudget;const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
 
@@ -1506,16 +1522,18 @@ function renderDailyRates(){
   const endWn=getISOWeek(new Date(periodEnd+'T00:00:00'));
   const rangeLabel=weeksCount===1?`W${startWn}`:`W${startWn}–W${endWn}`;
 
-  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div style="display:flex;gap:6px;align-items:center"><div class="rate-toggle"><button onclick="setWeeksBack(weeksBack+1)">←</button><button onclick="setWeeksBack(weeksBack-1)">→</button></div><div class="rate-toggle"><button onclick="setWeeksCount(weeksCount-1)">−</button><span style="font-size:10px;padding:0 4px">${rangeLabel}</span><button onclick="setWeeksCount(weeksCount+1)">+</button></div></div></div><div class="rate-grid">`;
+  const fd=d=>`${d.getDate()}/${d.getMonth()+1}`;
+  const dateLabel=weeksCount===1?fd(rangeStart):`${fd(rangeStart)}–${fd(new Date(periodEnd+'T00:00:00'))}`;
+  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button onclick="setWeeksBack(weeksBack+1)">←</button><button onclick="setWeeksCount(weeksCount-1)">−</button><span style="font-size:10px;padding:0 2px">${rangeLabel} <span style="color:var(--text-muted)">${dateLabel}</span></span><button onclick="setWeeksCount(weeksCount+1)">+</button><button onclick="setWeeksBack(weeksBack-1)">→</button></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving, Forecast
   const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(wk1,td1)+projCol(wk1);
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(cum1,td1)+projCol(wk1);
   // Row 2: Gas (span 3), +Gas, Saving, Forecast
   const cum2=cum1+comboTotals[5];const wk2=wk1+weekCombo[5],td2=td1+todayCombo[5];
-  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(wk2,td2)+projCol(wk2);
+  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(cum2,td2)+projCol(wk2);
   // Row 3: Purchases (span 3), +Purch, Saving, Forecast
   const cum3=cum2+comboTotals[4];const wk3=wk2+weekCombo[4],td3=td2+todayCombo[4];
-  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(wk3,td3)+projCol(wk3);
+  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(cum3,td3)+projCol(wk3);
   h+='</div>';
 
   // Bar chart (if any combos selected)
