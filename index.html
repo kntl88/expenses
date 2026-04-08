@@ -117,16 +117,16 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-chart-label { font-size: 9px; color: var(--text-muted); margin-top: 2px; text-align: center; }
 
 /* Form */
-.expense-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; display: none; }
+.expense-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; margin-bottom: 10px; display: none; }
 .expense-form.visible { display: block; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
 .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
 .form-group { display: flex; flex-direction: column; }
-.form-group label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 4px; }
-.form-group input, .form-group select { padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; transition: border-color 0.15s; }
+.form-group label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 2px; }
+.form-group input, .form-group select { padding: 6px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; transition: border-color 0.15s; }
 .form-group input:focus, .form-group select:focus { border-color: var(--accent-dim); }
 .form-group select option { background: var(--surface-2); }
-.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 
 /* Month nav */
 .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -273,10 +273,10 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .rate-chart-val { font-size: 8px; }
   .rate-chart-label { font-size: 8px; }
   .envelope-grid { grid-template-columns: 1fr; }
-  .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
   .form-row.three .form-group:last-child { grid-column: 1 / -1; }
-  .expense-form { padding: 14px; }
-  .form-group input, .form-group select { padding: 12px 10px; font-size: 16px; }
+  .expense-form { padding: 10px; }
+  .form-group input, .form-group select { padding: 8px 8px; font-size: 16px; }
   .header { margin-bottom: 20px; padding-bottom: 14px; }
   .header h1 { font-size: 22px; }
   .header-actions { gap: 6px; }
@@ -476,12 +476,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="pin-display" id="pin-display-amount">0.00</div>
       <div class="pin-grid" id="pin-grid-amount"></div>
     </div>
-    <div class="form-group" style="margin-bottom:8px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
-    <div class="form-group" style="margin-bottom:8px">
+    <div class="form-group" style="margin-bottom:5px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
+    <div class="form-group" style="margin-bottom:5px">
       <label>Account</label>
       <div class="category-filters" id="f-acct-pills" style="margin-bottom:0"></div>
     </div>
-    <div class="form-group" style="margin-bottom:8px">
+    <div class="form-group" style="margin-bottom:5px">
       <label>Category</label>
       <div class="category-filters" id="f-cat-pills" style="margin-bottom:0"></div>
     </div>
