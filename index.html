@@ -105,7 +105,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .rate-item.cum { background: var(--surface-1); border-color: var(--border); cursor: default; }
 .rate-item .rate-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
 .rate-item .rate-values { display: flex; flex-direction: column; align-items: flex-end; gap: 0; flex-shrink: 0; }
-.rate-item .rate-total { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: #e8a050; }
+.rate-item .rate-total { font-size: 13px; font-variant-numeric: tabular-nums; color: #e8a050; }
 .rate-item .rate-daily { font-size: 10px; font-variant-numeric: tabular-nums; color: #c08040; }
 
 /* Rate bar chart (vertical) */
@@ -537,6 +537,7 @@ let formAccount = 'norwegian';
 let rateMode = 'week';
 let weeklyScale = 300;
 let selectedCombos = new Set();
+let savingsWeeks = 4;
 
 // Pin Pad
 const isMobile = () => window.innerWidth <= 768;
@@ -1448,6 +1449,7 @@ function renderSummary(){
 }
 
 function setRateMode(m){rateMode=m;renderDailyRates();}
+function setSavingsWeeks(n){savingsWeeks=Math.max(1,Math.min(52,n));renderDailyRates();}
 function toggleCombo(idx){if(selectedCombos.has(idx))selectedCombos.delete(idx);else selectedCombos.add(idx);renderDailyRates();}
 
 function getCurrentWeekRange(){
@@ -1472,15 +1474,18 @@ function renderDailyRates(){
   const daysInMonth=new Date(y,m+1,0).getDate();
   const monthDaysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
 
+  const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const todayStr=fmtD(now);
   let periodItems, periodDays, periodStart, periodEnd;
   if(rateMode==='week'){
     const wr=getCurrentWeekRange();
-    periodStart=wr.start; periodEnd=wr.end;
+    periodStart=wr.start; periodEnd=todayStr;
     periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
     periodDays=wr.daysElapsed;
   } else {
     periodStart=`${y}-${String(m+1).padStart(2,'0')}-01`;
-    periodEnd=`${y}-${String(m+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+    const monthEndStr=`${y}-${String(m+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+    periodEnd=isCurrentMonth?todayStr:monthEndStr;
     periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
     periodDays=monthDaysElapsed;
   }
@@ -1494,8 +1499,6 @@ function renderDailyRates(){
   const cItem=(i,span)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'',sp=span?` style="grid-column:span ${span}"`:'';return `<div class="rate-item ${sel}"${sp} onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
   const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
   // Saving: weekly budget vs actual
-  const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const todayStr=fmtD(now);
   const weeklyBudget=getWeeklyBudget();
   const dailyBudget=weeklyBudget/7;
   const cwk=getCurrentWeekRange();
@@ -1506,7 +1509,21 @@ function renderDailyRates(){
   const savingCol=(weekSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ws=daysElapsed*dailyBudget-weekSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ws>=0?'#6cc070':'var(--red)'}">${ws>=0?'+':''}${fmt(ws)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(dailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
   const projCol=(weekSpent)=>{const max=weeklyBudget-weekSpent;const proj=daysElapsed>0?weeklyBudget-(weekSpent/daysElapsed)*7:weeklyBudget;const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
 
+  // Cumulative savings from N previous weeks
+  let cumSavings=0;
+  const cwkStartDate=new Date(cwk.start+'T00:00:00');
+  for(let i=1;i<=savingsWeeks;i++){
+    const ws=new Date(cwkStartDate);ws.setDate(ws.getDate()-i*7);
+    const we=new Date(ws);we.setDate(we.getDate()+6);
+    const wsStr=fmtD(ws),weStr=fmtD(we);
+    const wkExp=allExpenses.filter(e=>overlapsRange(e,wsStr,weStr)&&e.category!=='budgeted');
+    const wkSpent=wkExp.reduce((s,e)=>s+getSpreadAmount(e,wsStr,weStr),0);
+    cumSavings+=weeklyBudget-wkSpent;
+  }
+
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
+  // Row 0: Cumulative savings
+  h+=`<div class="rate-item cum" style="grid-column:span 6;display:flex;flex-direction:row;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span class="rate-label" style="margin:0">Saved (${savingsWeeks}w)</span><button class="btn btn-sm" style="padding:0 6px;font-size:10px;min-width:0" onclick="setSavingsWeeks(savingsWeeks-1)">−</button><button class="btn btn-sm" style="padding:0 6px;font-size:10px;min-width:0" onclick="setSavingsWeeks(savingsWeeks+1)">+</button></div><div class="rate-values" style="flex-direction:row;gap:8px"><span class="rate-total" style="color:${cumSavings>=0?'#6cc070':'var(--red)'}">${cumSavings>=0?'+':''}${fmt(cumSavings)}</span></div></div>`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving, Forecast
   const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
   h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(wk1,td1)+projCol(wk1);
