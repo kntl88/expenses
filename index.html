@@ -1424,7 +1424,8 @@ function renderBalances(){
     const varSpent=varItems.filter(e=>overlapsRange(e,payDate,todayBal)).reduce((s,e)=>s+getSpreadAmount(e,payDate,todayBal),0);
     const db=getWeeklyBudget()/7;
     const saved=daysSince*db-varSpent;
-    savedSincePayHtml=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved</div>`;
+    const availPlusSaved=available+saved;
+    savedSincePayHtml=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved · <span style="color:${availPlusSaved>=0?'var(--accent)':'var(--red)'}">${fmt(availPlusSaved)}</span></div>`;
   }
   h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr">
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
