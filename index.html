@@ -517,7 +517,7 @@ const DAILY_COMBOS = [
   { label: 'Basic', cats: ['basic'] },
   { label: 'Fun', cats: ['fun'] },
   { label: 'Unnec', cats: ['unnecessary'] },
-  { label: 'Ba+Fu+Un', cats: ['basic','fun','unnecessary'] },
+  { label: 'Total', cats: ['basic','fun','unnecessary'] },
   { label: 'Purchases', cats: ['purchase'], subCat: PURCHASES_ENVELOPE_ID },
   { label: 'Gas', cats: ['gas'] },
   { label: 'Everything', allCats: true },
@@ -1528,7 +1528,7 @@ function renderDailyRates(){
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button onclick="setWeeksBack(weeksBack+1)">←</button><button onclick="setWeeksCount(weeksCount-1)">−</button><span style="font-size:10px;padding:0 2px">${rangeLabel} <span style="color:var(--text-muted)">${dateLabel}</span></span><button onclick="setWeeksCount(weeksCount+1)">+</button><button onclick="setWeeksBack(weeksBack-1)">→</button></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving, Forecast
   const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(cum1,td1)+projCol(wk1);
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Total',cum1)+savingCol(cum1,td1)+projCol(wk1);
   // Row 2: Gas (span 3), +Gas, Saving, Forecast
   const cum2=cum1+comboTotals[5];const wk2=wk1+weekCombo[5],td2=td1+todayCombo[5];
   h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(cum2,td2)+projCol(wk2);
