@@ -534,10 +534,10 @@ let formCat = 'basic';
 let formSubCat = '';
 let formWorkType = 'expense';
 let formAccount = 'norwegian';
-let rateMode = 'week';
 let weeklyScale = 300;
 let selectedCombos = new Set();
-let savingsWeeks = 4;
+let weeksBack = 0;
+let weeksCount = 1;
 
 // Pin Pad
 const isMobile = () => window.innerWidth <= 768;
@@ -1448,8 +1448,8 @@ function renderSummary(){
   document.getElementById('month-label').textContent=`${mn[state.currentMonth.getMonth()]} ${state.currentMonth.getFullYear()}`;
 }
 
-function setRateMode(m){rateMode=m;renderDailyRates();}
-function setSavingsWeeks(n){savingsWeeks=Math.max(1,Math.min(52,n));renderDailyRates();}
+function setWeeksBack(n){weeksBack=Math.max(0,Math.min(52,n));if(weeksCount>weeksBack+1)weeksCount=weeksBack+1;renderDailyRates();}
+function setWeeksCount(n){weeksCount=Math.max(1,Math.min(weeksBack+1,n));renderDailyRates();}
 function toggleCombo(idx){if(selectedCombos.has(idx))selectedCombos.delete(idx);else selectedCombos.add(idx);renderDailyRates();}
 
 function getCurrentWeekRange(){
@@ -1468,27 +1468,18 @@ function getSpreadAmount(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spread
 
 function renderDailyRates(){
   const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0&&!e.adjustment);
-  const y=state.currentMonth.getFullYear(), m=state.currentMonth.getMonth();
   const now=new Date();
-  const isCurrentMonth=(now.getFullYear()===y && now.getMonth()===m);
-  const daysInMonth=new Date(y,m+1,0).getDate();
-  const monthDaysElapsed=isCurrentMonth ? now.getDate() : daysInMonth;
-
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(now);
-  let periodItems, periodDays, periodStart, periodEnd;
-  if(rateMode==='week'){
-    const wr=getCurrentWeekRange();
-    periodStart=wr.start; periodEnd=todayStr;
-    periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
-    periodDays=wr.daysElapsed;
-  } else {
-    periodStart=`${y}-${String(m+1).padStart(2,'0')}-01`;
-    const monthEndStr=`${y}-${String(m+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
-    periodEnd=isCurrentMonth?todayStr:monthEndStr;
-    periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
-    periodDays=monthDaysElapsed;
-  }
+  // Period from week range controls
+  const thisMon=new Date(now);thisMon.setDate(thisMon.getDate()-(now.getDay()+6)%7);
+  const rangeStart=new Date(thisMon);rangeStart.setDate(rangeStart.getDate()-weeksBack*7);
+  const rangeEnd=new Date(rangeStart);rangeEnd.setDate(rangeEnd.getDate()+weeksCount*7-1);
+  const periodStart=fmtD(rangeStart);
+  const rangeEndStr=fmtD(rangeEnd);
+  const periodEnd=rangeEndStr<=todayStr?rangeEndStr:todayStr;
+  const periodItems=allExpenses.filter(e=>overlapsRange(e,periodStart,periodEnd));
+  const periodDays=Math.round((new Date(periodEnd+'T00:00:00')-new Date(periodStart+'T00:00:00'))/864e5)+1;
 
   const perDayDivisor=periodDays;
 
@@ -1510,26 +1501,12 @@ function renderDailyRates(){
   const daysRemaining=7-daysElapsed;
   const projCol=(weekSpent)=>{const max=daysRemaining*dailyBudget;const proj=daysElapsed>0?weeklyBudget-(weekSpent/daysElapsed)*7:weeklyBudget;const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
 
-  // Cumulative savings from N previous weeks + current week
-  const varCats=new Set(['basic','fun','unnecessary','gas']);
-  const isVarSpend=e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID;
-  let cumSavings=0;
-  const cwkStartDate=new Date(cwk.start+'T00:00:00');
-  for(let i=1;i<savingsWeeks;i++){
-    const ws=new Date(cwkStartDate);ws.setDate(ws.getDate()-i*7);
-    const we=new Date(ws);we.setDate(we.getDate()+6);
-    const wsStr=fmtD(ws),weStr=fmtD(we);
-    const wkExp=allExpenses.filter(e=>overlapsRange(e,wsStr,weStr)&&isVarSpend(e));
-    const wkSpent=wkExp.reduce((s,e)=>s+getSpreadAmount(e,wsStr,weStr),0);
-    cumSavings+=weeklyBudget-wkSpent;
-  }
-  // Add current week's saving so far
-  const curWeekVarSpent=weekCombo[3]+weekCombo[5]+weekCombo[4];
-  cumSavings+=daysElapsed*dailyBudget-curWeekVarSpent;
+  // Week range labels
+  const startWn=getISOWeek(rangeStart);
+  const endWn=getISOWeek(new Date(periodEnd+'T00:00:00'));
+  const rangeLabel=weeksCount===1?`W${startWn}`:`W${startWn}–W${endWn}`;
 
-  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button class="${rateMode==='month'?'active':''}" onclick="setRateMode('month')">Month</button><button class="${rateMode==='week'?'active':''}" onclick="setRateMode('week')">Week</button></div></div><div class="rate-grid">`;
-  // Row 0: Cumulative savings
-  h+=`<div class="rate-item cum" style="grid-column:span 6;display:flex;flex-direction:row;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span class="rate-label" style="margin:0">Saved (${savingsWeeks}w)</span><button class="btn btn-sm" style="padding:0 6px;font-size:10px;min-width:0" onclick="setSavingsWeeks(savingsWeeks-1)">−</button><button class="btn btn-sm" style="padding:0 6px;font-size:10px;min-width:0" onclick="setSavingsWeeks(savingsWeeks+1)">+</button></div><div class="rate-values" style="flex-direction:row;gap:8px"><span class="rate-total" style="color:${cumSavings>=0?'#6cc070':'var(--red)'}">${cumSavings>=0?'+':''}${fmt(cumSavings)}</span></div></div>`;
+  let h=`<div class="rate-header"><div class="section-title">Consumption</div><div style="display:flex;gap:6px;align-items:center"><div class="rate-toggle"><button onclick="setWeeksBack(weeksBack+1)">←</button><button onclick="setWeeksBack(weeksBack-1)">→</button></div><div class="rate-toggle"><button onclick="setWeeksCount(weeksCount-1)">−</button><span style="font-size:10px;padding:0 4px">${rangeLabel}</span><button onclick="setWeeksCount(weeksCount+1)">+</button></div></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving, Forecast
   const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
   h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Ba+Fu+Un',cum1)+savingCol(wk1,td1)+projCol(wk1);
@@ -1547,35 +1524,25 @@ function renderDailyRates(){
     const selSubCats=new Set();
     selectedCombos.forEach(i=>{if(DAILY_COMBOS[i]){DAILY_COMBOS[i].cats.forEach(c=>selCats.add(c));if(DAILY_COMBOS[i].subCat)selSubCats.add(DAILY_COMBOS[i].subCat);}});
     const filteredItems=periodItems.filter(e=>selCats.has(e.category)||(e.subCategory&&selSubCats.has(e.subCategory)));
-    const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const todayStr=fmtLocal(now);
-
     let bars=[];
-    if(rateMode==='week' && isCurrentMonth){
-      const wr=getCurrentWeekRange();
+    if(weeksCount===1){
       const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-      const parts=wr.start.split('-');
-      const startDate=new Date(+parts[0], +parts[1]-1, +parts[2]);
       for(let d=0;d<7;d++){
-        const dt=new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()+d);
-        const ds=fmtLocal(dt);
-        if(ds>todayStr)break;
+        const dt=new Date(rangeStart);dt.setDate(dt.getDate()+d);
+        const ds=fmtD(dt);
+        if(ds>periodEnd)break;
         const total=filteredItems.reduce((s,e)=>s+getSpreadAmount(e,ds,ds),0);
         bars.push({label:dayNames[d],total});
       }
     } else {
-      const first=new Date(y,m,1), last=new Date(y,m+1,0);
-      let ws=new Date(first);
-      const dow=ws.getDay();if(dow!==1)ws.setDate(ws.getDate()-((dow+6)%7));
-      let wIdx=1;
-      while(ws<=last){
+      for(let i=0;i<weeksCount;i++){
+        const ws=new Date(rangeStart);ws.setDate(ws.getDate()+i*7);
         const we=new Date(ws);we.setDate(we.getDate()+6);
-        const csD=new Date(Math.max(ws,first));
-        const ceD=new Date(Math.min(we,last));
-        const cs=fmtLocal(csD), ce=fmtLocal(ceD);
-        const total=filteredItems.reduce((s,e)=>s+getSpreadAmount(e,cs,ce),0);
-        bars.push({label:'Wk'+wIdx,total});
-        ws=new Date(ws);ws.setDate(ws.getDate()+7);wIdx++;
+        const wsStr=fmtD(ws),weStr=fmtD(we)<periodEnd?fmtD(we):periodEnd;
+        if(wsStr>periodEnd)break;
+        const wn=getISOWeek(ws);
+        const total=filteredItems.reduce((s,e)=>s+getSpreadAmount(e,wsStr,weStr),0);
+        bars.push({label:'W'+wn,total});
       }
     }
 
