@@ -490,7 +490,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="subcat-pills" id="subcat-pills"></div>
     </div>
     <div class="form-actions" style="display:flex;align-items:center;gap:8px">
-      <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin-right:auto"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked"> ÷<input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:40px;padding:2px 4px;font-size:11px" disabled>d</label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin-right:auto"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked;if(this.checked)document.getElementById('f-onetime-check').checked=false;"> ÷<input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:40px;padding:2px 4px;font-size:11px" disabled>d</label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap"><input type="checkbox" id="f-onetime-check" onchange="if(this.checked){document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;}"> 1×</label>
       <button class="btn" onclick="toggleForm()">Cancel</button>
       <button class="btn btn-accent" id="f-save-btn" onclick="saveExpense()">Save</button>
     </div>
@@ -1336,6 +1337,7 @@ function editExpense(id){
     document.getElementById('subcat-picker').classList.remove('visible');
   }
   if(e.spreadDays&&e.spreadDays>1){document.getElementById('f-spread-check').checked=true;document.getElementById('f-spread-days').disabled=false;document.getElementById('f-spread-days').value=e.spreadDays;}else{document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';}
+  document.getElementById('f-onetime-check').checked=!!e.oneTime;
   document.getElementById('f-save-btn').textContent='Update';
   const grid=document.getElementById('pin-grid-amount');
   if(grid){grid.dataset.value=String(absAmt);updatePinDisplay('pin-grid-amount');}
@@ -1352,6 +1354,7 @@ async function saveExpense(){
   const signedAmount = isPositive ? Math.abs(amount) : -Math.abs(amount);
   const spreadCheck=document.getElementById('f-spread-check').checked;
   const spreadDays=spreadCheck?Math.max(2,parseInt(document.getElementById('f-spread-days').value)||7):undefined;
+  const oneTime=document.getElementById('f-onetime-check').checked;
   if(!amount||!date){toast('Fill in amount and date',true);return;}
   if(cat==='budgeted'&&!subCat){toast('Pick an envelope',true);return;}
   if(editingId){
@@ -1360,12 +1363,14 @@ async function saveExpense(){
     const backup={...state.expenses[idx]};
     const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount};
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
+    if(oneTime)upd.oneTime=true; else delete upd.oneTime;
     state.expenses[idx]=upd;
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');toggleForm();clearForm();render();}else{state.expenses[idx]=backup;}
   } else {
     const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount, created:new Date().toISOString()};
     if(spreadDays)e.spreadDays=spreadDays;
+    if(oneTime)e.oneTime=true;
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Saved');toggleForm();clearForm();render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
   }
@@ -1503,6 +1508,7 @@ function renderDailyRates(){
   // Grid - compute totals for each combo (spread-aware)
   const comboMatch=(combo,e)=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat);
   const comboSpread=(combo,items,rs,re)=>items.filter(e=>comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
+  const comboSpreadOneTime=(combo,items,rs,re)=>items.filter(e=>e.oneTime&&comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
   const comboTotals=DAILY_COMBOS.map(combo=>comboSpread(combo,periodItems,periodStart,periodEnd));
   const cItem=(i,span)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'',sp=span?` style="grid-column:span ${span}"`:'';return `<div class="rate-item ${sel}"${sp} onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
   const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
@@ -1512,11 +1518,12 @@ function renderDailyRates(){
   const cwk=getCurrentWeekRange();
   const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
+  const weekComboOneTime=DAILY_COMBOS.map(combo=>comboSpreadOneTime(combo,weekItems,cwk.start,todayStr));
   const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
   const daysElapsed=cwk.daysElapsed;
   const savingCol=(periodSpent,todaySpent)=>{const ds=dailyBudget-todaySpent,ps=periodDays*dailyBudget-periodSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ps>=0?'#6cc070':'var(--red)'}">${ps>=0?'+':''}${fmt(ps)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(dailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
   const daysRemaining=7-daysElapsed;
-  const projCol=(weekSpent)=>{const max=daysRemaining*dailyBudget;const proj=daysElapsed>0?weeklyBudget-(weekSpent/daysElapsed)*7:weeklyBudget;const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
+  const projCol=(weekSpent,weekOneTime)=>{const max=daysRemaining*dailyBudget;const regular=weekSpent-(weekOneTime||0);const proj=daysElapsed>0?weeklyBudget-(regular/daysElapsed)*7-(weekOneTime||0):weeklyBudget-(weekOneTime||0);const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
 
   // Week range labels
   const startWn=getISOWeek(rangeStart);
@@ -1527,14 +1534,14 @@ function renderDailyRates(){
   const dateLabel=weeksCount===1?fd(rangeStart):`${fd(rangeStart)}–${fd(new Date(periodEnd+'T00:00:00'))}`;
   let h=`<div class="rate-header"><div class="section-title">Consumption</div><div class="rate-toggle"><button onclick="setWeeksBack(weeksBack+1)">←</button><button onclick="setWeeksCount(weeksCount-1)">−</button><span style="font-size:10px;padding:0 2px">${rangeLabel} <span style="color:var(--text-muted)">${dateLabel}</span></span><button onclick="setWeeksCount(weeksCount+1)">+</button><button onclick="setWeeksBack(weeksBack-1)">→</button></div></div><div class="rate-grid">`;
   // Row 1: Basic, Fun, Unnecessary, Ba+Fu+Un, Saving, Forecast
-  const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3];
-  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Total',cum1)+savingCol(cum1,td1)+projCol(wk1);
+  const cum1=comboTotals[3];const wk1=weekCombo[3],td1=todayCombo[3],wkOt1=weekComboOneTime[3];
+  h+=cItem(0)+cItem(1)+cItem(2)+cumItem('Total',cum1)+savingCol(cum1,td1)+projCol(wk1,wkOt1);
   // Row 2: Gas (span 3), +Gas, Saving, Forecast
-  const cum2=cum1+comboTotals[5];const wk2=wk1+weekCombo[5],td2=td1+todayCombo[5];
-  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(cum2,td2)+projCol(wk2);
+  const cum2=cum1+comboTotals[5];const wk2=wk1+weekCombo[5],td2=td1+todayCombo[5],wkOt2=wkOt1+weekComboOneTime[5];
+  h+=cItem(5,3)+cumItem('+Gas',cum2)+savingCol(cum2,td2)+projCol(wk2,wkOt2);
   // Row 3: Purchases (span 3), +Purch, Saving, Forecast
-  const cum3=cum2+comboTotals[4];const wk3=wk2+weekCombo[4],td3=td2+todayCombo[4];
-  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(cum3,td3)+projCol(wk3);
+  const cum3=cum2+comboTotals[4];const wk3=wk2+weekCombo[4],td3=td2+todayCombo[4],wkOt3=wkOt2+weekComboOneTime[4];
+  h+=cItem(4,3)+cumItem('+Purch',cum3)+savingCol(cum3,td3)+projCol(wk3,wkOt3);
   h+='</div>';
 
   // Bar chart (if any combos selected)
@@ -1716,8 +1723,9 @@ function renderList(){
       const hasDesc=e.description && e.description.toLowerCase()!==e.category && !(e.adjustment && e.description==='Adjustment');
       const countLabel=count>1?` <span style="color:var(--text-muted);font-size:10px">×${count}</span>`:'';
       const spreadLabel=e.spreadDays?` <span style="color:var(--blue);font-size:10px">÷${e.spreadDays}d</span>`:'';
+      const oneTimeLabel=e.oneTime?` <span style="color:var(--blue);font-size:10px">1×</span>`:'';
       const workBadge=(e.category==='work'&&e.amount<0)?`<span class="work-badge ${e.reimbursed?'reimbursed':'pending'}" onclick="event.stopPropagation();toggleReimbursed('${e.id}')">${e.reimbursed?'reimbursed':'pending'}</span> `:'';
-      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}${spreadLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}${spreadLabel}</div>`;
+      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}${spreadLabel}${oneTimeLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}${spreadLabel}${oneTimeLabel}</div>`;
       return descHtml;
     };
     // Render aggregated groups
@@ -1776,8 +1784,8 @@ function expandGroup(idsStr){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';resetPinPad('pin-grid-amount');}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Save';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');}
 function changeMonth(d){state.currentMonth=new Date(state.currentMonth.getFullYear(),state.currentMonth.getMonth()+d,1);render();}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function exportCSV(){const items=getMonthExpenses();if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Account','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.account||'',e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`expenses-${state.currentMonth.getFullYear()}-${String(state.currentMonth.getMonth()+1).padStart(2,'0')}.csv`;a.click();}
