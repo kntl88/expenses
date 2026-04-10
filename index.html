@@ -1471,7 +1471,7 @@ function renderSummary(){
 }
 
 function setWeeksBack(n){weeksBack=Math.max(0,Math.min(52,n));if(weeksCount>weeksBack+1)weeksCount=weeksBack+1;renderDailyRates();}
-function setWeeksCount(n){weeksCount=Math.max(1,Math.min(weeksBack+1,n));renderDailyRates();}
+function setWeeksCount(n){weeksCount=Math.max(1,Math.min(53,n));if(weeksBack<weeksCount-1)weeksBack=weeksCount-1;renderDailyRates();}
 function toggleCombo(idx){if(selectedCombos.has(idx))selectedCombos.delete(idx);else selectedCombos.add(idx);renderDailyRates();}
 
 function getCurrentWeekRange(){
