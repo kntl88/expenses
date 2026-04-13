@@ -231,18 +231,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 /* Pin Pad (mobile) */
 .pin-pad { display: none; }
 @media (max-width: 768px) {
-  .pin-pad { display: block; margin-top: 6px; }
+  .pin-pad { display: block; margin-top: 4px; }
   .pin-pad .pin-display {
-    text-align: center; font-size: 24px; font-weight: 500; font-family: var(--mono);
-    font-variant-numeric: tabular-nums; padding: 8px; margin-bottom: 6px;
-    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); min-height: 44px; letter-spacing: 2px;
+    text-align: center; font-size: 18px; font-weight: 500; font-family: var(--mono);
+    font-variant-numeric: tabular-nums; padding: 4px 8px; margin-bottom: 4px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); min-height: 28px; letter-spacing: 2px;
   }
   .pin-pad .pin-display.password { letter-spacing: 6px; }
-  .pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
   .pin-key {
-    font-family: var(--mono); font-size: 18px; font-weight: 400;
-    padding: 10px 0; border-radius: 8px; border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 16px; font-weight: 400;
+    padding: 6px 0; border-radius: 6px; border: 1px solid var(--border);
     background: var(--surface); color: var(--text); cursor: pointer;
     transition: all 0.1s; text-align: center; user-select: none;
   }
@@ -252,6 +252,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   #auth-unlock input[type="password"],
   #auth-bootstrap input[type="password"] { display: none; }
   #f-amount { display: none; }
+  .expense-form { padding: 8px; margin-bottom: 8px; }
+  .expense-form .form-row { grid-template-columns: 1fr; margin-bottom: 4px; gap: 4px; }
+  .expense-form .form-row > .form-group:first-child { display: none; }
+  .expense-form .form-group { margin-bottom: 4px; }
+  .expense-form .form-group label { font-size: 8px; margin-bottom: 1px; }
+  .expense-form .form-actions { margin-top: 4px; }
 }
 
 /* Responsive */
@@ -449,7 +455,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v1.8</div>
+  <div class="auth-version">v1.9</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -729,6 +735,9 @@ async function loadData() {
   render();
   // Auto-open the expense form on login
   toggleForm();
+  if(isMobile()){
+    requestAnimationFrame(()=>document.getElementById('expense-form')?.scrollIntoView({block:'center',behavior:'auto'}));
+  }
 }
 
 async function saveData() {
