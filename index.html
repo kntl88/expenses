@@ -469,7 +469,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.0</div>
+  <div class="auth-version">v2.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -750,7 +750,7 @@ async function loadData() {
   // Auto-open the expense form on login
   toggleForm();
   if(isMobile()){
-    requestAnimationFrame(()=>document.getElementById('expense-form')?.scrollIntoView({block:'center',behavior:'auto'}));
+    requestAnimationFrame(()=>document.getElementById('expense-form')?.scrollIntoView({block:'end',behavior:'auto'}));
   }
 }
 
