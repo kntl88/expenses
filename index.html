@@ -121,6 +121,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .expense-form.visible { display: block; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
 .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+.top-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 6px; align-items: end; }
+.top-row > .mobile-amount-display { display: none; }
 .form-group { display: flex; flex-direction: column; }
 .form-group label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 2px; }
 .form-group input, .form-group select { padding: 6px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; transition: border-color 0.15s; }
@@ -253,11 +255,24 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   #auth-bootstrap input[type="password"] { display: none; }
   #f-amount { display: none; }
   .expense-form { padding: 8px; margin-bottom: 8px; }
-  .expense-form .form-row { grid-template-columns: 1fr; margin-bottom: 4px; gap: 4px; }
-  .expense-form .form-row > .form-group:first-child { display: none; }
   .expense-form .form-group { margin-bottom: 4px; }
   .expense-form .form-group label { font-size: 8px; margin-bottom: 1px; }
   .expense-form .form-actions { margin-top: 4px; }
+  .expense-form .top-row { display: flex; align-items: stretch; gap: 4px; margin-bottom: 6px; }
+  .expense-form .top-row .amount-group { display: none; }
+  .expense-form .top-row .date-group { flex: 0 0 auto; margin-bottom: 0; }
+  .expense-form .top-row .date-group label { display: none; }
+  .expense-form .top-row .date-group input { padding: 6px 4px; }
+  .expense-form .top-row .mobile-amount-display {
+    display: flex; flex: 1; align-items: center; justify-content: center;
+    text-align: center; font-size: 16px; font-weight: 500; font-family: var(--mono);
+    font-variant-numeric: tabular-nums; padding: 4px 8px; margin-bottom: 0;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); letter-spacing: 1px;
+  }
+  .expense-form .top-row .top-save-btn {
+    flex: 0 0 auto; padding: 6px 14px; font-size: 11px; margin-bottom: 0;
+  }
 }
 
 /* Responsive */
@@ -281,7 +296,6 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   .envelope-grid { grid-template-columns: 1fr; }
   .form-row, .form-row.three { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
   .form-row.three .form-group:last-child { grid-column: 1 / -1; }
-  .expense-form { padding: 10px; }
   .form-group input, .form-group select { padding: 8px 8px; font-size: 16px; }
   .header { margin-bottom: 20px; padding-bottom: 14px; }
   .header h1 { font-size: 22px; }
@@ -455,7 +469,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v1.9</div>
+  <div class="auth-version">v2.0</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -474,12 +488,13 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   <div class="balances" id="balances"></div>
   <div class="daily-rates" id="daily-rates"></div>
   <div class="expense-form" id="expense-form">
-    <div class="form-row">
-      <div class="form-group"><label>Amount (€)</label><input id="f-amount" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="form-group"><label>Date</label><input id="f-date" type="date"></div>
+    <div class="top-row">
+      <div class="form-group amount-group"><label>Amount (€)</label><input id="f-amount" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="form-group date-group"><label>Date</label><input id="f-date" type="date"></div>
+      <div class="pin-display mobile-amount-display" id="pin-display-amount">0.00</div>
+      <button class="btn btn-accent top-save-btn" id="f-save-btn" onclick="saveExpense()">Save</button>
     </div>
     <div class="pin-pad" id="pin-pad-amount">
-      <div class="pin-display" id="pin-display-amount">0.00</div>
       <div class="pin-grid" id="pin-grid-amount"></div>
     </div>
     <div class="form-group" style="margin-bottom:5px"><label>Description</label><input id="f-desc" type="text" placeholder="Optional"></div>
@@ -499,7 +514,6 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin-right:auto"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked;if(this.checked)document.getElementById('f-onetime-check').checked=false;"> ÷<input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:40px;padding:2px 4px;font-size:11px" disabled>d</label>
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap"><input type="checkbox" id="f-onetime-check" onchange="if(this.checked){document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;}"> 1×</label>
       <button class="btn" onclick="toggleForm()">Cancel</button>
-      <button class="btn btn-accent" id="f-save-btn" onclick="saveExpense()">Save</button>
     </div>
   </div>
   <div class="month-nav">
