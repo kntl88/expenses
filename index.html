@@ -476,7 +476,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.8</div>
+  <div class="auth-version">v2.9</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1815,7 +1815,7 @@ function renderList(){
       const cat=CATEGORIES[e.category]||CATEGORIES.basic;
       const descHtml=renderItem(e,1);
       if(e.proposed){
-        h+=`<div class="expense-item fade-in proposed" style="border-left-color:${cat.color}"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div></div></div>`;
+        h+=`<div class="expense-item fade-in proposed" style="border-left-color:${cat.color}" onclick="editExpense('${e.id}')"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><div class="proposed-actions"><button class="confirm-btn" onclick="event.stopPropagation();confirmProposed('${e.id}')">✓</button><button class="dismiss-btn" onclick="event.stopPropagation();dismissProposed('${e.id}')">✕</button></div></div></div>`;
       } else if(e.adjustment){
         h+=`<div class="expense-item fade-in" style="border-left-color:var(--text-muted);opacity:0.6"><div class="expense-info">${descHtml}</div><div style="display:flex;align-items:center;gap:8px"><div class="expense-amount ${e.amount<0?'negative':'positive'}">${e.amount<0?'-':'+'}€${Math.abs(e.amount).toFixed(2)}</div><button class="delete-btn" onclick="event.stopPropagation();deleteExpense('${e.id}')">✕</button></div></div>`;
       } else {
