@@ -400,11 +400,17 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
         <input id="rec-amount" type="number" step="0.01" placeholder="Amount (€)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
         <input id="rec-months" type="number" min="1" placeholder="Every N months" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <input id="rec-start" type="date" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
         <select id="rec-type" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
           <option value="expense">Expense</option>
           <option value="income">Income</option>
+        </select>
+        <select id="rec-account" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+          <option value="bank">Bank</option>
+          <option value="work">Work</option>
+          <option value="gold">Gold</option>
+          <option value="norwegian" selected>Norwegian</option>
         </select>
       </div>
       <button class="btn btn-accent" style="width:100%" onclick="addRecurring()">Add Recurring</button>
@@ -476,7 +482,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.9</div>
+  <div class="auth-version">v3.0</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -869,7 +875,7 @@ function generateProposedExpenses() {
           description: t.description,
           category: 'recurring',
           type: t.type || 'expense',
-          account: t.type === 'income' ? 'bank' : 'norwegian',
+          account: t.account || (t.type === 'income' ? 'bank' : 'norwegian'),
           proposed: true,
           created: new Date().toISOString()
         });
@@ -929,7 +935,7 @@ function renderRecurringList() {
       <div class="recurring-item">
         <div>
           <div class="ri-info">${esc(t.description)} — avg €${avg.toFixed(2)}</div>
-          <div class="ri-meta">Every ${t.intervalMonths} mo · €${monthlyEquiv.toFixed(2)}/mo · ${confirmedCount} paid · ${t.type||'expense'}</div>
+          <div class="ri-meta">Every ${t.intervalMonths} mo · €${monthlyEquiv.toFixed(2)}/mo · ${confirmedCount} paid · ${t.type||'expense'} · ${ACCOUNTS[t.account]?.label||t.account||'Norwegian'}</div>
         </div>
         <button class="ri-del" onclick="deleteRecurring('${t.id}')">✕</button>
       </div>`;
@@ -944,6 +950,7 @@ async function addRecurring() {
   const months = parseInt(document.getElementById('rec-months').value);
   const startDate = document.getElementById('rec-start').value;
   const type = document.getElementById('rec-type').value;
+  const account = document.getElementById('rec-account').value;
 
   if (!desc || !amount || !months || !startDate) { toast('Fill in all fields', true); return; }
 
@@ -954,7 +961,8 @@ async function addRecurring() {
     amount: amount,
     intervalMonths: months,
     startDate: startDate,
-    type: type
+    type: type,
+    account: account
   });
 
   if (await saveAccounts()) {
@@ -1785,7 +1793,7 @@ function renderList(){
       const acctLabel=e.account?(ACCOUNTS[e.account]?.label||e.account):'';
       const metaParts=[e.adjustment?'Adjustment':cat.label];
       if(envLabel)metaParts[0]+=' · '+envLabel;
-      if(acctLabel&&e.adjustment)metaParts.push(acctLabel);
+      if(acctLabel&&(e.adjustment||e.proposed))metaParts.push(acctLabel);
       const metaLabel=metaParts.join(' · ');
       const hasDesc=e.description && e.description.toLowerCase()!==e.category && !(e.adjustment && e.description==='Adjustment');
       const countLabel=count>1?` <span style="color:var(--text-muted);font-size:10px">×${count}</span>`:'';
