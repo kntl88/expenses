@@ -476,7 +476,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.5</div>
+  <div class="auth-version">v2.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -810,7 +810,8 @@ async function checkMonthlySnapshot() {
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   if (state.snapshots.find(s => s.month === monthKey)) return;
-  const confirmed = state.expenses.filter(e => !e.proposed && !e.dismissed);
+  const todayFilt = now.toISOString().slice(0, 10);
+  const confirmed = state.expenses.filter(e => !e.proposed && !e.dismissed && e.date <= todayFilt);
   const bankBal = getAccountBal('bank', confirmed);
   const workAcctBal = getAccountBal('work', confirmed);
   const goldBal = getAccountBal('gold', confirmed);
@@ -1342,7 +1343,8 @@ function closeOffsetModal(){document.getElementById('offset-modal').classList.re
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
   const date=document.getElementById('offset-date').value; if(!date){toast('Pick a date',true);return;}
-  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
+  const todayFilt=new Date().toISOString().slice(0,10);
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.date<=todayFilt);
   const currentBal=getAccountBal(offsetModalAccount,confirmed);
   const diff=actual-currentBal;
   if(Math.abs(diff)<0.005){toast('Balance already matches');closeOffsetModal();return;}
@@ -1445,7 +1447,8 @@ function getAccountBal(acctKey, confirmed) {
   return (state.accounts[acctKey]?.offset || 0) + sum;
 }
 function renderBalances(){
-  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed);
+  const todayFilt=new Date().toISOString().slice(0,10);
+  const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.date<=todayFilt);
   const bankBal=getAccountBal('bank',confirmed);
   const workBal=getAccountBal('work',confirmed);
   const goldBal=getAccountBal('gold',confirmed);
