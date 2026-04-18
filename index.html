@@ -476,7 +476,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.4</div>
+  <div class="auth-version">v2.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -565,6 +565,7 @@ let formWorkType = 'expense';
 let formAccount = 'norwegian';
 let weeklyScale = 300;
 let selectedCombos = new Set();
+let showFuture = false;
 let weeksBack = 0;
 let weeksCount = 1;
 
@@ -660,8 +661,8 @@ function setFormCat(c){formCat=c;renderFormCats();
   const picker=document.getElementById('subcat-picker');
   if(c==='budgeted'){picker.classList.add('visible');renderSubCatPills();}
   else if(c==='work'){picker.classList.add('visible');renderWorkTypePills();}
+  else if(c==='recurring'){picker.classList.add('visible');renderRecurringPills();}
   else{picker.classList.remove('visible');formSubCat='';formWorkType='expense';}
-  // Auto-switch account for income
   if(c==='income'){formAccount='bank';renderFormAccts();}
 }
 function renderSubCatPills(){
@@ -677,8 +678,15 @@ function renderWorkTypePills(){
     `<button type="button" class="cat-pill ${formWorkType==='expense'?'active':''}" onclick="setWorkType('expense')">Expense</button>`+
     `<button type="button" class="cat-pill ${formWorkType==='reimbursement'?'active':''}" onclick="setWorkType('reimbursement')">Reimbursement</button>`;
 }
+function renderRecurringPills(){
+  const templates=getRecurringTemplates();
+  document.getElementById('subcat-label').textContent='Template';
+  document.getElementById('subcat-pills').innerHTML=templates.map(t=>
+    `<button type="button" class="cat-pill ${formSubCat===t.id?'active':''}" onclick="setFormSubCat('${t.id}')">${esc(t.description)}</button>`
+  ).join('')+(templates.length?'':'<span style="font-size:11px;color:var(--text-muted)">No recurring templates</span>');
+}
 function setWorkType(t){formWorkType=t;renderWorkTypePills();}
-function setFormSubCat(id){formSubCat=id;renderSubCatPills();}
+function setFormSubCat(id){formSubCat=id;if(formCat==='recurring')renderRecurringPills();else renderSubCatPills();}
 
 // GitHub API
 function ghFetch(path, opts={}) {
@@ -838,14 +846,16 @@ function getRecurringAverage(templateId, templateAmount) {
 function generateProposedExpenses() {
   const templates = getRecurringTemplates();
   if (!templates.length) return;
-  const today = new Date().toISOString().slice(0, 10);
+  const futureLimit = new Date();
+  futureLimit.setMonth(futureLimit.getMonth() + 3);
+  const futureLimitStr = futureLimit.toISOString().slice(0, 10);
 
   templates.forEach(t => {
     const avg = getRecurringAverage(t.id, t.amount);
     const start = new Date(t.startDate + 'T00:00:00');
     let current = new Date(start);
 
-    while (current.toISOString().slice(0, 10) <= today) {
+    while (current.toISOString().slice(0, 10) <= futureLimitStr) {
       const dateStr = current.toISOString().slice(0, 10);
       const exists = state.expenses.find(e => e.recurringId === t.id && e.date === dateStr);
       if (!exists) {
@@ -1363,6 +1373,10 @@ function editExpense(id){
     formWorkType=e.amount>0?'reimbursement':'expense';
     document.getElementById('subcat-picker').classList.add('visible');
     renderWorkTypePills();
+  } else if(e.category==='recurring'&&e.recurringId){
+    formSubCat=e.recurringId;
+    document.getElementById('subcat-picker').classList.add('visible');
+    renderRecurringPills();
   } else {
     formSubCat='';formWorkType='expense';
     document.getElementById('subcat-picker').classList.remove('visible');
@@ -1383,24 +1397,26 @@ async function saveExpense(keepOpen){
   const isPositive = cat==='income' || (cat==='work' && formWorkType==='reimbursement');
   const type = isPositive ? 'income' : 'expense';
   const subCat=cat==='budgeted'?formSubCat:undefined;
+  const recurringId=cat==='recurring'?formSubCat:undefined;
   const signedAmount = isPositive ? Math.abs(amount) : -Math.abs(amount);
   const spreadCheck=document.getElementById('f-spread-check').checked;
   const spreadDays=spreadCheck?Math.max(2,parseInt(document.getElementById('f-spread-days').value)||7):undefined;
   const oneTime=document.getElementById('f-onetime-check').checked;
   if(!amount||!date){toast('Fill in amount and date',true);return;}
   if(cat==='budgeted'&&!subCat){toast('Pick an envelope',true);return;}
+  if(cat==='recurring'&&!recurringId){toast('Pick a template',true);return;}
   if(editingId){
     const idx=state.expenses.findIndex(x=>x.id===editingId);
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
-    const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount};
+    const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount};
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
     state.expenses[idx]=upd;
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');if(keepOpen){clearFormKeepContext();}else{toggleForm();clearForm();}render();}else{state.expenses[idx]=backup;}
   } else {
-    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, account:formAccount, created:new Date().toISOString()};
+    const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount, created:new Date().toISOString()};
     if(spreadDays)e.spreadDays=spreadDays;
     if(oneTime)e.oneTime=true;
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
@@ -1726,14 +1742,20 @@ function renderFilters(){
   document.getElementById('cat-filters').innerHTML=['all',...Object.keys(CATEGORIES)].map(c=>`<button class="cat-pill ${state.activeCategory===c?'active':''}" onclick="setCategory('${c}')">${c==='all'?'All':CATEGORIES[c].label}</button>`).join('');
 }
 
+function toggleFuture(){showFuture=!showFuture;renderList();}
 function renderList(){
   const container=document.getElementById('expense-list');
   if(state.loading){container.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading…</div>';return;}
+  const todayStr=new Date().toISOString().slice(0,10);
   let items=getMonthExpenses().filter(e=>!e.dismissed);
+  const futureCount=items.filter(e=>e.proposed&&e.date>todayStr).length;
+  if(!showFuture)items=items.filter(e=>!(e.proposed&&e.date>todayStr));
   if(state.activeCategory!=='all')items=items.filter(e=>e.category===state.activeCategory);
-  if(!items.length){container.innerHTML='<div class="empty-state fade-in">No entries'+(state.activeCategory!=='all'?' in this category':'')+'</div>';return;}
+  let h='';
+  if(futureCount>0)h+=`<div style="text-align:right;margin-bottom:8px"><button class="btn btn-sm" onclick="toggleFuture()" style="font-size:10px">${showFuture?'Hide':'Show'} future (${futureCount})</button></div>`;
+  if(!items.length){container.innerHTML=h+'<div class="empty-state fade-in">No entries'+(state.activeCategory!=='all'?' in this category':'')+'</div>';return;}
   const g={}; items.forEach(e=>{if(!g[e.date])g[e.date]=[];g[e.date].push(e);});
-  let h=''; Object.keys(g).sort().reverse().forEach(date=>{
+  Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
     // Aggregate same category+description (non-proposed only)
     const dayItems=g[date];
