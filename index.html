@@ -476,7 +476,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.6</div>
+  <div class="auth-version">v2.7</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -566,6 +566,7 @@ let formAccount = 'norwegian';
 let weeklyScale = 300;
 let selectedCombos = new Set();
 let showFuture = false;
+let showWorkPending = false;
 let weeksBack = 0;
 let weeksCount = 1;
 
@@ -1486,8 +1487,16 @@ function renderBalances(){
   h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr">
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
-    <div class="balance-card fade-in"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
+    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleWorkPending()"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
   </div>`;
+  const pendingItems=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed);
+  if(showWorkPending&&pendingItems.length){
+    h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
+    pendingItems.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(e.description)}</span> <span style="color:var(--text-muted);font-size:10px">${e.date}</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(Math.abs(e.amount))}</div></div>`;
+    });
+    h+='</div>';
+  }
   document.getElementById('balances').innerHTML=h;
 }
 
@@ -1746,6 +1755,7 @@ function renderFilters(){
 }
 
 function toggleFuture(){showFuture=!showFuture;renderList();}
+function toggleWorkPending(){showWorkPending=!showWorkPending;renderBalances();}
 function renderList(){
   const container=document.getElementById('expense-list');
   if(state.loading){container.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading…</div>';return;}
