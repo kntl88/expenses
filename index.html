@@ -476,7 +476,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v2.7</div>
+  <div class="auth-version">v2.8</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1761,8 +1761,8 @@ function renderList(){
   if(state.loading){container.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading…</div>';return;}
   const todayStr=new Date().toISOString().slice(0,10);
   let items=getMonthExpenses().filter(e=>!e.dismissed);
-  const futureCount=items.filter(e=>e.proposed&&e.date>todayStr).length;
-  if(!showFuture)items=items.filter(e=>!(e.proposed&&e.date>todayStr));
+  const futureCount=items.filter(e=>e.date>todayStr).length;
+  if(!showFuture)items=items.filter(e=>e.date<=todayStr);
   if(state.activeCategory!=='all')items=items.filter(e=>e.category===state.activeCategory);
   let h='';
   if(futureCount>0)h+=`<div style="text-align:right;margin-bottom:8px"><button class="btn btn-sm" onclick="toggleFuture()" style="font-size:10px">${showFuture?'Hide':'Show'} future (${futureCount})</button></div>`;
