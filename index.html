@@ -482,7 +482,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.0</div>
+  <div class="auth-version">v3.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -669,6 +669,7 @@ function setFormCat(c){formCat=c;renderFormCats();
   if(c==='budgeted'){picker.classList.add('visible');renderSubCatPills();}
   else if(c==='work'){picker.classList.add('visible');renderWorkTypePills();}
   else if(c==='recurring'){picker.classList.add('visible');renderRecurringPills();}
+  else if(c==='unnecessary'){picker.classList.add('visible');renderUnnecessaryPills();}
   else{picker.classList.remove('visible');formSubCat='';formWorkType='expense';}
   if(c==='income'){formAccount='bank';renderFormAccts();}
 }
@@ -692,8 +693,14 @@ function renderRecurringPills(){
     `<button type="button" class="cat-pill ${formSubCat===t.id?'active':''}" onclick="setFormSubCat('${t.id}')">${esc(t.description)}</button>`
   ).join('')+(templates.length?'':'<span style="font-size:11px;color:var(--text-muted)">No recurring templates</span>');
 }
+function renderUnnecessaryPills(){
+  document.getElementById('subcat-label').textContent='Type';
+  document.getElementById('subcat-pills').innerHTML=
+    `<button type="button" class="cat-pill ${!formSubCat?'active':''}" onclick="setFormSubCat('')">Regular</button>`+
+    `<button type="button" class="cat-pill ${formSubCat==='eating_out'?'active':''}" onclick="setFormSubCat('eating_out')">Eating out</button>`;
+}
 function setWorkType(t){formWorkType=t;renderWorkTypePills();}
-function setFormSubCat(id){formSubCat=id;if(formCat==='recurring')renderRecurringPills();else renderSubCatPills();}
+function setFormSubCat(id){formSubCat=id;if(formCat==='recurring')renderRecurringPills();else if(formCat==='unnecessary')renderUnnecessaryPills();else renderSubCatPills();}
 
 // GitHub API
 function ghFetch(path, opts={}) {
@@ -1388,6 +1395,10 @@ function editExpense(id){
     formSubCat=e.recurringId;
     document.getElementById('subcat-picker').classList.add('visible');
     renderRecurringPills();
+  } else if(e.category==='unnecessary'){
+    formSubCat=e.subCategory||'';
+    document.getElementById('subcat-picker').classList.add('visible');
+    renderUnnecessaryPills();
   } else {
     formSubCat='';formWorkType='expense';
     document.getElementById('subcat-picker').classList.remove('visible');
@@ -1407,7 +1418,7 @@ async function saveExpense(keepOpen){
   const cat=formCat;
   const isPositive = cat==='income' || (cat==='work' && formWorkType==='reimbursement');
   const type = isPositive ? 'income' : 'expense';
-  const subCat=cat==='budgeted'?formSubCat:undefined;
+  const subCat=(cat==='budgeted'||(cat==='unnecessary'&&formSubCat))?formSubCat:undefined;
   const recurringId=cat==='recurring'?formSubCat:undefined;
   const signedAmount = isPositive ? Math.abs(amount) : -Math.abs(amount);
   const spreadCheck=document.getElementById('f-spread-check').checked;
@@ -1574,9 +1585,20 @@ function renderDailyRates(){
   const perDayDivisor=periodDays;
 
   // Grid - compute totals for each combo (spread-aware)
-  const comboMatch=(combo,e)=>(combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat);
-  const comboSpread=(combo,items,rs,re)=>items.filter(e=>comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
-  const comboSpreadOneTime=(combo,items,rs,re)=>items.filter(e=>e.oneTime&&comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re),0);
+  const comboMatch=(combo,e)=>{
+    if(e.subCategory==='eating_out'&&combo.cats&&(combo.cats.includes('basic')||combo.cats.includes('unnecessary')))return true;
+    return (combo.allCats||combo.cats.includes(e.category)||(combo.subCat&&e.subCategory===combo.subCat))&&!(combo.excludeSubCat&&e.subCategory===combo.excludeSubCat);
+  };
+  const eatingOutRatio=(combo,e)=>{
+    if(e.subCategory!=='eating_out'||!combo.cats)return 1;
+    const total=Math.abs(e.amount);
+    if(total===0)return 0;
+    if(combo.cats.includes('basic')&&!combo.cats.includes('unnecessary'))return Math.min(5,total)/total;
+    if(combo.cats.includes('unnecessary')&&!combo.cats.includes('basic'))return Math.max(0,total-5)/total;
+    return 1;
+  };
+  const comboSpread=(combo,items,rs,re)=>items.filter(e=>comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re)*eatingOutRatio(combo,e),0);
+  const comboSpreadOneTime=(combo,items,rs,re)=>items.filter(e=>e.oneTime&&comboMatch(combo,e)).reduce((s,e)=>s+getSpreadAmount(e,rs,re)*eatingOutRatio(combo,e),0);
   const comboTotals=DAILY_COMBOS.map(combo=>comboSpread(combo,periodItems,periodStart,periodEnd));
   const cItem=(i,span)=>{const t=comboTotals[i],d=perDayDivisor>0?t/perDayDivisor:0,sel=selectedCombos.has(i)?'selected':'',sp=span?` style="grid-column:span ${span}"`:'';return `<div class="rate-item ${sel}"${sp} onclick="toggleCombo(${i})"><div class="rate-label">${DAILY_COMBOS[i].label}</div><div class="rate-values"><div class="rate-total">${fmt(t)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
   const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
@@ -1789,7 +1811,7 @@ function renderList(){
     });
     const renderItem=(e,count)=>{
       const cat=CATEGORIES[e.category]||CATEGORIES.basic;
-      const envLabel=e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
+      const envLabel=e.subCategory==='eating_out'?'Eating out':e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
       const acctLabel=e.account?(ACCOUNTS[e.account]?.label||e.account):'';
       const metaParts=[e.adjustment?'Adjustment':cat.label];
       if(envLabel)metaParts[0]+=' · '+envLabel;
@@ -1841,7 +1863,7 @@ function expandGroup(idsStr){
   ids.forEach(id=>{
     const e=state.expenses.find(x=>x.id===id);if(!e)return;
     const cat=CATEGORIES[e.category]||CATEGORIES.basic;
-    const envLabel=e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
+    const envLabel=e.subCategory==='eating_out'?'Eating out':e.subCategory?(getEnvelopes().find(x=>x.id===e.subCategory)||{}).label:'';
     const metaLabel=envLabel?cat.label+' · '+envLabel:cat.label;
     const hasDesc=e.description && e.description.toLowerCase()!==e.category;
     const descHtml=hasDesc?`<div class="expense-desc">${esc(e.description)}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${metaLabel}</div>`;
