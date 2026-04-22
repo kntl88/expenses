@@ -482,7 +482,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.1</div>
+  <div class="auth-version">v3.2</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1793,6 +1793,15 @@ function renderList(){
   let items=getMonthExpenses().filter(e=>!e.dismissed);
   const futureCount=items.filter(e=>e.date>todayStr).length;
   if(!showFuture)items=items.filter(e=>e.date<=todayStr);
+  const splitItems=[];
+  items.forEach(e=>{
+    if(e.subCategory==='eating_out'){
+      const total=Math.abs(e.amount),basicPart=Math.min(5,total),restPart=total-basicPart;
+      splitItems.push({...e,category:'basic',subCategory:undefined,amount:e.amount<0?-basicPart:basicPart,_splitId:e.id});
+      if(restPart>0)splitItems.push({...e,amount:e.amount<0?-restPart:restPart});
+    } else splitItems.push(e);
+  });
+  items=splitItems;
   if(state.activeCategory!=='all')items=items.filter(e=>e.category===state.activeCategory);
   let h='';
   if(futureCount>0)h+=`<div style="text-align:right;margin-bottom:8px"><button class="btn btn-sm" onclick="toggleFuture()" style="font-size:10px">${showFuture?'Hide':'Show'} future (${futureCount})</button></div>`;
