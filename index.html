@@ -441,6 +441,27 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
 </div>
 
+<div id="loan-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Loans</h3>
+    <p>Track installment payments (osamaksu). The lent amount reduces your daily savings rate over the payment period.</p>
+    <div class="recurring-list" id="loan-list"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Add loan</div>
+      <input id="loan-desc" type="text" placeholder="Description (e.g. Phone, Loan to Matti)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <input id="loan-amount" type="number" step="0.01" placeholder="Amount (€)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="loan-start" type="date" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="loan-days" type="number" min="1" placeholder="Days" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      </div>
+      <button class="btn btn-accent" style="width:100%" onclick="addLoan()">Add Loan</button>
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn" onclick="closeLoanModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="auth-screen" class="auth-screen">
   <h2>Expense <span>Tracker</span></h2>
   <div id="auth-setup" style="display:none">
@@ -482,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.2</div>
+  <div class="auth-version">v3.3</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -493,6 +514,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <button class="btn" onclick="openBulkModal()">Bulk</button>
       <button class="btn" onclick="openRecurringModal()">Recurring</button>
       <button class="btn" onclick="openBudgetedModal()">Envelopes</button>
+      <button class="btn" onclick="openLoanModal()">Loans</button>
       <button class="btn" onclick="openChpwModal()">PIN</button>
       <button class="btn btn-danger" onclick="disconnect()">Lock</button>
       <button class="btn btn-accent" onclick="toggleForm()">+ Add</button>
@@ -573,6 +595,7 @@ let weeklyScale = 300;
 let selectedCombos = new Set();
 let showFuture = false;
 let showWorkPending = false;
+let showLoans = false;
 let weeksBack = 0;
 let weeksCount = 1;
 
@@ -1115,6 +1138,77 @@ async function adjustAllocations(delta) {
   if (await saveAccounts()) { toast(delta > 0 ? '+1 allocation' : '−1 allocation'); render(); }
 }
 
+// Loans
+function getLoans() { return state.accounts.loans || []; }
+
+function getActiveLoanDailyDeduction() {
+  const today = new Date().toISOString().slice(0,10);
+  return getLoans().filter(l => {
+    const end = addDaysStr(l.startDate, l.days);
+    return l.startDate <= today && today <= end;
+  }).reduce((s, l) => s + l.amount / l.days, 0);
+}
+
+function openLoanModal() {
+  document.getElementById('loan-modal').classList.add('visible');
+  document.getElementById('loan-start').value = new Date().toISOString().slice(0,10);
+  renderLoanList();
+}
+function closeLoanModal() { document.getElementById('loan-modal').classList.remove('visible'); }
+
+function renderLoanList() {
+  const loans = getLoans();
+  const el = document.getElementById('loan-list');
+  if (!loans.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No loans yet.</div>'; return; }
+  const today = new Date().toISOString().slice(0,10);
+  el.innerHTML = loans.map(l => {
+    const end = addDaysStr(l.startDate, l.days);
+    const elapsed = Math.max(0, Math.round((new Date(today+'T00:00:00') - new Date(l.startDate+'T00:00:00')) / 864e5));
+    const active = l.startDate <= today && today <= end;
+    const daily = l.amount / l.days;
+    const paid = active ? Math.min(elapsed, l.days) * daily : (today > end ? l.amount : 0);
+    const remaining = l.amount - paid;
+    const daysLeft = active ? l.days - Math.min(elapsed, l.days) : (today > end ? 0 : l.days);
+    const status = today > end ? '<span style="color:#6cc070">paid</span>' : (active ? `<span style="color:var(--orange)">${daysLeft}d left</span>` : '<span style="color:var(--text-muted)">upcoming</span>');
+    return `<div class="recurring-item">
+      <div>
+        <div class="ri-info">${esc(l.description)} — €${l.amount.toFixed(2)} ${status}</div>
+        <div class="ri-meta">€${daily.toFixed(2)}/day · ${l.days} days · remaining €${remaining.toFixed(2)}</div>
+      </div>
+      <button class="ri-del" onclick="deleteLoan('${l.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function addLoan() {
+  const desc = document.getElementById('loan-desc').value.trim();
+  const amount = parseFloat(document.getElementById('loan-amount').value);
+  const startDate = document.getElementById('loan-start').value;
+  const days = parseInt(document.getElementById('loan-days').value);
+  if (!desc || !amount || !startDate || !days) { toast('Fill in all fields', true); return; }
+  if (!state.accounts.loans) state.accounts.loans = [];
+  state.accounts.loans.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,4),
+    description: desc, amount, startDate, days
+  });
+  if (await saveAccounts()) {
+    toast('Loan added');
+    document.getElementById('loan-desc').value = '';
+    document.getElementById('loan-amount').value = '';
+    document.getElementById('loan-days').value = '';
+    renderLoanList();
+    render();
+  }
+}
+
+async function deleteLoan(id) {
+  if (!confirm('Delete this loan?')) return;
+  state.accounts.loans = (state.accounts.loans || []).filter(l => l.id !== id);
+  if (await saveAccounts()) { toast('Deleted'); renderLoanList(); render(); }
+}
+
+function toggleLoans() { showLoans = !showLoans; renderBalances(); }
+
 // Bulk add
 const CAT_ALIASES = {};
 Object.keys(CATEGORIES).forEach(k => { CAT_ALIASES[k] = k; for (let i = 2; i <= k.length; i++) { const prefix = k.slice(0, i); if (!CAT_ALIASES[prefix]) CAT_ALIASES[prefix] = k; } });
@@ -1498,21 +1592,35 @@ function renderBalances(){
     const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
     const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
     const varSpent=varItems.filter(e=>overlapsRange(e,payDate,todayBal)).reduce((s,e)=>s+getSpreadAmount(e,payDate,todayBal),0);
-    const db=getWeeklyBudget()/7;
+    const db=getWeeklyBudget()/7-getActiveLoanDailyDeduction();
     const saved=daysSince*db-varSpent;
     const availPlusSaved=available+daysSince*db;
     savedSincePayHtml=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved · <span style="color:${availPlusSaved>=0?'var(--accent)':'var(--red)'}">${fmt(availPlusSaved)}</span></div>`;
   }
-  h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr">
+  const todayLoans=new Date().toISOString().slice(0,10);
+  const activeLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayLoans&&todayLoans<=end;});
+  const loanTotal=activeLoans.reduce((s,l)=>{const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));return s+l.amount-Math.min(elapsed,l.days)*(l.amount/l.days);},0);
+  const loanDaily=getActiveLoanDailyDeduction();
+  h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleWorkPending()"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
+    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${loanTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(loanTotal)}</div>${loanDaily>0?`<div style="font-size:9px;color:var(--orange)">-${fmt(loanDaily)}/day</div>`:''}</div>
   </div>`;
   const pendingItems=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed);
   if(showWorkPending&&pendingItems.length){
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
     pendingItems.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(e.description)}</span> <span style="color:var(--text-muted);font-size:10px">${e.date}</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(Math.abs(e.amount))}</div></div>`;
+    });
+    h+='</div>';
+  }
+  if(showLoans&&activeLoans.length){
+    h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
+    activeLoans.forEach(l=>{
+      const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));
+      const daily=l.amount/l.days;const remaining=l.amount-Math.min(elapsed,l.days)*daily;const daysLeft=l.days-Math.min(elapsed,l.days);
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(l.description)}</span> <span style="color:var(--text-muted);font-size:10px">${daysLeft}d left · €${daily.toFixed(2)}/day</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</div></div>`;
     });
     h+='</div>';
   }
@@ -1604,7 +1712,7 @@ function renderDailyRates(){
   const cumItem=(label,total)=>{const d=perDayDivisor>0?total/perDayDivisor:0;return `<div class="rate-item cum"><div class="rate-label">${label}</div><div class="rate-values"><div class="rate-total">${fmt(total)}</div><div class="rate-daily">${fmt(d)}</div></div></div>`;};
   // Saving: weekly budget vs actual
   const weeklyBudget=getWeeklyBudget();
-  const dailyBudget=weeklyBudget/7;
+  const dailyBudget=weeklyBudget/7-getActiveLoanDailyDeduction();
   const cwk=getCurrentWeekRange();
   const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
@@ -1704,7 +1812,7 @@ function renderWeekly(){
     {key:'purchase',label:'Purchases',color:'#f07498',filter:e=>e.subCategory===PURCHASES_ENVELOPE_ID}
   ];
   const matchCat=(e,sc)=>sc.filter?sc.filter(e):e.category===sc.key;
-  const weeklyIncome=getWeeklyBudget();
+  const weeklyIncome=getWeeklyBudget()-getActiveLoanDailyDeduction()*7;
 
   const SM=weeklyScale;
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
