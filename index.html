@@ -339,13 +339,26 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 <div id="offset-modal" class="modal-overlay">
   <div class="modal">
     <h3 id="offset-modal-title">Adjust Balance</h3>
-    <p>Enter the actual balance. An adjustment entry will be created for the difference.</p>
-    <input id="offset-input" type="number" step="0.01" placeholder="Actual balance right now"
-           onkeydown="if(event.key==='Enter')saveOffset()">
-    <input id="offset-date" type="date" style="margin-top:8px">
-    <div class="modal-actions">
-      <button class="btn" onclick="closeOffsetModal()">Cancel</button>
-      <button class="btn btn-accent" onclick="saveOffset()">Save</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="cat-pill active" id="adj-tab-move" onclick="setAdjTab('move')">Move money</button>
+      <button class="cat-pill" id="adj-tab-unaccounted" onclick="setAdjTab('unaccounted')">Unaccounted</button>
+    </div>
+    <div id="adj-move-panel">
+      <p>Transfer between accounts. No effect on total balance.</p>
+      <input id="offset-move-amount" type="number" step="0.01" placeholder="Amount (€)" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')saveMove()">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:8px">
+        <select id="offset-move-to" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none"></select>
+        <span style="color:var(--text-muted);font-size:11px">→</span>
+        <span id="offset-move-from" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <input id="offset-move-date" type="date" style="margin-bottom:8px">
+      <div class="modal-actions"><button class="btn" onclick="closeOffsetModal()">Cancel</button><button class="btn btn-accent" onclick="saveMove()">Move</button></div>
+    </div>
+    <div id="adj-unaccounted-panel" style="display:none">
+      <p>Correct balance with an Unaccounted transaction.</p>
+      <input id="offset-input" type="number" step="0.01" placeholder="Actual balance right now" onkeydown="if(event.key==='Enter')saveOffset()" style="margin-bottom:8px">
+      <input id="offset-date" type="date" style="margin-bottom:8px">
+      <div class="modal-actions"><button class="btn" onclick="closeOffsetModal()">Cancel</button><button class="btn btn-accent" onclick="saveOffset()">Save</button></div>
     </div>
   </div>
 </div>
@@ -507,7 +520,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.5</div>
+  <div class="auth-version">v3.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1454,7 +1467,28 @@ function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],acco
 function tryAutoConnect(){initPinPads();showAuthMode();}
 
 // Offset modal
-function openOffsetModal(acct){offsetModalAccount=acct;document.getElementById('offset-modal-title').textContent=(ACCOUNTS[acct]?.label||acct)+' Balance';document.getElementById('offset-input').value='';document.getElementById('offset-date').value=new Date().toISOString().slice(0,10);document.getElementById('offset-modal').classList.add('visible');setTimeout(()=>document.getElementById('offset-input').focus(),50);}
+function setAdjTab(tab){
+  document.getElementById('adj-tab-move').classList.toggle('active',tab==='move');
+  document.getElementById('adj-tab-unaccounted').classList.toggle('active',tab==='unaccounted');
+  document.getElementById('adj-move-panel').style.display=tab==='move'?'':'none';
+  document.getElementById('adj-unaccounted-panel').style.display=tab==='unaccounted'?'':'none';
+}
+function openOffsetModal(acct){
+  offsetModalAccount=acct;
+  const label=ACCOUNTS[acct]?.label||acct;
+  document.getElementById('offset-modal-title').textContent=label+' — Adjust';
+  document.getElementById('offset-input').value='';
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('offset-date').value=today;
+  document.getElementById('offset-move-date').value=today;
+  document.getElementById('offset-move-amount').value='';
+  document.getElementById('offset-move-from').textContent=label;
+  const sel=document.getElementById('offset-move-to');
+  sel.innerHTML=Object.keys(ACCOUNTS).filter(k=>k!==acct).map(k=>`<option value="${k}">${ACCOUNTS[k].label}</option>`).join('');
+  setAdjTab('move');
+  document.getElementById('offset-modal').classList.add('visible');
+  setTimeout(()=>document.getElementById('offset-move-amount').focus(),50);
+}
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
   const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
@@ -1464,10 +1498,23 @@ async function saveOffset(){
   const currentBal=getAccountBal(offsetModalAccount,confirmed);
   const diff=actual-currentBal;
   if(Math.abs(diff)<0.005){toast('Balance already matches');closeOffsetModal();return;}
-  // Create adjustment entry
-  const adj={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:diff, date, description:'Adjustment', account:offsetModalAccount, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+  const adj={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:diff, date, description:'Unaccounted', account:offsetModalAccount, adjustment:true, type:'adjustment', created:new Date().toISOString()};
   state.expenses.push(adj); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
-  if(await saveData()){toast('Adjustment saved');closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==adj.id);}
+  if(await saveData()){toast('Unaccounted entry saved');closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==adj.id);}
+}
+async function saveMove(){
+  const amount=parseFloat(document.getElementById('offset-move-amount').value); if(!amount||isNaN(amount)){toast('Enter an amount',true);return;}
+  const date=document.getElementById('offset-move-date').value; if(!date){toast('Pick a date',true);return;}
+  const toAcct=document.getElementById('offset-move-to').value;
+  const fromAcct=offsetModalAccount;
+  const fromLabel=ACCOUNTS[fromAcct]?.label||fromAcct;
+  const toLabel=ACCOUNTS[toAcct]?.label||toAcct;
+  const id1=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const id2=(Date.now()+1).toString(36)+Math.random().toString(36).slice(2,6);
+  const out={id:id1, amount:-Math.abs(amount), date, description:'→ '+toLabel, account:fromAcct, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+  const inc={id:id2, amount:Math.abs(amount), date, description:'← '+fromLabel, account:toAcct, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+  state.expenses.push(out,inc); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+  if(await saveData()){toast(`Moved €${Math.abs(amount).toFixed(2)} ${fromLabel} → ${toLabel}`);closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==id1&&x.id!==id2);}
 }
 
 // CRUD
