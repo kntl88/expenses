@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.7</div>
+  <div class="auth-version">v3.8</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -892,7 +892,12 @@ function generateProposedExpenses() {
 
     while (current.toISOString().slice(0, 10) <= futureLimitStr) {
       const dateStr = current.toISOString().slice(0, 10);
-      const exists = state.expenses.find(e => e.recurringId === t.id && e.date === dateStr);
+      const exists = state.expenses.find(e => {
+        if(e.recurringId !== t.id) return false;
+        if(e.date === dateStr) return true;
+        const diff = Math.abs(Math.round((new Date(e.date+'T00:00:00') - new Date(dateStr+'T00:00:00')) / 864e5));
+        return diff <= 15;
+      });
       if (!exists) {
         state.expenses.push({
           id: 'prop_' + t.id + '_' + dateStr,
