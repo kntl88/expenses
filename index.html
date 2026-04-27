@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.2</div>
+  <div class="auth-version">v4.3</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -921,9 +921,15 @@ function generateProposedExpenses() {
   state.expenses.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-function confirmProposed(id) {
-  editExpense(id);
-  document.getElementById('f-save-btn').textContent = 'Confirm';
+async function confirmProposed(id) {
+  const idx = state.expenses.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  const e = state.expenses[idx];
+  const realId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const backup = {...e};
+  state.expenses[idx] = {...e, proposed: false, reserved: undefined, id: realId};
+  if (await saveData()) { toast('Confirmed'); render(); }
+  else { state.expenses[idx] = backup; }
 }
 
 async function dismissProposed(id) {
@@ -1590,7 +1596,6 @@ async function saveExpense(keepOpen){
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
     const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount};
-    if(upd.proposed&&document.getElementById('f-save-btn').textContent==='Confirm'){upd.proposed=false;delete upd.reserved;upd.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
     // Update recurring template date if user changed the day
     if(upd.recurringId&&backup.date!==date){
       const t=(state.accounts.recurring||[]).find(r=>r.id===upd.recurringId);
