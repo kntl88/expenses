@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.9</div>
+  <div class="auth-version">v4.0</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1088,20 +1088,44 @@ function closeBudgetedModal() {
   document.getElementById('budgeted-modal').classList.remove('visible');
 }
 
+let editingEnvelopeId = null;
 function renderEnvelopeList() {
   const envs = getEnvelopes();
   const el = document.getElementById('envelope-list');
   if (!envs.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0">No envelopes yet.</div>'; return; }
   el.innerHTML = envs.map(env => {
     const c = calcEnvelope(env);
-    return `<div class="recurring-item">
+    if (editingEnvelopeId === env.id) {
+      return `<div class="recurring-item" style="flex-direction:column;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <input id="env-edit-alloc" type="number" step="0.01" value="${env.monthlyAlloc||0}" placeholder="€/set" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+          <input id="env-edit-target" type="number" step="0.01" value="${env.target||''}" placeholder="Target (opt)" style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn" onclick="editingEnvelopeId=null;renderEnvelopeList()" style="padding:4px 10px;font-size:11px">Cancel</button>
+          <button class="btn btn-accent" onclick="saveEnvelopeEdit('${env.id}')" style="padding:4px 10px;font-size:11px">Save</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="recurring-item" style="cursor:pointer" onclick="editingEnvelopeId='${env.id}';renderEnvelopeList()">
       <div>
         <div class="ri-info">${esc(env.label)} — buffer ${c.buffer>=0?'+':''}€${c.buffer.toFixed(2)}</div>
         <div class="ri-meta">€${c.baseAlloc}/set · ${c.allocations}× · spent €${c.totalSpent.toFixed(0)}${env.target?' · target €'+env.target:''}</div>
       </div>
-      <button class="ri-del" onclick="deleteEnvelope('${env.id}')">✕</button>
+      <button class="ri-del" onclick="event.stopPropagation();deleteEnvelope('${env.id}')">✕</button>
     </div>`;
   }).join('');
+}
+async function saveEnvelopeEdit(id) {
+  const env = getEnvelopes().find(e => e.id === id);
+  if (!env) return;
+  const alloc = parseFloat(document.getElementById('env-edit-alloc').value);
+  const target = parseFloat(document.getElementById('env-edit-target').value) || null;
+  if (isNaN(alloc) || alloc <= 0) { toast('Enter a valid amount', true); return; }
+  env.monthlyAlloc = alloc;
+  env.target = target;
+  editingEnvelopeId = null;
+  if (await saveAccounts()) { toast('Updated'); renderEnvelopeList(); render(); }
 }
 
 async function addEnvelope() {
