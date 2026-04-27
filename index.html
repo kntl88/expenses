@@ -430,13 +430,16 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 <div id="loan-modal" class="modal-overlay">
   <div class="modal">
     <h3>Loans</h3>
-    <p>Track installment payments (osamaksu). The lent amount reduces your daily savings rate over the payment period.</p>
+    <p>Track installment payments (osamaksu). The amount is deducted from the selected account immediately and the daily savings rate is reduced over the payment period.</p>
     <div class="recurring-list" id="loan-list"></div>
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Add loan</div>
       <input id="loan-desc" type="text" placeholder="Description (e.g. Phone, Loan to Matti)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <input id="loan-amount" type="number" step="0.01" placeholder="Amount (€)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <select id="loan-account" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <input id="loan-start" type="date" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
         <input id="loan-days" type="number" min="1" placeholder="Days" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
       </div>
@@ -489,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.7</div>
+  <div class="auth-version">v4.8</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1192,6 +1195,9 @@ function getActiveLoanDailyDeduction() {
 function openLoanModal() {
   document.getElementById('loan-modal').classList.add('visible');
   document.getElementById('loan-start').value = new Date().toISOString().slice(0,10);
+  const sel = document.getElementById('loan-account');
+  sel.innerHTML = Object.entries(ACCOUNTS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
+  sel.value = 'bank';
   renderLoanList();
 }
 function closeLoanModal() { document.getElementById('loan-modal').classList.remove('visible'); }
@@ -1225,26 +1231,37 @@ async function addLoan() {
   const amount = parseFloat(document.getElementById('loan-amount').value);
   const startDate = document.getElementById('loan-start').value;
   const days = parseInt(document.getElementById('loan-days').value);
+  const account = document.getElementById('loan-account').value;
   if (!desc || !amount || !startDate || !days) { toast('Fill in all fields', true); return; }
+  const loanId = Date.now().toString(36) + Math.random().toString(36).slice(2,4);
   if (!state.accounts.loans) state.accounts.loans = [];
-  state.accounts.loans.push({
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2,4),
-    description: desc, amount, startDate, days
-  });
-  if (await saveAccounts()) {
+  state.accounts.loans.push({ id: loanId, description: desc, amount, startDate, days, account });
+  if (!(await saveAccounts())) return;
+  // Create expense entry to deduct from account immediately
+  const expenseId = loanId + '_exp';
+  const entry = { id: expenseId, amount: -Math.abs(amount), date: startDate, description: desc, category: 'fixed', type: 'expense', account, loanId, created: new Date().toISOString() };
+  state.expenses.push(entry);
+  state.expenses.sort((a,b) => b.date.localeCompare(a.date));
+  if (await saveData()) {
     toast('Loan added');
     document.getElementById('loan-desc').value = '';
     document.getElementById('loan-amount').value = '';
     document.getElementById('loan-days').value = '';
     renderLoanList();
     render();
+  } else {
+    state.expenses = state.expenses.filter(e => e.id !== expenseId);
   }
 }
 
 async function deleteLoan(id) {
   if (!confirm('Delete this loan?')) return;
   state.accounts.loans = (state.accounts.loans || []).filter(l => l.id !== id);
-  if (await saveAccounts()) { toast('Deleted'); renderLoanList(); render(); }
+  const hadExpense = state.expenses.some(e => e.loanId === id);
+  const backup = [...state.expenses];
+  state.expenses = state.expenses.filter(e => e.loanId !== id);
+  if (await saveAccounts() && (!hadExpense || await saveData())) { toast('Deleted'); renderLoanList(); render(); }
+  else if (hadExpense) { state.expenses = backup; }
 }
 
 function toggleLoans() { showLoans = !showLoans; renderBalances(); }
