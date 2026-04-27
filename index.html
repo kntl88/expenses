@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.3</div>
+  <div class="auth-version">v4.4</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -735,7 +735,7 @@ async function loadData() {
   state.loading = true; renderList();
   try {
     const [res, ares, sres] = await Promise.all([ghFetch(DATA_PATH), ghFetch(ACCOUNTS_PATH), ghFetch(SNAPSHOTS_PATH)]);
-    if (res.ok) { const j = await res.json(); state.sha = j.sha; state.expenses = JSON.parse(atob(j.content.replace(/\n/g,''))); }
+    if (res.ok) { const j = await res.json(); state.sha = j.sha; state.expenses = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))))); }
     else if (res.status===404) { state.expenses=[]; state.sha=null; }
     else throw new Error(`${res.status}`);
     if (ares.ok) { const j = await ares.json(); state.accountsSha = j.sha; state.accounts = JSON.parse(atob(j.content.replace(/\n/g,''))); }
@@ -805,6 +805,23 @@ async function loadData() {
 }
 
 async function saveData() {
+  // Merge any remotely-added entries before saving to prevent data loss
+  try {
+    const remoteRes = await ghFetch(DATA_PATH);
+    if (remoteRes.ok) {
+      const rj = await remoteRes.json();
+      if (rj.sha !== state.sha) {
+        const remoteData = JSON.parse(decodeURIComponent(escape(atob(rj.content.replace(/\n/g,'')))));
+        const localIds = new Set(state.expenses.map(e => e.id));
+        const added = remoteData.filter(e => !localIds.has(e.id));
+        if (added.length) {
+          state.expenses.push(...added);
+          state.expenses.sort((a,b) => b.date.localeCompare(a.date));
+        }
+        state.sha = rj.sha;
+      }
+    }
+  } catch(e) { /* proceed with save even if merge check fails */ }
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.expenses, null, 2))));
   const body = { message:`Update expenses ${new Date().toISOString().slice(0,10)}`, content };
   if (state.sha) body.sha = state.sha;
@@ -1599,7 +1616,7 @@ async function saveExpense(keepOpen){
     // Update recurring template date if user changed the day
     if(upd.recurringId&&backup.date!==date){
       const t=(state.accounts.recurring||[]).find(r=>r.id===upd.recurringId);
-      if(t){const newDay=parseInt(date.slice(8,10));const oldStart=new Date(t.startDate+'T00:00:00');oldStart.setDate(newDay);t.startDate=`${oldStart.getFullYear()}-${String(oldStart.getMonth()+1).padStart(2,'0')}-${String(newDay).padStart(2,'0')}`;saveAccounts();}
+      if(t){const newDay=parseInt(date.slice(8,10));const oldStart=new Date(t.startDate+'T00:00:00');oldStart.setDate(newDay);t.startDate=`${oldStart.getFullYear()}-${String(oldStart.getMonth()+1).padStart(2,'0')}-${String(newDay).padStart(2,'0')}`;await saveAccounts();}
     }
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
