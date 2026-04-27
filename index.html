@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.4</div>
+  <div class="auth-version">v4.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -901,8 +901,15 @@ function generateProposedExpenses() {
   // Clear non-reserved proposals so they regenerate with correct dates
   state.expenses = state.expenses.filter(e => !e.proposed || e.reserved || e.dismissed);
   const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const futureLimit = new Date();
-  futureLimit.setMonth(futureLimit.getMonth() + 3);
+  const now = new Date();
+  const futureLimit = new Date(now);
+  // From the 15th onward, show next month's recurring; before that, only current month
+  if (now.getDate() >= 15) {
+    futureLimit.setMonth(futureLimit.getMonth() + 2);
+  } else {
+    futureLimit.setMonth(futureLimit.getMonth() + 1);
+  }
+  futureLimit.setDate(0); // last day of the target month
   const futureLimitStr = fmtLocal(futureLimit);
   templates.forEach(t => {
     const avg = getRecurringAverage(t.id, t.amount);
