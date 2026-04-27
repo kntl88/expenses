@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.8</div>
+  <div class="auth-version">v3.9</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1565,6 +1565,11 @@ async function saveExpense(keepOpen){
     const backup={...state.expenses[idx]};
     const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount};
     if(upd.proposed&&document.getElementById('f-save-btn').textContent==='Confirm'){upd.proposed=false;delete upd.reserved;upd.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+    // Update recurring template date if user changed the day
+    if(upd.recurringId&&backup.date!==date){
+      const t=(state.accounts.recurring||[]).find(r=>r.id===upd.recurringId);
+      if(t){const newDay=parseInt(date.slice(8,10));const oldStart=new Date(t.startDate+'T00:00:00');oldStart.setDate(newDay);t.startDate=`${oldStart.getFullYear()}-${String(oldStart.getMonth()+1).padStart(2,'0')}-${String(newDay).padStart(2,'0')}`;saveAccounts();}
+    }
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
     state.expenses[idx]=upd;
