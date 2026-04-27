@@ -507,7 +507,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v3.4</div>
+  <div class="auth-version">v3.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1532,7 +1532,7 @@ async function saveExpense(keepOpen){
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
     const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount};
-    if(upd.proposed){upd.proposed=false;delete upd.reserved;upd.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+    if(upd.proposed&&document.getElementById('f-save-btn').textContent==='Confirm'){upd.proposed=false;delete upd.reserved;upd.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
     state.expenses[idx]=upd;
