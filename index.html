@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.1</div>
+  <div class="auth-version">v4.2</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -881,6 +881,8 @@ function getRecurringAverage(templateId, templateAmount) {
 function generateProposedExpenses() {
   const templates = getRecurringTemplates();
   if (!templates.length) return;
+  // Clear non-reserved proposals so they regenerate with correct dates
+  state.expenses = state.expenses.filter(e => !e.proposed || e.reserved || e.dismissed);
   const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const futureLimit = new Date();
   futureLimit.setMonth(futureLimit.getMonth() + 3);
