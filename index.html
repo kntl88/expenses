@@ -503,7 +503,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.0</div>
+  <div class="auth-version">v4.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -881,17 +881,17 @@ function getRecurringAverage(templateId, templateAmount) {
 function generateProposedExpenses() {
   const templates = getRecurringTemplates();
   if (!templates.length) return;
+  const fmtLocal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const futureLimit = new Date();
   futureLimit.setMonth(futureLimit.getMonth() + 3);
-  const futureLimitStr = futureLimit.toISOString().slice(0, 10);
-
+  const futureLimitStr = fmtLocal(futureLimit);
   templates.forEach(t => {
     const avg = getRecurringAverage(t.id, t.amount);
     const start = new Date(t.startDate + 'T00:00:00');
     let current = new Date(start);
 
-    while (current.toISOString().slice(0, 10) <= futureLimitStr) {
-      const dateStr = current.toISOString().slice(0, 10);
+    while (fmtLocal(current) <= futureLimitStr) {
+      const dateStr = fmtLocal(current);
       const exists = state.expenses.find(e => {
         if(e.recurringId !== t.id) return false;
         if(e.date === dateStr) return true;
