@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.3</div>
+  <div class="auth-version">v5.4</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1695,16 +1695,18 @@ function renderBalances(){
   let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
     ${acctCard('Bank',bankBal,'bank')}${acctCard('Work',workBal,'work')}${acctCard('Gold',goldBal,'gold')}${acctCard('Norwegian',norwegianBal,'norwegian')}
   </div>`;
-  // Projected available: current position + next pay cycle net discretionary
-  const projected=available+getWeeklyBudget()*4.333;
-  const projDaily=projected/30.5;
-  let savedSincePayHtml=`<div style="font-size:9px;color:var(--text-muted)">${fmt(projected)} projected · ${fmt(projDaily)}/day</div>`;
+  // Projected available: current position + accrued portion of next pay cycle net
+  let savedSincePayHtml='';
   const lastPaycheck=confirmed.filter(e=>e.category==='income'&&e.amount>0).sort((a,b)=>b.date.localeCompare(a.date))[0];
   if(lastPaycheck){
     const fmtDbal=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const todayBal=fmtDbal(new Date());
     const payDate=lastPaycheck.date;
     const daysSince=Math.round((new Date(todayBal+'T00:00:00')-new Date(payDate+'T00:00:00'))/864e5)+1;
+    const monthlyNet=getWeeklyBudget()*4.333;
+    const projected=available+monthlyNet*(daysSince/30.5);
+    const projDaily=monthlyNet/30.5;
+    savedSincePayHtml=`<div style="font-size:9px;color:var(--text-muted)">${fmt(projected)} projected · ${fmt(projDaily)}/day</div>`;
     const varCats=new Set(['basic','fun','unnecessary','gas']);
     const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
     const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
