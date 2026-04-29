@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.9</div>
+  <div class="auth-version">v5.0</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -902,14 +902,18 @@ function generateProposedExpenses() {
     while (fmtLocal(current) <= futureLimitStr) {
       const dateStr = fmtLocal(current);
       const exists = state.expenses.find(e => {
-        if(e.recurringId !== t.id || e.dismissed) return false;
+        if(e.recurringId !== t.id) return false;
+        if(e.dismissed) return e.date === dateStr; // dismissed blocks exact date only
         if(e.date === dateStr) return true;
         const diff = Math.abs(Math.round((new Date(e.date+'T00:00:00') - new Date(dateStr+'T00:00:00')) / 864e5));
         return diff <= 15;
       });
       if (!exists) {
+        // Remove any stale dismissed entry that would share this ID
+        const propId = 'prop_' + t.id + '_' + dateStr;
+        state.expenses = state.expenses.filter(e => e.id !== propId || !e.dismissed);
         state.expenses.push({
-          id: 'prop_' + t.id + '_' + dateStr,
+          id: propId,
           recurringId: t.id,
           amount: t.type === 'income' ? Math.abs(avg) : -Math.abs(avg),
           date: dateStr,
@@ -929,7 +933,7 @@ function generateProposedExpenses() {
 }
 
 async function confirmProposed(id) {
-  const idx = state.expenses.findIndex(e => e.id === id);
+  const idx = state.expenses.findIndex(e => e.id === id && e.proposed);
   if (idx === -1) return;
   const e = state.expenses[idx];
   const realId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -941,7 +945,7 @@ async function confirmProposed(id) {
 
 async function dismissProposed(id) {
   // Mark as dismissed by saving with a 'dismissed' flag so it doesn't regenerate
-  const idx = state.expenses.findIndex(e => e.id === id);
+  const idx = state.expenses.findIndex(e => e.id === id && e.proposed);
   if (idx === -1) return;
   state.expenses[idx] = { ...state.expenses[idx], proposed: false, dismissed: true, amount: 0 };
   // Actually just remove it and save — but we need to prevent regeneration
@@ -950,7 +954,7 @@ async function dismissProposed(id) {
 }
 
 async function toggleReserved(id) {
-  const idx = state.expenses.findIndex(e => e.id === id);
+  const idx = state.expenses.findIndex(e => e.id === id && e.proposed);
   if (idx === -1) return;
   const e = state.expenses[idx];
   state.expenses[idx] = { ...e, reserved: !e.reserved };
