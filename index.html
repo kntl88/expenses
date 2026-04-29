@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.0</div>
+  <div class="auth-version">v5.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1709,7 +1709,9 @@ function renderBalances(){
     const varSpent=varItems.filter(e=>overlapsRange(e,payDate,todayBal)).reduce((s,e)=>s+getSpreadAmount(e,payDate,todayBal),0);
     const db=getWeeklyBudget()/7-getActiveLoanDailyDeduction();
     const saved=daysSince*db-varSpent;
-    const availPlusSaved=available+daysSince*db;
+    // Use available WITHOUT reserved for savings calc — db already amortizes recurring
+    const availBeforeReserved=totalBal+workPending-envelopeTotal;
+    const availPlusSaved=availBeforeReserved+daysSince*db;
     savedSincePayHtml=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved · <span style="color:${availPlusSaved>=0?'var(--accent)':'var(--red)'}">${fmt(availPlusSaved)}</span></div>`;
   }
   const todayLoans=new Date().toISOString().slice(0,10);
