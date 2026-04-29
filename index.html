@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.4</div>
+  <div class="auth-version">v5.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1706,7 +1706,7 @@ function renderBalances(){
     const monthlyNet=getWeeklyBudget()*4.333;
     const projected=available+monthlyNet*(daysSince/30.5);
     const projDaily=monthlyNet/30.5;
-    savedSincePayHtml=`<div style="font-size:9px;color:var(--text-muted)">${fmt(projected)} projected · ${fmt(projDaily)}/day</div>`;
+    savedSincePayHtml=`<div class="value" style="color:${projected>=0?'#6cc070':'var(--red)'}">${fmt(projected)}</div><div style="font-size:9px;color:var(--text-muted)">${fmt(projDaily)}/day</div>`;
     const varCats=new Set(['basic','fun','unnecessary','gas']);
     const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
     const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
