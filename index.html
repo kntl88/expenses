@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v4.8</div>
+  <div class="auth-version">v4.9</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1536,9 +1536,22 @@ async function saveOffset(){
   const currentBal=getAccountBal(offsetModalAccount,confirmed);
   const diff=actual-currentBal;
   if(Math.abs(diff)<0.005){toast('Balance already matches');closeOffsetModal();return;}
-  const adj={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:diff, date, description:'Unaccounted', account:offsetModalAccount, adjustment:true, type:'adjustment', created:new Date().toISOString()};
-  state.expenses.push(adj); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
-  if(await saveData()){toast('Unaccounted entry saved');closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==adj.id);}
+  // Merge with existing unaccounted entry for same account+date
+  const existing=state.expenses.find(e=>e.adjustment&&e.description==='Unaccounted'&&e.account===offsetModalAccount&&e.date===date&&!e.proposed&&!e.dismissed);
+  if(existing){
+    const backup={...existing};
+    existing.amount+=diff;
+    if(Math.abs(existing.amount)<0.005){
+      state.expenses=state.expenses.filter(e=>e.id!==existing.id);
+      if(await saveData()){toast('Unaccounted entries cancelled out');closeOffsetModal();render();}else{state.expenses.push(backup);state.expenses.sort((a,b)=>b.date.localeCompare(a.date));}
+    } else {
+      if(await saveData()){toast('Unaccounted entry updated');closeOffsetModal();render();}else{Object.assign(existing,backup);}
+    }
+  } else {
+    const adj={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:diff, date, description:'Unaccounted', account:offsetModalAccount, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+    state.expenses.push(adj); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+    if(await saveData()){toast('Unaccounted entry saved');closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==adj.id);}
+  }
 }
 async function saveMove(){
   const amount=parseFloat(document.getElementById('offset-move-amount').value); if(!amount||isNaN(amount)){toast('Enter an amount',true);return;}
