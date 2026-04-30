@@ -492,7 +492,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.5</div>
+  <div class="auth-version">v5.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1688,8 +1688,12 @@ function renderBalances(){
   getEnvelopes().forEach(env=>{envelopeTotal+=calcEnvelope(env).buffer;});
   // Reserved = proposed items user has earmarked (amounts are negative)
   const reservedTotal=state.expenses.filter(e=>e.proposed&&e.reserved&&!e.dismissed).reduce((s,e)=>s+e.amount,0);
-  // Available = all accounts + work pending - envelopes + reserved (reserved is negative, so reduces available)
-  const available=totalBal+workPending-envelopeTotal+reservedTotal;
+  // Loan remaining: money owed back (already deducted from account balances)
+  const todayAvail=new Date().toISOString().slice(0,10);
+  const availLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayAvail&&todayAvail<=end;});
+  const loanRemaining=availLoans.reduce((s,l)=>{const elapsed=Math.max(0,Math.round((new Date(todayAvail+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));return s+l.amount-Math.min(elapsed,l.days)*(l.amount/l.days);},0);
+  // Available = all accounts + work pending - envelopes + reserved + loan remaining
+  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining;
 
   const acctCard=(label,bal,key)=>`<div class="balance-card fade-in"><div class="label">${label}</div><div class="value" style="color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</div><button class="offset-btn" onclick="openOffsetModal('${key}')">adjust</button></div>`;
   let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
