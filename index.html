@@ -494,7 +494,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.7</div>
+  <div class="auth-version">v5.8</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1572,14 +1572,25 @@ async function saveMove(){
   if(Math.abs(amount)<0.005){toast('Balance already matches');closeOffsetModal();return;}
   const targetLabel=ACCOUNTS[targetAcct]?.label||targetAcct;
   const sourceLabel=ACCOUNTS[sourceAcct]?.label||sourceAcct;
-  const id1=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const id2=(Date.now()+1).toString(36)+Math.random().toString(36).slice(2,6);
-  // amount>0: money flows source→target; amount<0: money flows target→source
-  const inc={id:id1, amount, date, description:(amount>0?'← '+sourceLabel:'→ '+sourceLabel), account:targetAcct, adjustment:true, type:'adjustment', created:new Date().toISOString()};
-  const out={id:id2, amount:-amount, date, description:(amount>0?'← '+targetLabel:'→ '+targetLabel), account:sourceAcct, adjustment:true, type:'adjustment', created:new Date().toISOString()};
-  state.expenses.push(inc,out); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
-  const dir=amount>0?`${sourceLabel} → ${targetLabel}`:`${targetLabel} → ${sourceLabel}`;
-  if(await saveData()){toast(`Moved €${Math.abs(amount).toFixed(2)} ${dir}`);closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==id1&&x.id!==id2);}
+  // Merge with existing same-day adjustment between same accounts
+  const existTarget=state.expenses.find(e=>e.adjustment&&e.account===targetAcct&&e.date===date&&!e.proposed&&!e.dismissed&&(e.description.includes(sourceLabel)));
+  const existSource=state.expenses.find(e=>e.adjustment&&e.account===sourceAcct&&e.date===date&&!e.proposed&&!e.dismissed&&(e.description.includes(targetLabel)));
+  if(existTarget&&existSource){
+    const backupT={...existTarget}, backupS={...existSource};
+    existTarget.amount+=amount; existSource.amount+=-amount;
+    // Remove if they net to zero
+    if(Math.abs(existTarget.amount)<0.005) state.expenses=state.expenses.filter(e=>e.id!==existTarget.id&&e.id!==existSource.id);
+    const dir=amount>0?`${sourceLabel} → ${targetLabel}`:`${targetLabel} → ${sourceLabel}`;
+    if(await saveData()){toast(`Moved €${Math.abs(amount).toFixed(2)} ${dir} (merged)`);closeOffsetModal();render();}else{if(backupT)Object.assign(existTarget,backupT);if(backupS)Object.assign(existSource,backupS);}
+  } else {
+    const id1=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const id2=(Date.now()+1).toString(36)+Math.random().toString(36).slice(2,6);
+    const inc={id:id1, amount, date, description:(amount>0?'← '+sourceLabel:'→ '+sourceLabel), account:targetAcct, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+    const out={id:id2, amount:-amount, date, description:(amount>0?'← '+targetLabel:'→ '+targetLabel), account:sourceAcct, adjustment:true, type:'adjustment', created:new Date().toISOString()};
+    state.expenses.push(inc,out); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+    const dir=amount>0?`${sourceLabel} → ${targetLabel}`:`${targetLabel} → ${sourceLabel}`;
+    if(await saveData()){toast(`Moved €${Math.abs(amount).toFixed(2)} ${dir}`);closeOffsetModal();render();}else{state.expenses=state.expenses.filter(x=>x.id!==id1&&x.id!==id2);}
+  }
 }
 
 // CRUD
