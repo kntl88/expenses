@@ -506,7 +506,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v6.4</div>
+  <div class="auth-version">v6.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -2006,9 +2006,11 @@ function renderDailyRates(){
   });
   const weekTRDeduction=getTempRecurringDeductionForPeriod(cwk.start,cwk.end);
   const weekBudgetPool=weeklyBudget-weekLoanDeduction-weekTRDeduction;
-  const savingCol=(periodSpent,todaySpent)=>{const ds=todayDailyBudget-todaySpent,ps=periodBudgetPool-periodSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ps>=0?'#6cc070':'var(--red)'}">${ps>=0?'+':''}${fmt(ps)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(todayDailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
+  const periodDailyBudget=periodDays>0?periodBudgetPool/periodDays:baseDailyRate;
+  const savingCol=(periodSpent,todaySpent)=>{const ds=periodDailyBudget-todaySpent,ps=periodBudgetPool-periodSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ps>=0?'#6cc070':'var(--red)'}">${ps>=0?'+':''}${fmt(ps)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(periodDailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
   const daysRemaining=7-daysElapsed;
-  const projCol=(weekSpent,weekOneTime)=>{const max=daysRemaining*todayDailyBudget;const regular=weekSpent-(weekOneTime||0);const proj=daysElapsed>0?weekBudgetPool-(regular/daysElapsed)*7-(weekOneTime||0):weekBudgetPool-(weekOneTime||0);const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
+  const weekDailyBudget=weekBudgetPool/7;
+  const projCol=(weekSpent,weekOneTime)=>{const max=daysRemaining*weekDailyBudget;const regular=weekSpent-(weekOneTime||0);const proj=daysElapsed>0?weekBudgetPool-(regular/daysElapsed)*7-(weekOneTime||0):weekBudgetPool-(weekOneTime||0);const mo=proj*4.35;return `<div class="rate-item saving"><div class="rate-label">Forecast</div><div class="rate-values"><div class="rate-total" style="color:${max>=0?'#6cc070':'var(--red)'}">${max>=0?'+':''}${fmt(max)}</div><div class="rate-daily" style="color:${proj>=0?'#6cc070':'var(--red)'}">${proj>=0?'+':''}${fmt(proj)}</div><div class="rate-daily" style="color:${mo>=0?'#6cc070':'var(--red)'}">${mo>=0?'+':''}${fmt(mo)}/mo</div></div></div>`;};
 
   // Week range labels
   const startWn=getISOWeek(rangeStart);
