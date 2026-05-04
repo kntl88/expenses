@@ -494,7 +494,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.9</div>
+  <div class="auth-version">v6.0</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1714,16 +1714,8 @@ function renderBalances(){
   const todayAvail=new Date().toISOString().slice(0,10);
   const availLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayAvail&&todayAvail<=end;});
   const loanRemaining=availLoans.reduce((s,l)=>{const elapsed=Math.max(0,Math.round((new Date(todayAvail+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));return s+l.amount-Math.min(elapsed,l.days)*(l.amount/l.days);},0);
-  // Spread prepaid: for spread expenses extending past today, add back the unelapsed portion
-  let spreadPrepaid=0;
-  confirmed.forEach(e=>{
-    if(e.spreadDays&&e.spreadDays>1&&e.amount<0){
-      const eEnd=addDaysStr(e.date,e.spreadDays-1);
-      if(eEnd>todayFilt){spreadPrepaid+=Math.abs(e.amount)-getSpreadAmount(e,e.date,todayFilt);}
-    }
-  });
-  // Available = all accounts + work pending - envelopes + reserved + loan remaining + spread prepaid
-  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining+spreadPrepaid;
+  // Available = all accounts + work pending - envelopes + reserved + loan remaining
+  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining;
 
   const acctCard=(label,bal,key)=>`<div class="balance-card fade-in"><div class="label">${label}</div><div class="value" style="color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</div><button class="offset-btn" onclick="openOffsetModal('${key}')">adjust</button></div>`;
   let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
@@ -1738,7 +1730,15 @@ function renderBalances(){
     const payDate=lastPaycheck.date;
     const daysSince=Math.round((new Date(todayBal+'T00:00:00')-new Date(payDate+'T00:00:00'))/864e5)+1;
     const monthlyNet=getWeeklyBudget()*4.333;
-    const projected=available+monthlyNet*(daysSince/30.5);
+    // Spread prepaid: for spread expenses extending past today, add back unelapsed portion (bottom number only)
+    let spreadPrepaid=0;
+    confirmed.forEach(e=>{
+      if(e.spreadDays&&e.spreadDays>1&&e.amount<0){
+        const eEnd=addDaysStr(e.date,e.spreadDays-1);
+        if(eEnd>todayBal){spreadPrepaid+=Math.abs(e.amount)-getSpreadAmount(e,e.date,todayBal);}
+      }
+    });
+    const projected=available+spreadPrepaid+monthlyNet*(daysSince/30.5);
     const projDaily=monthlyNet/30.5;
     savedSincePayHtml=`<div class="value" style="color:${projected>=0?'#6cc070':'var(--red)'}">${fmt(projected)}</div><div style="font-size:9px;color:var(--text-muted)">${fmt(projDaily)}/day</div>`;
     const varCats=new Set(['basic','fun','unnecessary','gas']);
