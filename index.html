@@ -447,6 +447,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
       <button class="btn btn-accent" style="width:100%" onclick="addLoan()">Add Loan</button>
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Temporary recurring</div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Monthly payments for a fixed number of months. Reduces daily savings rate while active.</p>
+      <div class="recurring-list" id="temp-recurring-list"></div>
+      <input id="tr-desc" type="text" placeholder="Description" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input id="tr-amount" type="number" step="0.01" placeholder="Monthly amount (€)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="tr-months" type="number" min="1" max="24" placeholder="Months" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      </div>
+      <input id="tr-start" type="date" style="margin-bottom:12px;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      <button class="btn btn-accent" style="width:100%" onclick="addTempRecurring()">Add</button>
+    </div>
     <div class="modal-actions" style="margin-top:16px">
       <button class="btn" onclick="closeLoanModal()">Close</button>
     </div>
@@ -494,7 +506,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v6.2</div>
+  <div class="auth-version">v6.3</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1202,10 +1214,12 @@ function getActiveLoanDailyDeduction() {
 function openLoanModal() {
   document.getElementById('loan-modal').classList.add('visible');
   document.getElementById('loan-start').value = new Date().toISOString().slice(0,10);
+  document.getElementById('tr-start').value = new Date().toISOString().slice(0,10);
   const sel = document.getElementById('loan-account');
   sel.innerHTML = Object.entries(ACCOUNTS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
   sel.value = 'bank';
   renderLoanList();
+  renderTempRecurringList();
 }
 function closeLoanModal() { document.getElementById('loan-modal').classList.remove('visible'); }
 
@@ -1272,6 +1286,88 @@ async function deleteLoan(id) {
 }
 
 function toggleLoans() { showLoans = !showLoans; renderBalances(); }
+
+// Temporary recurring payments
+function getTempRecurring() { return state.accounts.tempRecurring || []; }
+
+function getActiveTempRecurringDaily() {
+  const today = new Date().toISOString().slice(0,10);
+  return getTempRecurring().filter(t => {
+    const endMonth = new Date(t.startDate+'T00:00:00');
+    endMonth.setMonth(endMonth.getMonth() + t.months);
+    const endStr = `${endMonth.getFullYear()}-${String(endMonth.getMonth()+1).padStart(2,'0')}-${String(endMonth.getDate()).padStart(2,'0')}`;
+    return t.startDate <= today && today < endStr;
+  }).reduce((s, t) => s + t.amount / 30.5, 0);
+}
+
+function getTempRecurringDeductionForPeriod(rangeStart, rangeEnd) {
+  let total = 0;
+  getTempRecurring().forEach(t => {
+    const endMonth = new Date(t.startDate+'T00:00:00');
+    endMonth.setMonth(endMonth.getMonth() + t.months);
+    const fmtD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const endStr = fmtD(endMonth);
+    const os = t.startDate > rangeStart ? t.startDate : rangeStart;
+    const oe = endStr < rangeEnd ? endStr : rangeEnd;
+    if (os < oe) {
+      const overlapDays = Math.round((new Date(oe+'T00:00:00') - new Date(os+'T00:00:00')) / 864e5);
+      total += (t.amount / 30.5) * overlapDays;
+    }
+  });
+  return total;
+}
+
+function renderTempRecurringList() {
+  const items = getTempRecurring();
+  const el = document.getElementById('temp-recurring-list');
+  if (!items.length) { el.innerHTML = ''; return; }
+  const today = new Date().toISOString().slice(0,10);
+  const fmtD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  el.innerHTML = items.map(t => {
+    const endMonth = new Date(t.startDate+'T00:00:00');
+    endMonth.setMonth(endMonth.getMonth() + t.months);
+    const endStr = fmtD(endMonth);
+    const active = t.startDate <= today && today < endStr;
+    const done = today >= endStr;
+    const daily = t.amount / 30.5;
+    const elapsed = active ? Math.max(0, Math.round((new Date(today+'T00:00:00') - new Date(t.startDate+'T00:00:00')) / 864e5 / 30.5)) : (done ? t.months : 0);
+    const monthsLeft = Math.max(0, t.months - elapsed);
+    const remaining = monthsLeft * t.amount;
+    const status = done ? '<span style="color:#6cc070">done</span>' : (active ? `<span style="color:var(--orange)">${monthsLeft}mo left</span>` : '<span style="color:var(--text-muted)">upcoming</span>');
+    return `<div class="recurring-item">
+      <div>
+        <div class="ri-info">${esc(t.description)} — €${t.amount.toFixed(2)}/mo ${status}</div>
+        <div class="ri-meta">€${daily.toFixed(2)}/day · ${t.months} months · remaining €${remaining.toFixed(2)}</div>
+      </div>
+      <button class="ri-del" onclick="deleteTempRecurring('${t.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function addTempRecurring() {
+  const desc = document.getElementById('tr-desc').value.trim();
+  const amount = parseFloat(document.getElementById('tr-amount').value);
+  const months = parseInt(document.getElementById('tr-months').value);
+  const startDate = document.getElementById('tr-start').value;
+  if (!desc || !amount || !months || !startDate) { toast('Fill in all fields', true); return; }
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2,4);
+  if (!state.accounts.tempRecurring) state.accounts.tempRecurring = [];
+  state.accounts.tempRecurring.push({ id, description: desc, amount, months, startDate });
+  if (await saveAccounts()) {
+    toast('Temporary recurring added');
+    document.getElementById('tr-desc').value = '';
+    document.getElementById('tr-amount').value = '';
+    document.getElementById('tr-months').value = '';
+    renderTempRecurringList();
+    render();
+  }
+}
+
+async function deleteTempRecurring(id) {
+  if (!confirm('Delete this temporary recurring?')) return;
+  state.accounts.tempRecurring = (state.accounts.tempRecurring || []).filter(t => t.id !== id);
+  if (await saveAccounts()) { toast('Deleted'); renderTempRecurringList(); render(); }
+}
 
 // Bulk add
 const CAT_ALIASES = {};
@@ -1753,7 +1849,8 @@ function renderBalances(){
       const oe=loanEnd<todayBal?loanEnd:todayBal;
       if(os<=oe){const od=Math.round((new Date(oe+'T00:00:00')-new Date(os+'T00:00:00'))/864e5)+1;loanDeductionForPeriod+=(l.amount/l.days)*od;}
     });
-    const saved=daysSince*baseDailyBudget-loanDeductionForPeriod-varSpent;
+    const trDeduction=getTempRecurringDeductionForPeriod(payDate,todayBal);
+    const saved=daysSince*baseDailyBudget-loanDeductionForPeriod-trDeduction-varSpent;
     savedSincePayHtml+=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved</div>`;
     // Lock previous pay period snapshot
     const allIncome=confirmed.filter(e=>e.category==='income'&&e.amount>0).sort((a,b)=>a.date.localeCompare(b.date));
@@ -1773,7 +1870,8 @@ function renderBalances(){
         });
         const pVarItems=varItems.filter(e=>overlapsRange(e,prevPay.date,prevEnd));
         const pVarSpent=pVarItems.reduce((s,e)=>s+getSpreadAmount(e,prevPay.date,prevEnd),0);
-        const pSaved=pDays*pBudget-pLoan-pVarSpent;
+        const pTR=getTempRecurringDeductionForPeriod(prevPay.date,prevEnd);
+        const pSaved=pDays*pBudget-pLoan-pTR-pVarSpent;
         if(!state.accounts.payPeriodSnapshots)state.accounts.payPeriodSnapshots=[];
         state.accounts.payPeriodSnapshots.push({payDate:prevPay.date,endDate:prevEnd,baseDailyBudget:pBudget,loanDeduction:pLoan,varSpent:pVarSpent,saved:pSaved,daysSince:pDays,paycheckId:prevPay.id});
         saveAccounts();
@@ -1784,11 +1882,15 @@ function renderBalances(){
   const activeLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayLoans&&todayLoans<=end;});
   const loanTotal=activeLoans.reduce((s,l)=>{const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));return s+l.amount-Math.min(elapsed,l.days)*(l.amount/l.days);},0);
   const loanDaily=getActiveLoanDailyDeduction();
+  const trDaily=getActiveTempRecurringDaily();
+  const totalDaily=loanDaily+trDaily;
+  const trMonthlyTotal=getTempRecurring().filter(t=>{const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);const es=`${em.getFullYear()}-${String(em.getMonth()+1).padStart(2,'0')}-${String(em.getDate()).padStart(2,'0')}`;return t.startDate<=todayLoans&&todayLoans<es;}).reduce((s,t)=>{const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(t.startDate+'T00:00:00'))/864e5/30.5));return s+(t.months-elapsed)*t.amount;},0);
+  const combinedTotal=loanTotal+trMonthlyTotal;
   h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleWorkPending()"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
-    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${loanTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(loanTotal)}</div>${loanDaily>0?`<div style="font-size:9px;color:var(--orange)">-${fmt(loanDaily)}/day</div>`:''}</div>
+    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${combinedTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(combinedTotal)}</div>${totalDaily>0?`<div style="font-size:9px;color:var(--orange)">-${fmt(totalDaily)}/day</div>`:''}</div>
   </div>`;
   const pendingItems=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed);
   if(showWorkPending&&pendingItems.length){
@@ -1798,12 +1900,20 @@ function renderBalances(){
     });
     h+='</div>';
   }
-  if(showLoans&&activeLoans.length){
+  const activeTR=getTempRecurring().filter(t=>{const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);const es=`${em.getFullYear()}-${String(em.getMonth()+1).padStart(2,'0')}-${String(em.getDate()).padStart(2,'0')}`;return t.startDate<=todayLoans&&todayLoans<es;});
+  if(showLoans&&(activeLoans.length||activeTR.length)){
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
     activeLoans.forEach(l=>{
       const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));
       const daily=l.amount/l.days;const remaining=l.amount-Math.min(elapsed,l.days)*daily;const daysLeft=l.days-Math.min(elapsed,l.days);
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(l.description)}</span> <span style="color:var(--text-muted);font-size:10px">${daysLeft}d left · €${daily.toFixed(2)}/day</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</div></div>`;
+    });
+    activeTR.forEach(t=>{
+      const daily=t.amount/30.5;
+      const elapsedMo=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(t.startDate+'T00:00:00'))/864e5/30.5));
+      const monthsLeft=Math.max(0,t.months-elapsedMo);
+      const remaining=monthsLeft*t.amount;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(t.description)}</span> <span style="color:var(--text-muted);font-size:10px">${monthsLeft}mo left · €${daily.toFixed(2)}/day</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</div></div>`;
     });
     h+='</div>';
   }
