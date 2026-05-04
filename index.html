@@ -494,7 +494,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v6.0</div>
+  <div class="auth-version">v6.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1738,8 +1738,9 @@ function renderBalances(){
         if(eEnd>todayBal){spreadPrepaid+=Math.abs(e.amount)-getSpreadAmount(e,e.date,todayBal);}
       }
     });
-    const projected=available+spreadPrepaid+monthlyNet*(daysSince/30.5);
-    const projDaily=monthlyNet/30.5;
+    const loanDailyNow=getActiveLoanDailyDeduction();
+    const projDaily=monthlyNet/30.5-loanDailyNow;
+    const projected=available+spreadPrepaid+projDaily*daysSince;
     savedSincePayHtml=`<div class="value" style="color:${projected>=0?'#6cc070':'var(--red)'}">${fmt(projected)}</div><div style="font-size:9px;color:var(--text-muted)">${fmt(projDaily)}/day</div>`;
     const varCats=new Set(['basic','fun','unnecessary','gas']);
     const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
