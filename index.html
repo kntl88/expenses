@@ -494,7 +494,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v5.8</div>
+  <div class="auth-version">v5.9</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1189,6 +1189,7 @@ async function adjustAllocations(delta) {
 
 // Loans
 function getLoans() { return state.accounts.loans || []; }
+function getPayPeriodSnapshots() { return state.accounts.payPeriodSnapshots || []; }
 
 function getActiveLoanDailyDeduction() {
   const today = new Date().toISOString().slice(0,10);
@@ -1713,8 +1714,16 @@ function renderBalances(){
   const todayAvail=new Date().toISOString().slice(0,10);
   const availLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayAvail&&todayAvail<=end;});
   const loanRemaining=availLoans.reduce((s,l)=>{const elapsed=Math.max(0,Math.round((new Date(todayAvail+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));return s+l.amount-Math.min(elapsed,l.days)*(l.amount/l.days);},0);
-  // Available = all accounts + work pending - envelopes + reserved + loan remaining
-  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining;
+  // Spread prepaid: for spread expenses extending past today, add back the unelapsed portion
+  let spreadPrepaid=0;
+  confirmed.forEach(e=>{
+    if(e.spreadDays&&e.spreadDays>1&&e.amount<0){
+      const eEnd=addDaysStr(e.date,e.spreadDays-1);
+      if(eEnd>todayFilt){spreadPrepaid+=Math.abs(e.amount)-getSpreadAmount(e,e.date,todayFilt);}
+    }
+  });
+  // Available = all accounts + work pending - envelopes + reserved + loan remaining + spread prepaid
+  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining+spreadPrepaid;
 
   const acctCard=(label,bal,key)=>`<div class="balance-card fade-in"><div class="label">${label}</div><div class="value" style="color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</div><button class="offset-btn" onclick="openOffsetModal('${key}')">adjust</button></div>`;
   let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
@@ -1736,9 +1745,40 @@ function renderBalances(){
     const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
     const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
     const varSpent=varItems.filter(e=>overlapsRange(e,payDate,todayBal)).reduce((s,e)=>s+getSpreadAmount(e,payDate,todayBal),0);
-    const db=getWeeklyBudget()/7-getActiveLoanDailyDeduction();
-    const saved=daysSince*db-varSpent;
+    const baseDailyBudget=getWeeklyBudget()/7;
+    let loanDeductionForPeriod=0;
+    getLoans().forEach(l=>{
+      const loanEnd=addDaysStr(l.startDate,l.days);
+      const os=l.startDate>payDate?l.startDate:payDate;
+      const oe=loanEnd<todayBal?loanEnd:todayBal;
+      if(os<=oe){const od=Math.round((new Date(oe+'T00:00:00')-new Date(os+'T00:00:00'))/864e5)+1;loanDeductionForPeriod+=(l.amount/l.days)*od;}
+    });
+    const saved=daysSince*baseDailyBudget-loanDeductionForPeriod-varSpent;
     savedSincePayHtml+=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved</div>`;
+    // Lock previous pay period snapshot
+    const allIncome=confirmed.filter(e=>e.category==='income'&&e.amount>0).sort((a,b)=>a.date.localeCompare(b.date));
+    const curPayIdx=allIncome.findIndex(e=>e.id===lastPaycheck.id);
+    if(curPayIdx>0){
+      const prevPay=allIncome[curPayIdx-1];
+      const prevEnd=addDaysStr(lastPaycheck.date,-1);
+      if(!getPayPeriodSnapshots().find(s=>s.payDate===prevPay.date)){
+        const pDays=Math.round((new Date(prevEnd+'T00:00:00')-new Date(prevPay.date+'T00:00:00'))/864e5)+1;
+        const pBudget=getWeeklyBudget()/7;
+        let pLoan=0;
+        getLoans().forEach(l=>{
+          const le=addDaysStr(l.startDate,l.days);
+          const os=l.startDate>prevPay.date?l.startDate:prevPay.date;
+          const oe=le<prevEnd?le:prevEnd;
+          if(os<=oe){const od=Math.round((new Date(oe+'T00:00:00')-new Date(os+'T00:00:00'))/864e5)+1;pLoan+=(l.amount/l.days)*od;}
+        });
+        const pVarItems=varItems.filter(e=>overlapsRange(e,prevPay.date,prevEnd));
+        const pVarSpent=pVarItems.reduce((s,e)=>s+getSpreadAmount(e,prevPay.date,prevEnd),0);
+        const pSaved=pDays*pBudget-pLoan-pVarSpent;
+        if(!state.accounts.payPeriodSnapshots)state.accounts.payPeriodSnapshots=[];
+        state.accounts.payPeriodSnapshots.push({payDate:prevPay.date,endDate:prevEnd,baseDailyBudget:pBudget,loanDeduction:pLoan,varSpent:pVarSpent,saved:pSaved,daysSince:pDays,paycheckId:prevPay.id});
+        saveAccounts();
+      }
+    }
   }
   const todayLoans=new Date().toISOString().slice(0,10);
   const activeLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayLoans&&todayLoans<=end;});
