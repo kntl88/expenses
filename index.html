@@ -506,7 +506,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v6.5</div>
+  <div class="auth-version">v6.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1900,20 +1900,25 @@ function renderBalances(){
     });
     h+='</div>';
   }
-  const activeTR=getTempRecurring().filter(t=>{const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);const es=`${em.getFullYear()}-${String(em.getMonth()+1).padStart(2,'0')}-${String(em.getDate()).padStart(2,'0')}`;return t.startDate<=todayLoans&&todayLoans<es;});
-  if(showLoans&&(activeLoans.length||activeTR.length)){
+  const allTR=getTempRecurring();
+  if(showLoans&&(activeLoans.length||allTR.length)){
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
     activeLoans.forEach(l=>{
       const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));
       const daily=l.amount/l.days;const remaining=l.amount-Math.min(elapsed,l.days)*daily;const daysLeft=l.days-Math.min(elapsed,l.days);
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(l.description)}</span> <span style="color:var(--text-muted);font-size:10px">${daysLeft}d left · €${daily.toFixed(2)}/day</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</div></div>`;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(l.description)}</span> <span style="color:var(--text-muted);font-size:10px">${daysLeft}d left · €${daily.toFixed(2)}/day</span></div><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</span><button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 2px" onclick="event.stopPropagation();deleteLoan('${l.id}')">✕</button></div></div>`;
     });
-    activeTR.forEach(t=>{
+    allTR.forEach(t=>{
       const daily=t.amount/30.5;
-      const elapsedMo=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(t.startDate+'T00:00:00'))/864e5/30.5));
+      const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);
+      const es=`${em.getFullYear()}-${String(em.getMonth()+1).padStart(2,'0')}-${String(em.getDate()).padStart(2,'0')}`;
+      const active=t.startDate<=todayLoans&&todayLoans<es;
+      const done=todayLoans>=es;
+      const elapsedMo=active?Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(t.startDate+'T00:00:00'))/864e5/30.5)):(done?t.months:0);
       const monthsLeft=Math.max(0,t.months-elapsedMo);
       const remaining=monthsLeft*t.amount;
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(t.description)}</span> <span style="color:var(--text-muted);font-size:10px">${monthsLeft}mo left · €${daily.toFixed(2)}/day</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</div></div>`;
+      const statusTxt=done?'done':(active?`${monthsLeft}mo left`:'upcoming');
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(t.description)}</span> <span style="color:var(--text-muted);font-size:10px">${statusTxt} · €${daily.toFixed(2)}/day</span></div><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</span><button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 2px" onclick="event.stopPropagation();deleteTempRecurring('${t.id}')">✕</button></div></div>`;
     });
     h+='</div>';
   }
