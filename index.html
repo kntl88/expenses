@@ -459,6 +459,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <input id="tr-start" type="date" style="margin-bottom:12px;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
       <button class="btn btn-accent" style="width:100%" onclick="addTempRecurring()">Add</button>
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Spread income</div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Expected future income accrued gradually into available money. The opposite of a loan — adds to available without touching bank balances.</p>
+      <div class="recurring-list" id="spread-income-list"></div>
+      <input id="si-desc" type="text" placeholder="Description (e.g. Annual bonus)" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input id="si-amount" type="number" step="0.01" placeholder="Total amount (€)" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        <input id="si-months" type="number" min="1" max="24" placeholder="Months" style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      </div>
+      <input id="si-start" type="date" style="margin-bottom:12px;width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+      <button class="btn btn-accent" style="width:100%" onclick="addSpreadIncome()">Add</button>
+    </div>
     <div class="modal-actions" style="margin-top:16px">
       <button class="btn" onclick="closeLoanModal()">Close</button>
     </div>
@@ -506,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v6.6</div>
+  <div class="auth-version">v6.7</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1215,11 +1227,13 @@ function openLoanModal() {
   document.getElementById('loan-modal').classList.add('visible');
   document.getElementById('loan-start').value = new Date().toISOString().slice(0,10);
   document.getElementById('tr-start').value = new Date().toISOString().slice(0,10);
+  document.getElementById('si-start').value = new Date().toISOString().slice(0,10);
   const sel = document.getElementById('loan-account');
   sel.innerHTML = Object.entries(ACCOUNTS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
   sel.value = 'bank';
   renderLoanList();
   renderTempRecurringList();
+  renderSpreadIncomeList();
 }
 function closeLoanModal() { document.getElementById('loan-modal').classList.remove('visible'); }
 
@@ -1367,6 +1381,84 @@ async function deleteTempRecurring(id) {
   if (!confirm('Delete this temporary recurring?')) return;
   state.accounts.tempRecurring = (state.accounts.tempRecurring || []).filter(t => t.id !== id);
   if (await saveAccounts()) { toast('Deleted'); renderTempRecurringList(); render(); }
+}
+
+// Spread income — expected future income accrued gradually into available
+function getSpreadIncomeItems() { return state.accounts.spreadIncome || []; }
+
+function getSpreadIncomeAccrued() {
+  const today = new Date().toISOString().slice(0,10);
+  let total = 0;
+  getSpreadIncomeItems().forEach(si => {
+    if (si.startDate > today) return;
+    const totalDays = si.months * 30.5;
+    const elapsed = Math.max(0, Math.round((new Date(today+'T00:00:00') - new Date(si.startDate+'T00:00:00')) / 864e5));
+    total += si.amount * Math.min(elapsed, totalDays) / totalDays;
+  });
+  return total;
+}
+
+function getSpreadIncomeDaily() {
+  const today = new Date().toISOString().slice(0,10);
+  return getSpreadIncomeItems().filter(si => {
+    const endDate = new Date(si.startDate+'T00:00:00');
+    endDate.setMonth(endDate.getMonth() + si.months);
+    const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
+    return si.startDate <= today && today < endStr;
+  }).reduce((s, si) => s + si.amount / (si.months * 30.5), 0);
+}
+
+function renderSpreadIncomeList() {
+  const items = getSpreadIncomeItems();
+  const el = document.getElementById('spread-income-list');
+  if (!items.length) { el.innerHTML = ''; return; }
+  const today = new Date().toISOString().slice(0,10);
+  const fmtD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  el.innerHTML = items.map(si => {
+    const endDate = new Date(si.startDate+'T00:00:00');
+    endDate.setMonth(endDate.getMonth() + si.months);
+    const endStr = fmtD(endDate);
+    const active = si.startDate <= today && today < endStr;
+    const done = today >= endStr;
+    const totalDays = si.months * 30.5;
+    const elapsed = Math.max(0, Math.round((new Date(today+'T00:00:00') - new Date(si.startDate+'T00:00:00')) / 864e5));
+    const accrued = si.amount * Math.min(elapsed, totalDays) / totalDays;
+    const daily = si.amount / totalDays;
+    const remaining = si.amount - accrued;
+    const status = done ? '<span style="color:#6cc070">fully accrued</span>' : (active ? `<span style="color:#6cc070">${Math.round(remaining)}€ left</span>` : '<span style="color:var(--text-muted)">upcoming</span>');
+    return `<div class="recurring-item">
+      <div>
+        <div class="ri-info">${esc(si.description)} — €${si.amount.toFixed(2)} ${status}</div>
+        <div class="ri-meta">€${daily.toFixed(2)}/day · ${si.months}mo · accrued €${accrued.toFixed(2)}</div>
+      </div>
+      <button class="ri-del" onclick="deleteSpreadIncome('${si.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function addSpreadIncome() {
+  const desc = document.getElementById('si-desc').value.trim();
+  const amount = parseFloat(document.getElementById('si-amount').value);
+  const months = parseInt(document.getElementById('si-months').value);
+  const startDate = document.getElementById('si-start').value;
+  if (!desc || !amount || !months || !startDate) { toast('Fill in all fields', true); return; }
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2,4);
+  if (!state.accounts.spreadIncome) state.accounts.spreadIncome = [];
+  state.accounts.spreadIncome.push({ id, description: desc, amount, months, startDate });
+  if (await saveAccounts()) {
+    toast('Spread income added');
+    document.getElementById('si-desc').value = '';
+    document.getElementById('si-amount').value = '';
+    document.getElementById('si-months').value = '';
+    renderSpreadIncomeList();
+    render();
+  }
+}
+
+async function deleteSpreadIncome(id) {
+  if (!confirm('Delete this spread income?')) return;
+  state.accounts.spreadIncome = (state.accounts.spreadIncome || []).filter(si => si.id !== id);
+  if (await saveAccounts()) { toast('Deleted'); renderSpreadIncomeList(); render(); }
 }
 
 // Bulk add
@@ -1810,8 +1902,10 @@ function renderBalances(){
   const todayAvail=new Date().toISOString().slice(0,10);
   const availLoans=getLoans().filter(l=>{const end=addDaysStr(l.startDate,l.days);return l.startDate<=todayAvail&&todayAvail<=end;});
   const loanRemaining=availLoans.reduce((s,l)=>{const elapsed=Math.max(0,Math.round((new Date(todayAvail+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));return s+l.amount-Math.min(elapsed,l.days)*(l.amount/l.days);},0);
-  // Available = all accounts + work pending - envelopes + reserved + loan remaining
-  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining;
+  // Spread income: expected future income accrued gradually
+  const spreadIncomeAccrued=getSpreadIncomeAccrued();
+  // Available = all accounts + work pending - envelopes + reserved + loan remaining + spread income accrued
+  const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining+spreadIncomeAccrued;
 
   const acctCard=(label,bal,key)=>`<div class="balance-card fade-in"><div class="label">${label}</div><div class="value" style="color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</div><button class="offset-btn" onclick="openOffsetModal('${key}')">adjust</button></div>`;
   let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
@@ -1886,11 +1980,13 @@ function renderBalances(){
   const totalDaily=loanDaily+trDaily;
   const trMonthlyTotal=getTempRecurring().filter(t=>{const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);const es=`${em.getFullYear()}-${String(em.getMonth()+1).padStart(2,'0')}-${String(em.getDate()).padStart(2,'0')}`;return t.startDate<=todayLoans&&todayLoans<es;}).reduce((s,t)=>{const em=new Date(t.startDate+'T00:00:00');em.setMonth(em.getMonth()+t.months);const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(t.startDate+'T00:00:00'))/864e5/30.5));return s+(t.months-elapsed)*t.amount;},0);
   const combinedTotal=loanTotal+trMonthlyTotal;
+  const siDaily=getSpreadIncomeDaily();
+  const netDaily=totalDaily-siDaily;
   h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleWorkPending()"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
-    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${combinedTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(combinedTotal)}</div>${totalDaily>0?`<div style="font-size:9px;color:var(--orange)">-${fmt(totalDaily)}/day</div>`:''}</div>
+    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${combinedTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(combinedTotal)}</div>${netDaily!==0?`<div style="font-size:9px;color:${netDaily>0?'var(--orange)':'#6cc070'}">${netDaily>0?'-':'+'}${fmt(Math.abs(netDaily))}/day</div>`:''}</div>
   </div>`;
   const pendingItems=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed);
   if(showWorkPending&&pendingItems.length){
@@ -1901,7 +1997,8 @@ function renderBalances(){
     h+='</div>';
   }
   const allTR=getTempRecurring();
-  if(showLoans&&(activeLoans.length||allTR.length)){
+  const allSI=getSpreadIncomeItems();
+  if(showLoans&&(activeLoans.length||allTR.length||allSI.length)){
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
     activeLoans.forEach(l=>{
       const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(l.startDate+'T00:00:00'))/864e5));
@@ -1919,6 +2016,19 @@ function renderBalances(){
       const remaining=monthsLeft*t.amount;
       const statusTxt=done?'done':(active?`${monthsLeft}mo left`:'upcoming');
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(t.description)}</span> <span style="color:var(--text-muted);font-size:10px">${statusTxt} · €${daily.toFixed(2)}/day</span></div><div style="display:flex;align-items:center;gap:8px"><span style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(remaining)}</span><button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 2px" onclick="event.stopPropagation();deleteTempRecurring('${t.id}')">✕</button></div></div>`;
+    });
+    allSI.forEach(si=>{
+      const totalDays=si.months*30.5;
+      const elapsed=Math.max(0,Math.round((new Date(todayLoans+'T00:00:00')-new Date(si.startDate+'T00:00:00'))/864e5));
+      const accrued=si.startDate<=todayLoans?si.amount*Math.min(elapsed,totalDays)/totalDays:0;
+      const remaining=si.amount-accrued;
+      const daily=si.amount/totalDays;
+      const endDate=new Date(si.startDate+'T00:00:00');endDate.setMonth(endDate.getMonth()+si.months);
+      const endStr=`${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
+      const active=si.startDate<=todayLoans&&todayLoans<endStr;
+      const done=todayLoans>=endStr;
+      const statusTxt=done?'fully accrued':(active?`+€${daily.toFixed(2)}/day`:'upcoming');
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:#6cc070">${esc(si.description)}</span> <span style="color:var(--text-muted);font-size:10px">${statusTxt}</span></div><div style="display:flex;align-items:center;gap:8px"><span style="color:#6cc070;font-variant-numeric:tabular-nums">+${fmt(accrued)}</span><button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 2px" onclick="event.stopPropagation();deleteSpreadIncome('${si.id}')">✕</button></div></div>`;
     });
     h+='</div>';
   }
