@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.0</div>
+  <div class="auth-version">v7.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1407,6 +1407,17 @@ function getSpreadIncomeDaily() {
     return si.startDate <= today && today < endStr;
   }).reduce((s, si) => s + si.amount / siTotalDays(si), 0);
 }
+function getSpreadIncomeForPeriod(periodStart, periodEnd) {
+  let total = 0;
+  getSpreadIncomeItems().forEach(si => {
+    const td = siTotalDays(si);
+    const siEnd = addDaysStr(si.startDate, td);
+    const os = si.startDate > periodStart ? si.startDate : periodStart;
+    const oe = siEnd < periodEnd ? siEnd : periodEnd;
+    if (os <= oe) { const od = Math.round((new Date(oe+'T00:00:00') - new Date(os+'T00:00:00')) / 864e5) + 1; total += (si.amount / td) * od; }
+  });
+  return total;
+}
 
 function renderSpreadIncomeList() {
   const items = getSpreadIncomeItems();
@@ -1950,7 +1961,8 @@ function renderBalances(){
       if(os<=oe){const od=Math.round((new Date(oe+'T00:00:00')-new Date(os+'T00:00:00'))/864e5)+1;loanDeductionForPeriod+=(l.amount/l.days)*od;}
     });
     const trDeduction=getTempRecurringDeductionForPeriod(payDate,todayBal);
-    const saved=daysSince*baseDailyBudget-loanDeductionForPeriod-trDeduction-varSpent;
+    const siIncomeForPeriod=getSpreadIncomeForPeriod(payDate,todayBal);
+    const saved=daysSince*baseDailyBudget-loanDeductionForPeriod-trDeduction+siIncomeForPeriod-varSpent;
     savedSincePayHtml+=`<div style="font-size:9px;color:${saved>=0?'#6cc070':'var(--red)'}">${saved>=0?'+':''}${fmt(saved)} saved</div>`;
     // Lock previous pay period snapshot
     const allIncome=confirmed.filter(e=>e.category==='income'&&e.amount>0).sort((a,b)=>a.date.localeCompare(b.date));
@@ -2105,11 +2117,13 @@ function renderDailyRates(){
     if(os<=oe){const od=Math.round((new Date(oe+'T00:00:00')-new Date(os+'T00:00:00'))/864e5)+1;periodLoanDeduction+=(l.amount/l.days)*od;}
   });
   const periodTRDeduction=getTempRecurringDeductionForPeriod(periodStart,periodEnd);
-  const periodBudgetPool=periodDays*baseDailyRate-periodLoanDeduction-periodTRDeduction;
+  const periodSIIncome=getSpreadIncomeForPeriod(periodStart,periodEnd);
+  const periodBudgetPool=periodDays*baseDailyRate-periodLoanDeduction-periodTRDeduction+periodSIIncome;
   // Today's deductions for daily breakdown
   const todayLoanDaily=getActiveLoanDailyDeduction();
   const todayTRDaily=getActiveTempRecurringDaily();
-  const todayDailyBudget=baseDailyRate-todayLoanDaily-todayTRDaily;
+  const todaySIDaily=getSpreadIncomeDaily();
+  const todayDailyBudget=baseDailyRate-todayLoanDaily-todayTRDaily+todaySIDaily;
   const cwk=getCurrentWeekRange();
   const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
@@ -2125,7 +2139,8 @@ function renderDailyRates(){
     if(os<=oe){const od=Math.round((new Date(oe+'T00:00:00')-new Date(os+'T00:00:00'))/864e5)+1;weekLoanDeduction+=(l.amount/l.days)*od;}
   });
   const weekTRDeduction=getTempRecurringDeductionForPeriod(cwk.start,cwk.end);
-  const weekBudgetPool=weeklyBudget-weekLoanDeduction-weekTRDeduction;
+  const weekSIIncome=getSpreadIncomeForPeriod(cwk.start,cwk.end);
+  const weekBudgetPool=weeklyBudget-weekLoanDeduction-weekTRDeduction+weekSIIncome;
   const periodDailyBudget=periodDays>0?periodBudgetPool/periodDays:baseDailyRate;
   const savingCol=(periodSpent,todaySpent)=>{const ds=periodDailyBudget-todaySpent,ps=periodBudgetPool-periodSpent;return `<div class="rate-item saving"><div class="rate-label">Saving</div><div class="rate-values"><div class="rate-total" style="color:${ps>=0?'#6cc070':'var(--red)'}">${ps>=0?'+':''}${fmt(ps)}</div><div class="rate-daily"><span style="color:#6cc070">+${fmt(periodDailyBudget)}</span> <span style="color:var(--red)">-${fmt(todaySpent)}</span> = <span style="color:${ds>=0?'#6cc070':'var(--red)'}">${ds>=0?'+':''}${fmt(ds)}</span></div></div></div>`;};
   const daysRemaining=7-daysElapsed;
