@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.4</div>
+  <div class="auth-version">v7.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -603,6 +603,7 @@ let selectedCombos = new Set();
 let showFuture = false;
 let showWorkPending = false;
 let showLoans = false;
+let showDailyBreakdown = false;
 let weeksBack = 0;
 let weeksCount = 1;
 
@@ -2004,7 +2005,7 @@ function renderBalances(){
       ${acctLine('Bank',bankBal,'bank')}${acctLine('Work',workBal,'work')}${acctLine('Gold',goldBal,'gold')}${acctLine('Norwegian',norwegianBal,'norwegian')}
       <div style="border-top:1px solid var(--border);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between"><span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Total</span><span style="font-size:11px;font-variant-numeric:tabular-nums;color:${totalBal>=0?'var(--accent)':'var(--red)'}">${fmt(totalBal)}</span></div>
     </div>
-    <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
+    <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleDailyBreakdown()"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleWorkPending()"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${combinedTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(combinedTotal)}</div>${netDaily!==0?`<div style="font-size:9px;color:${netDaily>0?'var(--orange)':'#6cc070'}">${netDaily>0?'-':'+'}${fmt(Math.abs(netDaily))}/day</div>`:''}</div>
@@ -2053,6 +2054,23 @@ function renderBalances(){
     });
     h+='</div>';
   }
+  if(showDailyBreakdown){
+    const bd=getBudgetBreakdown();
+    const baseDR=bd.weekly/7;
+    const effectiveDR=baseDR-loanDaily-trDaily+siDaily;
+    const bLine=(label,val,sign,color)=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-muted)">${label}</span><span style="font-variant-numeric:tabular-nums;color:${color||'var(--text)'}">${sign}${fmt(Math.abs(val))}</span></div>`;
+    h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
+    h+='<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Daily Rate Breakdown</div>';
+    h+=bLine('Avg income/mo',bd.incomeMo,'','var(--accent)');
+    h+=bLine('Recurring/mo',bd.recurringMo,'−','var(--red)');
+    h+=bLine('Envelopes/mo',bd.budgetedMo,'−','var(--red)');
+    h+=`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text)">Base daily (÷30.5)</span><span style="font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600">${fmt(baseDR)}</span></div>`;
+    if(loanDaily>0)h+=bLine('Loans/day',loanDaily,'−','var(--orange)');
+    if(trDaily>0)h+=bLine('Temp recurring/day',trDaily,'−','var(--orange)');
+    if(siDaily>0)h+=bLine('Spread income/day',siDaily,'+','#6cc070');
+    h+=`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;margin-top:2px"><span style="color:var(--text);font-weight:600">Effective daily</span><span style="font-variant-numeric:tabular-nums;color:${effectiveDR>=0?'#6cc070':'var(--red)'};font-weight:600">${fmt(effectiveDR)}</span></div>`;
+    h+='</div>';
+  }
   document.getElementById('balances').innerHTML=h;
 }
 
@@ -2069,7 +2087,8 @@ function getCurrentWeekRange(){
   return {start:fmtLocal(mon), end:fmtLocal(sun), daysElapsed:diff+1};
 }
 
-function getWeeklyBudget(){const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);const incomeItems=confirmed.filter(e=>e.amount>0&&e.category!=='work');const incomeMonths=new Set(incomeItems.map(e=>e.date.slice(0,7)));const numMonths=Math.max(1,incomeMonths.size);const totalIncome=incomeItems.reduce((s,e)=>s+e.amount,0);const incomeMo=totalIncome/numMonths;const templates=getRecurringTemplates();let recurringMo=0;templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});let budgetedMo=0;getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});return(incomeMo-recurringMo-budgetedMo)/4.333;}
+function getWeeklyBudget(){return getBudgetBreakdown().weekly;}
+function getBudgetBreakdown(){const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment);const incomeItems=confirmed.filter(e=>e.amount>0&&e.category!=='work');const incomeMonths=new Set(incomeItems.map(e=>e.date.slice(0,7)));const numMonths=Math.max(1,incomeMonths.size);const totalIncome=incomeItems.reduce((s,e)=>s+e.amount,0);const incomeMo=totalIncome/numMonths;const templates=getRecurringTemplates();let recurringMo=0;templates.forEach(t=>{if(t.type!=='income'){const avg=getRecurringAverage(t.id,t.amount);recurringMo+=avg/(t.intervalMonths||1);}});let budgetedMo=0;getEnvelopes().forEach(env=>{budgetedMo+=calcEnvelope(env).baseAlloc;});const weekly=(incomeMo-recurringMo-budgetedMo)/4.333;return{incomeMo,recurringMo,budgetedMo,weekly};}
 function addDaysStr(dateStr,n){const d=new Date(dateStr+'T00:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function overlapsRange(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;return e.date<=re&&eEnd>=rs;}
 function getSpreadAmount(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eStart=e.date;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;const os=eStart>rs?eStart:rs;const oe=eEnd<re?eEnd:re;if(os>oe)return 0;const da=new Date(os+'T00:00:00'),db=new Date(oe+'T00:00:00');const overlap=Math.round((db-da)/864e5)+1;return Math.abs(e.amount)*overlap/sd;}
@@ -2282,6 +2301,7 @@ function renderFilters(){
 
 function toggleFuture(){showFuture=!showFuture;renderList();}
 function toggleWorkPending(){showWorkPending=!showWorkPending;renderBalances();}
+function toggleDailyBreakdown(){showDailyBreakdown=!showDailyBreakdown;renderBalances();}
 function renderList(){
   const container=document.getElementById('expense-list');
   if(state.loading){container.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading…</div>';return;}
