@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.6</div>
+  <div class="auth-version">v7.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1935,10 +1935,18 @@ function renderBalances(){
     const todayBal=fmtDbal(new Date());
     const payDate=lastPaycheck.date;
     const daysSince=Math.round((new Date(todayBal+'T00:00:00')-new Date(payDate+'T00:00:00'))/864e5)+1;
-    const bd=getBudgetBreakdown();
-    const monthlyNet=bd.incomeMo-bd.recurringMo-bd.budgetedMo;
-    const projected=available+monthlyNet;
-    savedSincePayHtml=`<div class="value" style="color:${projected>=0?'#6cc070':'var(--red)'}">${fmt(projected)}</div><div style="font-size:9px;color:var(--text-muted)">after pay</div>`;
+    const monthlyNet=getWeeklyBudget()*4.333;
+    // Spread prepaid: for spread expenses extending past today, add back unelapsed portion (bottom number only)
+    let spreadPrepaid=0;
+    confirmed.forEach(e=>{
+      if(e.spreadDays&&e.spreadDays>1&&e.amount<0){
+        const eEnd=addDaysStr(e.date,e.spreadDays-1);
+        if(eEnd>todayBal){spreadPrepaid+=Math.abs(e.amount)-getSpreadAmount(e,e.date,todayBal);}
+      }
+    });
+    const projDaily=monthlyNet/30.5;
+    const projected=available+spreadPrepaid+projDaily*daysSince;
+    savedSincePayHtml=`<div class="value" style="color:${projected>=0?'#6cc070':'var(--red)'}">${fmt(projected)}</div><div style="font-size:9px;color:var(--text-muted)">${fmt(projDaily)}/day</div>`;
     const varCats=new Set(['basic','fun','unnecessary','gas']);
     const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
     const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
