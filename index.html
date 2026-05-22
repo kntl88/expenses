@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.1</div>
+  <div class="auth-version">v7.2</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1924,9 +1924,11 @@ function renderBalances(){
   // Available = all accounts + work pending - envelopes + reserved + loan remaining + spread income accrued
   const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining+spreadIncomeAccrued;
 
-  const acctCard=(label,bal,key)=>`<div class="balance-card fade-in"><div class="label">${label}</div><div class="value" style="color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</div><button class="offset-btn" onclick="openOffsetModal('${key}')">adjust</button></div>`;
-  let h=`<div class="bal-row" style="grid-template-columns:repeat(4,1fr)">
-    ${acctCard('Bank',bankBal,'bank')}${acctCard('Work',workBal,'work')}${acctCard('Gold',goldBal,'gold')}${acctCard('Norwegian',norwegianBal,'norwegian')}
+  const acctLine=(label,bal,key)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">${label}</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-variant-numeric:tabular-nums;color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</span><button class="offset-btn" onclick="openOffsetModal('${key}')" style="margin:0">adj</button></div></div>`;
+  let h=`<div class="balance-card fade-in" style="margin-bottom:6px">
+    <div class="label">Accounts</div>
+    ${acctLine('Bank',bankBal,'bank')}${acctLine('Work',workBal,'work')}${acctLine('Gold',goldBal,'gold')}${acctLine('Norwegian',norwegianBal,'norwegian')}
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between"><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Total</span><span style="font-size:12px;font-variant-numeric:tabular-nums;color:${totalBal>=0?'var(--accent)':'var(--red)'}">${fmt(totalBal)}</span></div>
   </div>`;
   // Projected available: current position + accrued portion of next pay cycle net
   let savedSincePayHtml='';
@@ -2000,11 +2002,12 @@ function renderBalances(){
   const combinedTotal=loanTotal+trMonthlyTotal;
   const siDaily=getSpreadIncomeDaily();
   const netDaily=totalDaily-siDaily;
-  h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+  h+=`<div class="bal-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
     <div class="balance-card fade-in"><div class="label">Envelopes</div><div class="value" style="color:${envelopeTotal>=0?'var(--blue)':'var(--red)'}">${fmt(envelopeTotal)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleWorkPending()"><div class="label">Work Pending</div><div class="value" style="color:${workPending>0?'var(--orange)':'var(--text-muted)'}">${fmt(workPending)}</div></div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleLoans()"><div class="label">Loans</div><div class="value" style="color:${combinedTotal>0?'var(--orange)':'var(--text-muted)'}">${fmt(combinedTotal)}</div>${netDaily!==0?`<div style="font-size:9px;color:${netDaily>0?'var(--orange)':'#6cc070'}">${netDaily>0?'-':'+'}${fmt(Math.abs(netDaily))}/day</div>`:''}</div>
+    <div class="balance-card fade-in"><div class="label">Accrued</div><div class="value" style="color:${spreadIncomeAccrued>0?'#6cc070':'var(--text-muted)'}">${spreadIncomeAccrued>0?'+':''}${fmt(spreadIncomeAccrued)}</div>${siDaily>0?`<div style="font-size:9px;color:#6cc070">+${fmt(siDaily)}/day</div>`:''}</div>
   </div>`;
   const pendingItems=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed);
   if(showWorkPending&&pendingItems.length){
