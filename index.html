@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.3</div>
+  <div class="auth-version">v7.4</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1924,7 +1924,7 @@ function renderBalances(){
   // Available = all accounts + work pending - envelopes + reserved + loan remaining + spread income accrued
   const available=totalBal+workPending-envelopeTotal+reservedTotal+loanRemaining+spreadIncomeAccrued;
 
-  const acctLine=(label,bal,key)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:1px 0"><span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">${label}</span><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;font-variant-numeric:tabular-nums;color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</span><button class="offset-btn" onclick="openOffsetModal('${key}')" style="margin:0;font-size:8px;padding:1px 4px">adj</button></div></div>`;
+  const acctLine=(label,bal,key)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:1px 0;cursor:pointer" onclick="openOffsetModal('${key}')"><span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">${label}</span><span style="font-size:11px;font-variant-numeric:tabular-nums;color:${bal>=0?'var(--accent)':'var(--red)'}">${fmt(bal)}</span></div>`;
   let h='';
   // Projected available: current position + accrued portion of next pay cycle net
   let savedSincePayHtml='';
@@ -2001,7 +2001,7 @@ function renderBalances(){
   h+=`<div class="bal-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
     <div class="balance-card fade-in" style="padding:6px 10px">
       <div class="label" style="margin-bottom:2px">Accounts</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">${acctLine('Bank',bankBal,'bank')}${acctLine('Work',workBal,'work')}${acctLine('Gold',goldBal,'gold')}${acctLine('Norwegian',norwegianBal,'norwegian')}</div>
+      ${acctLine('Bank',bankBal,'bank')}${acctLine('Work',workBal,'work')}${acctLine('Gold',goldBal,'gold')}${acctLine('Norwegian',norwegianBal,'norwegian')}
       <div style="border-top:1px solid var(--border);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between"><span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Total</span><span style="font-size:11px;font-variant-numeric:tabular-nums;color:${totalBal>=0?'var(--accent)':'var(--red)'}">${fmt(totalBal)}</span></div>
     </div>
     <div class="balance-card fade-in"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
