@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.5</div>
+  <div class="auth-version">v7.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -794,13 +794,17 @@ async function loadData() {
       await saveData();
     }
   }
-  // Migrate envelopes: compute allocations from startDate if not set
+  // Migrate envelopes: compute allocations from startDate if not set, and initialize totalAllocated
   let envMigrated = false;
   (state.accounts.budgeted || []).forEach(env => {
     if (env.allocations === undefined && env.startDate) {
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       env.allocations = Math.max(0, getMonthsBetween(env.startDate, currentMonth) + 1);
+      envMigrated = true;
+    }
+    if (env.totalAllocated === undefined && env.allocations !== undefined) {
+      env.totalAllocated = (env.allocations || 0) * (env.monthlyAlloc || 0);
       envMigrated = true;
     }
   });
@@ -1081,7 +1085,7 @@ function getMonthsBetween(startMonth, endMonth) {
 function calcEnvelope(env) {
   const baseAlloc = env.monthlyAlloc || 0;
   const allocations = env.allocations || 0;
-  const totalAllocated = allocations * baseAlloc;
+  const totalAllocated = env.totalAllocated !== undefined ? env.totalAllocated : allocations * baseAlloc;
   const totalSpent = state.expenses
     .filter(e => e.subCategory === env.id && !e.proposed && !e.dismissed)
     .reduce((s, e) => s + Math.abs(e.amount), 0);
@@ -1208,7 +1212,12 @@ async function deleteEnvelope(id) {
 async function adjustAllocations(delta) {
   const envs = getEnvelopes();
   if (!envs.length) return;
-  envs.forEach(env => { env.allocations = Math.max(0, (env.allocations || 0) + delta); });
+  envs.forEach(env => {
+    const allocs = env.allocations || 0;
+    const prevTotal = env.totalAllocated !== undefined ? env.totalAllocated : allocs * (env.monthlyAlloc || 0);
+    env.allocations = Math.max(0, allocs + delta);
+    env.totalAllocated = delta > 0 ? prevTotal + (env.monthlyAlloc || 0) : Math.max(0, prevTotal - (env.monthlyAlloc || 0));
+  });
   if (await saveAccounts()) { toast(delta > 0 ? '+1 allocation' : '−1 allocation'); render(); }
 }
 
