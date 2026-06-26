@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.0</div>
+  <div class="auth-version">v8.1</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -749,9 +749,9 @@ async function loadData() {
     if (res.ok) { const j = await res.json(); state.sha = j.sha; state.expenses = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))))); }
     else if (res.status===404) { state.expenses=[]; state.sha=null; }
     else throw new Error(`${res.status}`);
-    if (ares.ok) { const j = await ares.json(); state.accountsSha = j.sha; state.accounts = JSON.parse(atob(j.content.replace(/\n/g,''))); }
+    if (ares.ok) { const j = await ares.json(); state.accountsSha = j.sha; state.accounts = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))))); }
     else if (ares.status===404) { state.accounts=DEFAULT_ACCOUNTS(); state.accountsSha=null; }
-    if (sres.ok) { const j = await sres.json(); state.snapshotsSha = j.sha; state.snapshots = JSON.parse(atob(j.content.replace(/\n/g,''))); }
+    if (sres.ok) { const j = await sres.json(); state.snapshotsSha = j.sha; state.snapshots = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))))); }
     else if (sres.status===404) { state.snapshots=[]; state.snapshotsSha=null; }
   } catch(e) { toast('Failed to load: '+e.message, true); state.expenses=[]; }
   state.loading = false;
@@ -967,10 +967,8 @@ function generateProposedExpenses() {
 async function confirmProposed(id) {
   const idx = state.expenses.findIndex(e => e.id === id && e.proposed);
   if (idx === -1) return;
-  const e = state.expenses[idx];
-  const realId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const backup = {...e};
-  state.expenses[idx] = {...e, proposed: false, reserved: undefined, id: realId};
+  const backup = {...state.expenses[idx]};
+  state.expenses[idx] = {...state.expenses[idx], proposed: false, reserved: undefined};
   if (await saveData()) { toast('Confirmed'); render(); }
   else { state.expenses[idx] = backup; }
 }
