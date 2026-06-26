@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.7</div>
+  <div class="auth-version">v7.8</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -570,6 +570,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   <div class="budgeted-section" id="budgeted-section" style="display:none"></div>
   <div class="snapshots" id="snapshots" style="display:none"></div>
   <div class="category-filters" id="cat-filters"></div>
+  <div class="category-filters" id="acct-filters" style="margin-top:-10px"></div>
   <div id="expense-list"></div>
 </div>
 
@@ -592,7 +593,7 @@ const DATA_PATH='data/expenses.json', ACCOUNTS_PATH='data/accounts.json', SNAPSH
 const GH_OWNER='kntl88', GH_PUBLIC_REPO='expenses';
 const LOCAL_META_KEY='exp_meta', SALT_LEN=16, IV_LEN=12, PBKDF2_ITER=310000;
 
-let state = { owner:'', repo:'', token:'', expenses:[], accounts:DEFAULT_ACCOUNTS(), snapshots:[], sha:null, accountsSha:null, snapshotsSha:null, currentMonth:new Date(), activeCategory:'all', loading:false };
+let state = { owner:'', repo:'', token:'', expenses:[], accounts:DEFAULT_ACCOUNTS(), snapshots:[], sha:null, accountsSha:null, snapshotsSha:null, currentMonth:new Date(), activeCategory:'all', activeAccount:'all', loading:false };
 let offsetModalAccount = null;
 let editingId = null;
 let formCat = 'basic';
@@ -2306,7 +2307,9 @@ async function deleteSnapshot(month){
 
 function renderFilters(){
   document.getElementById('cat-filters').innerHTML=['all',...Object.keys(CATEGORIES)].map(c=>`<button class="cat-pill ${state.activeCategory===c?'active':''}" onclick="setCategory('${c}')">${c==='all'?'All':CATEGORIES[c].label}</button>`).join('');
+  document.getElementById('acct-filters').innerHTML=['all',...Object.keys(ACCOUNTS)].map(a=>`<button class="cat-pill ${state.activeAccount===a?'active':''}" onclick="setAccount('${a}')">${a==='all'?'All':ACCOUNTS[a].label}</button>`).join('');
 }
+function setAccount(a){state.activeAccount=a;renderFilters();renderList();}
 
 function toggleFuture(){showFuture=!showFuture;renderList();}
 function toggleWorkPending(){showWorkPending=!showWorkPending;renderBalances();}
@@ -2328,9 +2331,10 @@ function renderList(){
   });
   items=splitItems;
   if(state.activeCategory!=='all')items=items.filter(e=>e.category===state.activeCategory);
+  if(state.activeAccount!=='all')items=items.filter(e=>e.account===state.activeAccount);
   let h='';
   if(futureCount>0)h+=`<div style="text-align:right;margin-bottom:8px"><button class="btn btn-sm" onclick="toggleFuture()" style="font-size:10px">${showFuture?'Hide':'Show'} future (${futureCount})</button></div>`;
-  if(!items.length){container.innerHTML=h+'<div class="empty-state fade-in">No entries'+(state.activeCategory!=='all'?' in this category':'')+'</div>';return;}
+  if(!items.length){container.innerHTML=h+'<div class="empty-state fade-in">No entries'+(state.activeCategory!=='all'||state.activeAccount!=='all'?' matching filters':'')+'</div>';return;}
   const g={}; items.forEach(e=>{if(!g[e.date])g[e.date]=[];g[e.date].push(e);});
   Object.keys(g).sort().reverse().forEach(date=>{
     const d=new Date(date+'T00:00:00'); h+=`<div class="expense-day-header">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>`;
