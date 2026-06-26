@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.6</div>
+  <div class="auth-version">v7.7</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1871,10 +1871,10 @@ async function saveExpense(keepOpen){
     if(idx===-1){toast('Entry not found',true);return;}
     const backup={...state.expenses[idx]};
     const upd={...state.expenses[idx], amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount};
-    // Update recurring template date if user changed the day
-    if(upd.recurringId&&backup.date!==date){
+    // Update recurring template when user changes date or account
+    if(upd.recurringId){
       const t=(state.accounts.recurring||[]).find(r=>r.id===upd.recurringId);
-      if(t){const newDay=parseInt(date.slice(8,10));const oldStart=new Date(t.startDate+'T00:00:00');oldStart.setDate(newDay);t.startDate=`${oldStart.getFullYear()}-${String(oldStart.getMonth()+1).padStart(2,'0')}-${String(newDay).padStart(2,'0')}`;await saveAccounts();}
+      if(t){let changed=false;if(backup.date!==date){const newDay=parseInt(date.slice(8,10));const oldStart=new Date(t.startDate+'T00:00:00');oldStart.setDate(newDay);t.startDate=`${oldStart.getFullYear()}-${String(oldStart.getMonth()+1).padStart(2,'0')}-${String(newDay).padStart(2,'0')}`;changed=true;}if(backup.account!==formAccount){t.account=formAccount;changed=true;}if(changed)await saveAccounts();}
     }
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
