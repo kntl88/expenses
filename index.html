@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.8</div>
+  <div class="auth-version">v7.9</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1406,7 +1406,7 @@ function getSpreadIncomeAccrued() {
     if (si.startDate > today) return;
     const td = siTotalDays(si);
     const elapsed = Math.max(0, Math.round((new Date(today+'T00:00:00') - new Date(si.startDate+'T00:00:00')) / 864e5));
-    total += si.amount * Math.min(elapsed, td) / td;
+    total += Math.max(0, si.amount * Math.min(elapsed, td) / td - (si.received || 0));
   });
   return total;
 }
@@ -1442,16 +1442,22 @@ function renderSpreadIncomeList() {
     const done = today >= endStr;
     const elapsed = Math.max(0, Math.round((new Date(today+'T00:00:00') - new Date(si.startDate+'T00:00:00')) / 864e5));
     const accrued = si.startDate <= today ? si.amount * Math.min(elapsed, td) / td : 0;
+    const received = si.received || 0;
+    const effective = Math.max(0, accrued - received);
     const daily = si.amount / td;
     const remaining = si.amount - accrued;
     const durationLabel = si.days ? si.days + 'd' : si.months + 'mo';
     const status = done ? '<span style="color:#6cc070">fully accrued</span>' : (active ? `<span style="color:#6cc070">${Math.round(remaining)}€ left</span>` : '<span style="color:var(--text-muted)">upcoming</span>');
-    return `<div class="recurring-item">
-      <div>
+    const receivedLabel = received > 0 ? ` · received €${received.toFixed(2)} · virtual €${effective.toFixed(2)}` : '';
+    return `<div class="recurring-item" style="flex-wrap:wrap">
+      <div style="flex:1">
         <div class="ri-info">${esc(si.description)} — €${si.amount.toFixed(2)} ${status}</div>
-        <div class="ri-meta">€${daily.toFixed(2)}/day · ${durationLabel} · accrued €${accrued.toFixed(2)}</div>
+        <div class="ri-meta">€${daily.toFixed(2)}/day · ${durationLabel} · accrued €${accrued.toFixed(2)}${receivedLabel}</div>
       </div>
-      <button class="ri-del" onclick="deleteSpreadIncome('${si.id}')">✕</button>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="btn btn-sm" onclick="promptAllocateSpreadIncome('${si.id}')" title="Record received payment">+€</button>
+        <button class="ri-del" onclick="deleteSpreadIncome('${si.id}')">✕</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1479,6 +1485,19 @@ async function deleteSpreadIncome(id) {
   if (!confirm('Delete this spread income?')) return;
   state.accounts.spreadIncome = (state.accounts.spreadIncome || []).filter(si => si.id !== id);
   if (await saveAccounts()) { toast('Deleted'); renderSpreadIncomeList(); render(); }
+}
+
+async function promptAllocateSpreadIncome(id) {
+  const si = getSpreadIncomeItems().find(s => s.id === id);
+  if (!si) return;
+  const remaining = si.amount - (si.received || 0);
+  const input = prompt(`Record received payment for "${si.description}"\nRemaining: €${remaining.toFixed(2)}\n\nAmount received:`);
+  if (!input) return;
+  const amount = parseFloat(input);
+  if (!amount || amount <= 0) { toast('Invalid amount', true); return; }
+  si.received = (si.received || 0) + amount;
+  if (await saveAccounts()) { toast(`Allocated €${amount.toFixed(2)} to ${si.description}`); renderSpreadIncomeList(); render(); }
+  else { si.received -= amount; }
 }
 
 // Bulk add
