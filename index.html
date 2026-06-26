@@ -518,7 +518,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v7.9</div>
+  <div class="auth-version">v8.0</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1496,8 +1496,11 @@ async function promptAllocateSpreadIncome(id) {
   const amount = parseFloat(input);
   if (!amount || amount <= 0) { toast('Invalid amount', true); return; }
   si.received = (si.received || 0) + amount;
-  if (await saveAccounts()) { toast(`Allocated €${amount.toFixed(2)} to ${si.description}`); renderSpreadIncomeList(); render(); }
-  else { si.received -= amount; }
+  const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), amount: Math.abs(amount), date: new Date().toISOString().slice(0, 10), description: si.description, category: 'income', type: 'income', account: 'bank', spreadIncomeId: si.id, created: new Date().toISOString() };
+  state.expenses.push(entry);
+  state.expenses.sort((a, b) => b.date.localeCompare(a.date));
+  if (await saveAccounts() && await saveData()) { toast(`Allocated €${amount.toFixed(2)} to ${si.description}`); renderSpreadIncomeList(); render(); }
+  else { si.received -= amount; state.expenses = state.expenses.filter(e => e.id !== entry.id); }
 }
 
 // Bulk add
@@ -2361,7 +2364,7 @@ function renderList(){
     const dayItems=g[date];
     const agg={}, solo=[];
     dayItems.forEach(e=>{
-      if(e.proposed||e._expanded||e.category==='work'||e.adjustment){solo.push(e);return;}
+      if(e.proposed||e._expanded||e.category==='work'||e.adjustment||e.spreadIncomeId){solo.push(e);return;}
       const key=e.category+'||'+(e.description||'').toLowerCase();
       if(!agg[key])agg[key]={items:[],cat:e.category,description:e.description};
       agg[key].items.push(e);
@@ -2373,6 +2376,7 @@ function renderList(){
       const metaParts=[e.adjustment?'Adjustment':cat.label];
       if(envLabel)metaParts[0]+=' · '+envLabel;
       if(acctLabel&&(e.adjustment||e.proposed))metaParts.push(acctLabel);
+      if(e.spreadIncomeId){const si=getSpreadIncomeItems().find(s=>s.id===e.spreadIncomeId);if(si)metaParts.push(`${Math.round(si.received||0)}€/${Math.round(si.amount)}€`);}
       const metaLabel=metaParts.join(' · ');
       const hasDesc=e.description && e.description.toLowerCase()!==e.category && !(e.adjustment && e.description==='Adjustment');
       const countLabel=count>1?` <span style="color:var(--text-muted);font-size:10px">×${count}</span>`:'';
