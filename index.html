@@ -313,10 +313,13 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <button class="cat-pill" id="adj-tab-unaccounted" onclick="setAdjTab('unaccounted')">Unaccounted</button>
     </div>
     <div id="adj-move-panel">
-      <p>Set target balance. Transfers from another account to cover the difference.</p>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="cat-pill" id="adj-move-mode-amount" onclick="setMoveMode('amount')" style="font-size:9px;padding:3px 8px">Amount</button>
+        <button class="cat-pill" id="adj-move-mode-balance" onclick="setMoveMode('balance')" style="font-size:9px;padding:3px 8px">Set balance</button>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span id="offset-move-from" style="font-size:12px;color:var(--text-muted);white-space:nowrap"></span>
-        <input id="offset-move-target" type="number" step="0.01" placeholder="Target balance (€)" style="flex:1" onkeydown="if(event.key==='Enter')saveMove()">
+        <input id="offset-move-target" type="number" step="0.01" placeholder="Amount (€)" style="flex:1" onkeydown="if(event.key==='Enter')saveMove()">
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="color:var(--text-muted);font-size:11px;white-space:nowrap">Transfer from</span>
@@ -326,8 +329,11 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       <div class="modal-actions"><button class="btn" onclick="closeOffsetModal()">Cancel</button><button class="btn btn-accent" onclick="saveMove()">Transfer</button></div>
     </div>
     <div id="adj-unaccounted-panel" style="display:none">
-      <p>Correct balance with an Unaccounted transaction.</p>
-      <input id="offset-input" type="number" step="0.01" placeholder="Actual balance right now" onkeydown="if(event.key==='Enter')saveOffset()" style="margin-bottom:8px">
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="cat-pill" id="adj-unacc-mode-amount" onclick="setUnaccMode('amount')" style="font-size:9px;padding:3px 8px">Amount</button>
+        <button class="cat-pill" id="adj-unacc-mode-balance" onclick="setUnaccMode('balance')" style="font-size:9px;padding:3px 8px">Set balance</button>
+      </div>
+      <input id="offset-input" type="number" step="0.01" placeholder="Amount (€)" onkeydown="if(event.key==='Enter')saveOffset()" style="margin-bottom:8px">
       <input id="offset-date" type="date" style="margin-bottom:8px">
       <div class="modal-actions"><button class="btn" onclick="closeOffsetModal()">Cancel</button><button class="btn btn-accent" onclick="saveOffset()">Save</button></div>
     </div>
@@ -518,7 +524,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.1</div>
+  <div class="auth-version">v8.2</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1748,11 +1754,28 @@ function disconnect(){state={...state,owner:'',repo:'',token:'',expenses:[],acco
 function tryAutoConnect(){initPinPads();showAuthMode();}
 
 // Offset modal
+let adjMoveMode='amount', adjUnaccMode='amount';
 function setAdjTab(tab){
   document.getElementById('adj-tab-move').classList.toggle('active',tab==='move');
   document.getElementById('adj-tab-unaccounted').classList.toggle('active',tab==='unaccounted');
   document.getElementById('adj-move-panel').style.display=tab==='move'?'':'none';
   document.getElementById('adj-unaccounted-panel').style.display=tab==='unaccounted'?'':'none';
+}
+function setMoveMode(mode){
+  adjMoveMode=mode;
+  document.getElementById('adj-move-mode-amount').classList.toggle('active',mode==='amount');
+  document.getElementById('adj-move-mode-balance').classList.toggle('active',mode==='balance');
+  const inp=document.getElementById('offset-move-target');
+  inp.placeholder=mode==='amount'?'Amount (€)':'Target balance (€)';
+  inp.value='';inp.focus();
+}
+function setUnaccMode(mode){
+  adjUnaccMode=mode;
+  document.getElementById('adj-unacc-mode-amount').classList.toggle('active',mode==='amount');
+  document.getElementById('adj-unacc-mode-balance').classList.toggle('active',mode==='balance');
+  const inp=document.getElementById('offset-input');
+  inp.placeholder=mode==='amount'?'Amount (€)':'Actual balance right now';
+  inp.value='';inp.focus();
 }
 function openOffsetModal(acct){
   offsetModalAccount=acct;
@@ -1769,17 +1792,19 @@ function openOffsetModal(acct){
   const sel=document.getElementById('offset-move-to');
   sel.innerHTML=Object.keys(ACCOUNTS).filter(k=>k!==acct).map(k=>`<option value="${k}">${ACCOUNTS[k].label}</option>`).join('');
   setAdjTab('move');
+  setMoveMode('amount');
+  setUnaccMode('amount');
   document.getElementById('offset-modal').classList.add('visible');
   setTimeout(()=>document.getElementById('offset-move-target').focus(),50);
 }
 function closeOffsetModal(){document.getElementById('offset-modal').classList.remove('visible');offsetModalAccount=null;}
 async function saveOffset(){
-  const actual=parseFloat(document.getElementById('offset-input').value); if(isNaN(actual)){toast('Enter a number',true);return;}
+  const val=parseFloat(document.getElementById('offset-input').value); if(isNaN(val)){toast('Enter a number',true);return;}
   const date=document.getElementById('offset-date').value; if(!date){toast('Pick a date',true);return;}
   const todayFilt=new Date().toISOString().slice(0,10);
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.date<=todayFilt);
   const currentBal=getAccountBal(offsetModalAccount,confirmed);
-  const diff=actual-currentBal;
+  const diff=adjUnaccMode==='amount'?val:val-currentBal;
   if(Math.abs(diff)<0.005){toast('Balance already matches');closeOffsetModal();return;}
   // Merge with existing unaccounted entry for same account+date
   const existing=state.expenses.find(e=>e.adjustment&&e.description==='Unaccounted'&&e.account===offsetModalAccount&&e.date===date&&!e.proposed&&!e.dismissed);
@@ -1799,13 +1824,13 @@ async function saveOffset(){
   }
 }
 async function saveMove(){
-  const target=parseFloat(document.getElementById('offset-move-target').value); if(isNaN(target)){toast('Enter target balance',true);return;}
+  const val=parseFloat(document.getElementById('offset-move-target').value); if(isNaN(val)){toast('Enter a number',true);return;}
   const date=document.getElementById('offset-move-date').value; if(!date){toast('Pick a date',true);return;}
   const targetAcct=offsetModalAccount;
   const sourceAcct=document.getElementById('offset-move-to').value;
   const confirmed=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.date<=new Date().toISOString().slice(0,10));
   const currentBal=getAccountBal(targetAcct,confirmed);
-  const amount=target-currentBal;
+  const amount=adjMoveMode==='amount'?val:val-currentBal;
   if(Math.abs(amount)<0.005){toast('Balance already matches');closeOffsetModal();return;}
   const targetLabel=ACCOUNTS[targetAcct]?.label||targetAcct;
   const sourceLabel=ACCOUNTS[sourceAcct]?.label||sourceAcct;
