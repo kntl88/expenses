@@ -524,7 +524,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.4</div>
+  <div class="auth-version">v8.5</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -787,6 +787,10 @@ async function loadData() {
     await saveAccounts();
   }
   if (migrated) await saveData();
+  // Ensure all accounts exist
+  let acctMigrated = false;
+  Object.keys(ACCOUNTS).forEach(k => { if (!state.accounts[k]) { state.accounts[k] = { offset: 0 }; acctMigrated = true; } });
+  if (acctMigrated) await saveAccounts();
   // Fix existing purchases envelope id if it doesn't match constant
   const envs = state.accounts.budgeted || [];
   const hasExact = envs.find(e => e.id === PURCHASES_ENVELOPE_ID);
