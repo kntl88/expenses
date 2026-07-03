@@ -524,7 +524,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.5</div>
+  <div class="auth-version">v8.6</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -847,10 +847,10 @@ async function saveData() {
       }
     }
   } catch(e) { /* proceed with save even if merge check fails */ }
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.expenses, null, 2))));
-  const body = { message:`Update expenses ${new Date().toISOString().slice(0,10)}`, content };
-  if (state.sha) body.sha = state.sha;
   try {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.expenses, null, 2))));
+    const body = { message:`Update expenses ${new Date().toISOString().slice(0,10)}`, content };
+    if (state.sha) body.sha = state.sha;
     const res = await ghFetch(DATA_PATH, { method:'PUT', body:JSON.stringify(body) });
     const j = await res.json();
     if (!res.ok) throw new Error(j.message||res.status);
