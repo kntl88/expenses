@@ -524,7 +524,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.3</div>
+  <div class="auth-version">v8.4</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -888,7 +888,8 @@ async function checkMonthlySnapshot() {
   const workAcctBal = getAccountBal('work', confirmed);
   const goldBal = getAccountBal('gold', confirmed);
   const norwegianBal = getAccountBal('norwegian', confirmed);
-  const totalBal = bankBal + workAcctBal + goldBal + norwegianBal;
+  const nordnetBal = getAccountBal('nordnet', confirmed);
+  const totalBal = bankBal + workAcctBal + goldBal + norwegianBal + nordnetBal;
   const workPending = confirmed.filter(e => e.category==='work' && e.amount<0 && !e.reimbursed).reduce((s,e) => s+Math.abs(e.amount), 0);
   // Envelopes — sum ALL buffers
   let envelopeTotal = 0;
@@ -900,7 +901,7 @@ async function checkMonthlySnapshot() {
   const prevSnapshot = state.snapshots.length > 0 ? state.snapshots[state.snapshots.length - 1] : null;
   const prevSavingsBase = prevSnapshot ? (prevSnapshot.availableForSavings !== undefined ? prevSnapshot.availableForSavings : (prevSnapshot.availableRaw !== undefined ? prevSnapshot.availableRaw : prevSnapshot.available)) : null;
   const savings = prevSavingsBase !== null ? availableForSavings - prevSavingsBase : null;
-  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, work: workAcctBal, gold: goldBal, norwegian: norwegianBal, available, availableForSavings, envelopes: envelopeTotal, workPending, savings });
+  state.snapshots.push({ month: monthKey, date: now.toISOString().slice(0, 10), bank: bankBal, work: workAcctBal, gold: goldBal, norwegian: norwegianBal, nordnet: nordnetBal, available, availableForSavings, envelopes: envelopeTotal, workPending, savings });
   state.snapshots.sort((a, b) => a.month.localeCompare(b.month));
   await saveSnapshots();
 }
@@ -1963,7 +1964,8 @@ function renderBalances(){
   const workBal=getAccountBal('work',confirmed);
   const goldBal=getAccountBal('gold',confirmed);
   const norwegianBal=getAccountBal('norwegian',confirmed);
-  const totalBal=bankBal+workBal+goldBal+norwegianBal;
+  const nordnetBal=getAccountBal('nordnet',confirmed);
+  const totalBal=bankBal+workBal+goldBal+norwegianBal+nordnetBal;
   // Work pending = unreimbursed work expenses
   const workPending=confirmed.filter(e=>e.category==='work'&&e.amount<0&&!e.reimbursed).reduce((s,e)=>s+Math.abs(e.amount),0);
   // Envelopes — sum ALL buffers (positive and negative)
@@ -2057,7 +2059,7 @@ function renderBalances(){
   h+=`<div class="bal-row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
     <div class="balance-card fade-in" style="padding:6px 10px">
       <div class="label" style="margin-bottom:2px">Accounts</div>
-      ${acctLine('Bank',bankBal,'bank')}${acctLine('Work',workBal,'work')}${acctLine('Gold',goldBal,'gold')}${acctLine('Norwegian',norwegianBal,'norwegian')}
+      ${acctLine('Bank',bankBal,'bank')}${acctLine('Work',workBal,'work')}${acctLine('Gold',goldBal,'gold')}${acctLine('Norwegian',norwegianBal,'norwegian')}${acctLine('Nordnet',nordnetBal,'nordnet')}
       <div style="border-top:1px solid var(--border);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between"><span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Total</span><span style="font-size:11px;font-variant-numeric:tabular-nums;color:${totalBal>=0?'var(--accent)':'var(--red)'}">${fmt(totalBal)}</span></div>
     </div>
     <div class="balance-card fade-in" style="cursor:pointer" onclick="toggleDailyBreakdown()"><div class="label">Available</div><div class="value" style="color:${available>=0?'var(--accent)':'var(--red)'}">${fmt(available)}</div>${savedSincePayHtml}</div>
