@@ -524,7 +524,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.6</div>
+  <div class="auth-version">v8.7</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -581,7 +581,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 </div>
 
 <script>
-const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, work:{label:'Work',color:'#40c8c8'}, income:{label:'Income',color:'#c4f54a'} };
+const CATEGORIES = { basic:{label:'Basic',color:'#60c0a0'}, gas:{label:'Gas',color:'#f0a054'}, fun:{label:'Fun',color:'#f0d454'}, fixed:{label:'Fixed',color:'#c084fc'}, unnecessary:{label:'Unnecessary',color:'#f05454'}, budgeted:{label:'Budgeted',color:'#f07498'}, recurring:{label:'Recurring',color:'#a0a0f0'}, work:{label:'Work',color:'#40c8c8'}, income:{label:'Income',color:'#c4f54a'}, misc:{label:'Misc',color:'#90a4ae'} };
 const ACCOUNTS = { bank:{label:'Bank'}, work:{label:'Work'}, gold:{label:'Gold'}, norwegian:{label:'Norwegian'}, nordnet:{label:'Nordnet'} };
 const DEFAULT_ACCOUNTS = () => ({bank:{offset:0},work:{offset:0},gold:{offset:0},norwegian:{offset:0},nordnet:{offset:0}});
 const PURCHASES_ENVELOPE_ID = 'purchases';
@@ -2209,7 +2209,7 @@ function renderDailyRates(){
   const todaySIDaily=getSpreadIncomeDaily();
   const todayDailyBudget=baseDailyRate-todayLoanDaily-todayTRDaily+todaySIDaily;
   const cwk=getCurrentWeekRange();
-  const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted');
+  const weekItems=allExpenses.filter(e=>overlapsRange(e,cwk.start,cwk.end)&&e.category!=='budgeted'&&e.category!=='misc');
   const weekCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,cwk.start,todayStr));
   const weekComboOneTime=DAILY_COMBOS.map(combo=>comboSpreadOneTime(combo,weekItems,cwk.start,todayStr));
   const todayCombo=DAILY_COMBOS.map(combo=>comboSpread(combo,weekItems,todayStr,todayStr));
