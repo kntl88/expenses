@@ -159,6 +159,12 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
 .work-badge { font-family: var(--mono); font-size: 8px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: none; }
 .work-badge.pending { background: rgba(240,160,84,0.15); color: var(--orange); }
 .work-badge.reimbursed { background: rgba(196,245,74,0.1); color: var(--accent); }
+.att-badge { font-family: var(--mono); font-size: 8px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(144,164,174,0.15); color: #90a4ae; }
+.attachment-area { margin-top: 6px; }
+.attachment-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 3px 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+.attachment-chip .remove-att { cursor: pointer; color: var(--text-muted); border: none; background: none; font-size: 12px; padding: 0 2px; font-family: var(--mono); }
+.attachment-chip .remove-att:hover { color: var(--red); }
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
 
 /* Toast */
@@ -524,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.7</div>
+  <div class="auth-version">v8.8</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -566,6 +572,11 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="subcat-picker" id="subcat-picker">
       <label id="subcat-label" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:4px;display:block">Envelope</label>
       <div class="subcat-pills" id="subcat-pills"></div>
+    </div>
+    <div class="attachment-area" id="attachment-area" style="display:none;margin-bottom:5px">
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:4px;display:block">Attachments</label>
+      <div class="attachment-list" id="attachment-list"></div>
+      <label class="btn" style="font-size:10px;margin-top:4px;cursor:pointer;display:inline-block">+ Attach<input type="file" id="f-attachment" multiple accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="handleAttachmentSelect(this)"></label>
     </div>
     <div class="form-actions" style="display:flex;align-items:center;gap:8px">
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin-right:auto"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked;if(this.checked)document.getElementById('f-onetime-check').checked=false;"> ÷<input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:40px;padding:2px 4px;font-size:11px" disabled>d</label>
@@ -609,6 +620,7 @@ let formAccount = 'norwegian';
 let selectedCombos = new Set();
 let showFuture = false;
 let showWorkPending = false;
+let formAttachments = [];
 let showLoans = false;
 let showDailyBreakdown = false;
 let weeksBack = 0;
@@ -709,6 +721,8 @@ function setFormCat(c){formCat=c;renderFormCats();
   else if(c==='recurring'){picker.classList.add('visible');renderRecurringPills();}
   else if(c==='unnecessary'){picker.classList.add('visible');renderUnnecessaryPills();}
   else{picker.classList.remove('visible');formSubCat='';formWorkType='expense';}
+  if(c!=='work')formAttachments=[];
+  updateAttachmentArea();
   if(c==='income'){formAccount='bank';renderFormAccts();}
 }
 function renderSubCatPills(){
@@ -737,8 +751,29 @@ function renderUnnecessaryPills(){
     `<button type="button" class="cat-pill ${!formSubCat?'active':''}" onclick="setFormSubCat('')">Regular</button>`+
     `<button type="button" class="cat-pill ${formSubCat==='eating_out'?'active':''}" onclick="setFormSubCat('eating_out')">Eating out</button>`;
 }
-function setWorkType(t){formWorkType=t;renderWorkTypePills();}
+function setWorkType(t){formWorkType=t;renderWorkTypePills();updateAttachmentArea();}
 function setFormSubCat(id){formSubCat=id;if(formCat==='recurring')renderRecurringPills();else if(formCat==='unnecessary')renderUnnecessaryPills();else renderSubCatPills();}
+function updateAttachmentArea(){
+  const area=document.getElementById('attachment-area');
+  if(formCat==='work'&&formWorkType==='expense'){area.style.display='';renderAttachments();}
+  else area.style.display='none';
+}
+function handleAttachmentSelect(input){
+  Array.from(input.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=()=>{formAttachments.push({name:file.name,data:reader.result.split(',')[1],existing:false});renderAttachments();};
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+function renderAttachments(){
+  const list=document.getElementById('attachment-list');
+  if(!list)return;
+  list.innerHTML=formAttachments.map((a,i)=>
+    `<div class="attachment-chip"><span>${esc(a.name)}</span><button class="remove-att" onclick="event.stopPropagation();removeAttachment(${i})">&#x2715;</button></div>`
+  ).join('');
+}
+function removeAttachment(i){formAttachments.splice(i,1);renderAttachments();}
 
 // GitHub API
 function ghFetch(path, opts={}) {
@@ -1881,6 +1916,8 @@ function editExpense(id){
     formWorkType=e.amount>0?'reimbursement':'expense';
     document.getElementById('subcat-picker').classList.add('visible');
     renderWorkTypePills();
+    formAttachments=(e.amount<0&&e.attachments)?e.attachments.map(a=>({name:a.name,path:a.path,existing:true})):[];
+    updateAttachmentArea();
   } else if(e.category==='recurring'&&e.recurringId){
     formSubCat=e.recurringId;
     document.getElementById('subcat-picker').classList.add('visible');
@@ -1892,6 +1929,7 @@ function editExpense(id){
   } else {
     formSubCat='';formWorkType='expense';
     document.getElementById('subcat-picker').classList.remove('visible');
+    formAttachments=[];updateAttachmentArea();
   }
   if(e.spreadDays&&e.spreadDays>1){document.getElementById('f-spread-check').checked=true;document.getElementById('f-spread-days').disabled=false;document.getElementById('f-spread-days').value=e.spreadDays;}else{document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';}
   document.getElementById('f-onetime-check').checked=!!e.oneTime;
@@ -1901,7 +1939,7 @@ function editExpense(id){
   if(!isMobile())document.getElementById('f-amount').focus();
 }
 
-function clearFormKeepContext(){editingId=null;document.getElementById('f-amount').value='';document.getElementById('f-desc').value='';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');}
+function clearFormKeepContext(){editingId=null;document.getElementById('f-amount').value='';document.getElementById('f-desc').value='';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');formAttachments=[];renderAttachments();}
 async function saveExpense(keepOpen){
   const amount=parseFloat(document.getElementById('f-amount').value);
   const date=document.getElementById('f-date').value, desc=document.getElementById('f-desc').value.trim();
@@ -1929,6 +1967,10 @@ async function saveExpense(keepOpen){
     }
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
+    if(cat==='work'&&formWorkType==='expense'){
+      const atts=[];for(const a of formAttachments){if(a.existing){atts.push({name:a.name,path:a.path});continue;}const p='data/attachments/'+editingId+'/'+a.name;try{const r=await ghFetch(p,{method:'PUT',body:JSON.stringify({message:'Attach '+a.name,content:a.data})});if(r.ok)atts.push({name:a.name,path:p});}catch(err){}}
+      upd.attachments=atts.length?atts:undefined;
+    } else { delete upd.attachments; }
     state.expenses[idx]=upd;
     state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Updated');if(keepOpen){clearFormKeepContext();}else{toggleForm();clearForm();}render();}else{state.expenses[idx]=backup;}
@@ -1936,6 +1978,10 @@ async function saveExpense(keepOpen){
     const e={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:signedAmount, date, description:desc||cat, category:cat, type, subCategory:subCat, recurringId, account:formAccount, created:new Date().toISOString()};
     if(spreadDays)e.spreadDays=spreadDays;
     if(oneTime)e.oneTime=true;
+    if(cat==='work'&&formWorkType==='expense'&&formAttachments.length){
+      const atts=[];for(const a of formAttachments){if(a.existing){atts.push({name:a.name,path:a.path});continue;}const p='data/attachments/'+e.id+'/'+a.name;try{const r=await ghFetch(p,{method:'PUT',body:JSON.stringify({message:'Attach '+a.name,content:a.data})});if(r.ok)atts.push({name:a.name,path:p});}catch(err){}}
+      if(atts.length)e.attachments=atts;
+    }
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
     if(await saveData()){toast('Saved');if(keepOpen){clearFormKeepContext();}else{toggleForm();clearForm();}render();}else{state.expenses=state.expenses.filter(x=>x.id!==e.id);}
   }
@@ -2076,8 +2122,10 @@ function renderBalances(){
   if(showWorkPending&&pendingItems.length){
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px">';
     pendingItems.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(e.description)}</span> <span style="color:var(--text-muted);font-size:10px">${e.date}</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(Math.abs(e.amount))}</div></div>`;
+      const attInfo=(e.attachments&&e.attachments.length)?` <span class="att-badge">${e.attachments.length} file${e.attachments.length>1?'s':''}</span>`:'';
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div><span style="color:var(--text)">${esc(e.description)}</span>${attInfo} <span style="color:var(--text-muted);font-size:10px">${e.date}</span></div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(Math.abs(e.amount))}</div></div>`;
     });
+    h+=`<div style="margin-top:6px;text-align:right"><button class="btn" style="font-size:10px" onclick="exportWork()">Export Work</button></div>`;
     h+='</div>';
   }
   const allTR=getTempRecurring();
@@ -2412,7 +2460,8 @@ function renderList(){
       const spreadLabel=e.spreadDays?` <span style="color:var(--blue);font-size:10px">÷${e.spreadDays}d</span>`:'';
       const oneTimeLabel=e.oneTime?` <span style="color:var(--blue);font-size:10px">1×</span>`:'';
       const workBadge=(e.category==='work'&&e.amount<0)?`<span class="work-badge ${e.reimbursed?'reimbursed':'pending'}" onclick="event.stopPropagation();toggleReimbursed('${e.id}')">${e.reimbursed?'reimbursed':'pending'}</span> `:'';
-      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${esc(e.description)}${countLabel}${spreadLabel}${oneTimeLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${metaLabel}${countLabel}${spreadLabel}${oneTimeLabel}</div>`;
+      const attBadge=(e.attachments&&e.attachments.length)?`<span class="att-badge">${e.attachments.length} file${e.attachments.length>1?'s':''}</span> `:'';
+      const descHtml=hasDesc?`<div class="expense-desc">${workBadge}${attBadge}${esc(e.description)}${countLabel}${spreadLabel}${oneTimeLabel}</div><div class="expense-meta">${metaLabel}</div>`:`<div class="expense-desc">${workBadge}${attBadge}${metaLabel}${countLabel}${spreadLabel}${oneTimeLabel}</div>`;
       return descHtml;
     };
     // Render aggregated groups
@@ -2473,9 +2522,78 @@ function expandGroup(idsStr){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';formAttachments=[];renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('attachment-area').style.display='none';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');formAttachments=[];document.getElementById('attachment-area').style.display='none';}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
+function crc32(data){let c=0xFFFFFFFF;for(let i=0;i<data.length;i++){c^=data[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xEDB88320:0);}return(c^0xFFFFFFFF)>>>0;}
+function createZip(files){
+  const enc=new TextEncoder(),entries=Object.entries(files);
+  const locals=[],centrals=[];let offset=0;
+  entries.forEach(([name,data])=>{
+    const nb=enc.encode(name),crc=crc32(data);
+    const lh=new Uint8Array(30+nb.length+data.length),lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(8,0,true);
+    lv.setUint32(14,crc,true);lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);
+    lv.setUint16(26,nb.length,true);lh.set(nb,30);lh.set(data,30+nb.length);
+    const cd=new Uint8Array(46+nb.length),cv=new DataView(cd.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);
+    cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);
+    cv.setUint16(28,nb.length,true);cv.setUint32(42,offset,true);cd.set(nb,46);
+    locals.push(lh);centrals.push(cd);offset+=lh.length;
+  });
+  const cdSize=centrals.reduce((s,e)=>s+e.length,0);
+  const eocd=new Uint8Array(22),ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,entries.length,true);ev.setUint16(10,entries.length,true);
+  ev.setUint32(12,cdSize,true);ev.setUint32(16,offset,true);
+  const result=new Uint8Array(offset+cdSize+22);let pos=0;
+  locals.forEach(h=>{result.set(h,pos);pos+=h.length;});
+  centrals.forEach(e=>{result.set(e,pos);pos+=e.length;});
+  result.set(eocd,pos);return result;
+}
+function generateXlsx(items){
+  const enc=new TextEncoder();
+  const xe=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Work Expenses" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const sty=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0"/></cellXfs></styleSheet>`;
+  const cols='ABCDE';const hdrs=['Date','Description','Amount (€)','Account','Attachments'];
+  let rows=`<row r="1">${hdrs.map((h,i)=>`<c r="${cols[i]}1" t="inlineStr" s="1"><is><t>${xe(h)}</t></is></c>`).join('')}</row>`;
+  items.forEach((e,idx)=>{
+    const r=idx+2,att=(e.attachments||[]).map(a=>a.name).join(', ');
+    const vals=[e.date,e.description||'',Math.abs(e.amount).toFixed(2),(ACCOUNTS[e.account]?.label||e.account||''),att];
+    rows+=`<row r="${r}">${vals.map((v,i)=>{
+      if(i===2)return`<c r="${cols[i]}${r}"><v>${v}</v></c>`;
+      return`<c r="${cols[i]}${r}" t="inlineStr"><is><t>${xe(v)}</t></is></c>`;
+    }).join('')}</row>`;
+  });
+  const sh=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="12"/><col min="2" max="2" width="30"/><col min="3" max="3" width="12"/><col min="4" max="4" width="14"/><col min="5" max="5" width="25"/></cols><sheetData>${rows}</sheetData></worksheet>`;
+  const xlFiles={'[Content_Types].xml':enc.encode(ct),'_rels/.rels':enc.encode(rels),'xl/workbook.xml':enc.encode(wb),'xl/_rels/workbook.xml.rels':enc.encode(wbr),'xl/styles.xml':enc.encode(sty),'xl/worksheets/sheet1.xml':enc.encode(sh)};
+  return createZip(xlFiles);
+}
+async function exportWork(){
+  const items=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment&&e.category==='work'&&e.amount<0&&!e.reimbursed);
+  if(!items.length){toast('No unreimbursed work expenses',true);return;}
+  toast('Preparing export...');
+  const zipFiles={};
+  zipFiles['work_expenses.xlsx']=generateXlsx(items);
+  for(const e of items){
+    if(!e.attachments||!e.attachments.length)continue;
+    const folder=e.date+'_'+(e.description||'work').replace(/[^a-zA-Z0-9._-]/g,'_');
+    for(const att of e.attachments){
+      try{
+        const res=await ghFetch(att.path);
+        if(res.ok){const j=await res.json();const raw=atob(j.content.replace(/\n/g,''));const u8=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)u8[i]=raw.charCodeAt(i);zipFiles['attachments/'+folder+'/'+att.name]=u8;}
+      }catch(err){}
+    }
+  }
+  const zip=createZip(zipFiles);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([zip],{type:'application/zip'}));
+  a.download='work_expenses_'+new Date().toISOString().slice(0,10)+'.zip';
+  a.click();toast('Exported');
+}
 function exportCSV(){const items=state.expenses.filter(e=>!e.dismissed);if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Account','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.account||'',e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='expenses.csv';a.click();}
 function toast(msg,err){const el=document.getElementById('toast');el.textContent=msg;el.className='toast visible'+(err?' error':'');clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='toast',2500);}
 window.addEventListener('DOMContentLoaded',tryAutoConnect);
