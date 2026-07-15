@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.12</div>
+  <div class="auth-version">v8.13</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -812,10 +812,10 @@ function renameWorkExpense(id,span){
 
 // GitHub API
 function ghFetch(path, opts={}) {
-  return fetch(`https://api.github.com/repos/${state.owner}/${state.repo}/contents/${path}`, { ...opts, headers: { 'Authorization':`Bearer ${state.token}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json', ...(opts.headers||{}) } });
+  return fetch(`https://api.github.com/repos/${state.owner}/${state.repo}/contents/${path}`, { ...opts, cache:'no-store', headers: { 'Authorization':`Bearer ${state.token}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json', ...(opts.headers||{}) } });
 }
 function ghFetchRaw(o,r,t,p,opts={}) {
-  return fetch(`https://api.github.com/repos/${o}/${r}/contents/${p}`, { ...opts, headers: { 'Authorization':`Bearer ${t}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json', ...(opts.headers||{}) } });
+  return fetch(`https://api.github.com/repos/${o}/${r}/contents/${p}`, { ...opts, cache:'no-store', headers: { 'Authorization':`Bearer ${t}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json', ...(opts.headers||{}) } });
 }
 
 async function loadData() {
