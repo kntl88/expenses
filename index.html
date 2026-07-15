@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.10</div>
+  <div class="auth-version">v8.11</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -794,6 +794,20 @@ async function uploadWorkAttachment(id,input){
     catch(err){toast('Upload failed: '+err.message,true);}
   }
   if(added&&await saveData()){toast('Attached');render();}
+}
+function renameWorkExpense(id,span){
+  const e=state.expenses.find(x=>x.id===id);if(!e)return;
+  const input=document.createElement('input');
+  input.type='text';input.value=e.description||'';
+  input.style.cssText='font-size:12px;padding:1px 4px;background:var(--surface-2);border:1px solid var(--accent-dim);border-radius:4px;color:var(--text);font-family:var(--mono);width:'+Math.max(80,span.offsetWidth+20)+'px';
+  const save=async()=>{
+    const v=input.value.trim();if(!v||v===e.description)return render();
+    e.description=v;
+    if(await saveData()){toast('Renamed');render();}
+  };
+  input.onblur=save;
+  input.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();input.blur();}if(ev.key==='Escape'){input.onblur=null;render();}};
+  span.replaceWith(input);input.focus();input.select();
 }
 
 // GitHub API
@@ -2145,7 +2159,7 @@ function renderBalances(){
     pendingItems.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>{
       const attInfo=(e.attachments&&e.attachments.length)?` <span class="att-badge">${e.attachments.length} file${e.attachments.length>1?'s':''}</span>`:'';
       const attBtn=`<label class="btn" style="font-size:9px;padding:2px 6px;cursor:pointer;margin-left:6px">+ <input type="file" multiple accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="uploadWorkAttachment('${e.id}',this)"></label>`;
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center"><span style="color:var(--text)">${esc(e.description)}</span>${attInfo} <span style="color:var(--text-muted);font-size:10px;margin-left:4px">${e.date}</span>${attBtn}</div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(Math.abs(e.amount))}</div></div>`;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center"><span style="color:var(--text);cursor:pointer;border-bottom:1px dashed var(--border)" onclick="event.stopPropagation();renameWorkExpense('${e.id}',this)">${esc(e.description)}</span>${attInfo} <span style="color:var(--text-muted);font-size:10px;margin-left:4px">${e.date}</span>${attBtn}</div><div style="color:var(--orange);font-variant-numeric:tabular-nums">${fmt(Math.abs(e.amount))}</div></div>`;
     });
     h+=`<div style="margin-top:6px;text-align:right"><button class="btn" style="font-size:10px" onclick="exportWork()">Export Work</button></div>`;
     h+='</div>';
