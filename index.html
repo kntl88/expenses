@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.14</div>
+  <div class="auth-version">v8.15</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -2609,49 +2609,104 @@ function createZip(files){
   centrals.forEach(e=>{result.set(e,pos);pos+=e.length;});
   result.set(eocd,pos);return result;
 }
-function generateXlsx(items){
-  const enc=new TextEncoder();
+function readZip(data){
+  const files={},view=new DataView(data.buffer,data.byteOffset,data.byteLength),dec=new TextDecoder();
+  let pos=0;
+  while(pos<data.length-4){
+    if(view.getUint32(pos,true)!==0x04034b50)break;
+    const compSize=view.getUint32(pos+18,true),nameLen=view.getUint16(pos+26,true),extraLen=view.getUint16(pos+28,true);
+    const name=dec.decode(data.subarray(pos+30,pos+30+nameLen));
+    files[name]=new Uint8Array(data.buffer,data.byteOffset+pos+30+nameLen+extraLen,compSize);
+    pos+=30+nameLen+extraLen+compSize;
+  }
+  return files;
+}
+async function generateWorkXlsx(items){
+  const tplRes=await ghFetchRaw(GH_OWNER,GH_PUBLIC_REPO,state.token,'data/expense_template.xlsx');
+  if(!tplRes.ok)throw new Error('Template not found');
+  const tj=await tplRes.json();
+  const tplData=Uint8Array.from(atob(tj.content.replace(/\n/g,'')),c=>c.charCodeAt(0));
+  const tpl=readZip(tplData);
+  const enc=new TextEncoder(),dec=new TextDecoder();
   const xe=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
-  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
-  const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Work Expenses" sheetId="1" r:id="rId1"/></sheets></workbook>`;
-  const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
-  const sty=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0"/></cellXfs></styleSheet>`;
-  const cols='ABCDE';const hdrs=['Date','Description','Amount (€)','Account','Attachments'];
-  let rows=`<row r="1">${hdrs.map((h,i)=>`<c r="${cols[i]}1" t="inlineStr" s="1"><is><t>${xe(h)}</t></is></c>`).join('')}</row>`;
-  items.forEach((e,idx)=>{
-    const r=idx+2,att=(e.attachments||[]).map(a=>a.name).join(', ');
-    const vals=[e.date,e.description||'',Math.abs(e.amount).toFixed(2),(ACCOUNTS[e.account]?.label||e.account||''),att];
-    rows+=`<row r="${r}">${vals.map((v,i)=>{
-      if(i===2)return`<c r="${cols[i]}${r}"><v>${v}</v></c>`;
-      return`<c r="${cols[i]}${r}" t="inlineStr"><is><t>${xe(v)}</t></is></c>`;
-    }).join('')}</row>`;
+  const fmtDt=d=>{const[y,m,dd]=d.split('-');return`${dd}.${m}.${y}`;};
+  let sheet=dec.decode(tpl['xl/worksheets/sheet1.xml']);
+  const sdS=sheet.indexOf('<sheetData>')+'<sheetData>'.length,sdE=sheet.indexOf('</sheetData>');
+  const beforeSD=sheet.substring(0,sdS),afterSD=sheet.substring(sdE);
+  const rowRx=/<row[^>]*r="(\d+)"[^>]*>.*?<\/row>/gs;
+  const hdRows=[],ftRows=[];let rm;
+  const sdContent=sheet.substring(sdS,sdE);
+  while((rm=rowRx.exec(sdContent))!==null){const rn=parseInt(rm[1]);if(rn<=10)hdRows.push(rm[0]);else if(rn>=42)ftRows.push(rm[0]);}
+  const dataRows=[],hyperlinks=[];let rIdN=100;
+  const maxItems=Math.min(items.length,31);
+  items.slice(0,maxItems).forEach((e,idx)=>{
+    const r=idx+11,f=idx===0;
+    const sB=f?'44':'36',sC=f?'45':'37',sD=f?'30':'31',sE=f?'17':'16',sF=f?'17':'27',sG=f?'23':'16',sI=f?'18':'19';
+    let remarkCell=`<c r="I${r}" s="${sI}"/>`;
+    if(e.attachments&&e.attachments.length){
+      const names=e.attachments.map(a=>a.name).join(', ');
+      remarkCell=`<c r="I${r}" s="${sI}" t="inlineStr"><is><t>${xe(names)}</t></is></c>`;
+      const rId='rId'+(rIdN++);
+      const target=e.attachments.length===1
+        ?`https://github.com/${state.owner}/${state.repo}/blob/main/${e.attachments[0].path}`
+        :`https://github.com/${state.owner}/${state.repo}/tree/main/data/attachments/${e.id}`;
+      hyperlinks.push({ref:`I${r}`,rId,target});
+    }
+    const amt=Math.abs(e.amount);
+    dataRows.push(`<row r="${r}" spans="1:19" x14ac:dyDescent="0.2"><c r="A${r}" s="33" t="inlineStr"><is><t>${xe(fmtDt(e.date))}</t></is></c><c r="B${r}" s="${sB}" t="inlineStr"><is><t>${xe(e.description||'')}</t></is></c><c r="C${r}" s="${sC}"/><c r="D${r}" s="${sD}"><v>${amt}</v></c><c r="E${r}" s="${sE}"/><c r="F${r}" s="${sF}"/><c r="G${r}" s="${sG}"/><c r="H${r}" s="31"><f>D${r}</f><v>${amt}</v></c>${remarkCell}<c r="Q${r}" s="3"/><c r="S${r}" s="3"/></row>`);
   });
-  const sh=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="12"/><col min="2" max="2" width="30"/><col min="3" max="3" width="12"/><col min="4" max="4" width="14"/><col min="5" max="5" width="25"/></cols><sheetData>${rows}</sheetData></worksheet>`;
-  const xlFiles={'[Content_Types].xml':enc.encode(ct),'_rels/.rels':enc.encode(rels),'xl/workbook.xml':enc.encode(wb),'xl/_rels/workbook.xml.rels':enc.encode(wbr),'xl/styles.xml':enc.encode(sty),'xl/worksheets/sheet1.xml':enc.encode(sh)};
+  for(let r=maxItems+11;r<=41;r++){
+    dataRows.push(`<row r="${r}" spans="1:19" x14ac:dyDescent="0.2"><c r="A${r}" s="33"/><c r="B${r}" s="36"/><c r="C${r}" s="37"/><c r="D${r}" s="31"/><c r="E${r}" s="16"/><c r="F${r}" s="27"/><c r="G${r}" s="16"/><c r="H${r}" s="31"/><c r="I${r}" s="19"/><c r="Q${r}" s="3"/><c r="S${r}" s="3"/></row>`);
+  }
+  const merges=['B10:C10','F42:G42'];for(let r=11;r<=41;r++)merges.push(`B${r}:C${r}`);
+  const mcXml=`<mergeCells count="${merges.length}">${merges.map(r=>`<mergeCell ref="${r}"/>`).join('')}</mergeCells>`;
+  let newAfter=afterSD.replace(/<mergeCells[^>]*>[\s\S]*?<\/mergeCells>/,mcXml);
+  if(hyperlinks.length){
+    const hlXml=`<hyperlinks>${hyperlinks.map(h=>`<hyperlink ref="${h.ref}" r:id="${h.rId}"/>`).join('')}</hyperlinks>`;
+    newAfter=newAfter.replace('</mergeCells>','</mergeCells>'+hlXml);
+  }
+  const newSheet=beforeSD+hdRows.join('')+dataRows.join('')+ftRows.join('')+newAfter;
+  let shRels=dec.decode(tpl['xl/worksheets/_rels/sheet1.xml.rels']);
+  if(hyperlinks.length){
+    const relXml=hyperlinks.map(h=>`<Relationship Id="${h.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xe(h.target)}" TargetMode="External"/>`).join('');
+    shRels=shRels.replace('</Relationships>',relXml+'</Relationships>');
+  }
+  let ct=dec.decode(tpl['[Content_Types].xml']);
+  ct=ct.replace(/<Override[^>]*calcChain[^>]*\/>/,'');
+  const xlFiles={};
+  for(const[name,data]of Object.entries(tpl)){
+    if(name==='xl/worksheets/sheet1.xml')xlFiles[name]=enc.encode(newSheet);
+    else if(name==='xl/worksheets/_rels/sheet1.xml.rels')xlFiles[name]=enc.encode(shRels);
+    else if(name==='[Content_Types].xml')xlFiles[name]=enc.encode(ct);
+    else if(name==='xl/calcChain.xml')continue;
+    else xlFiles[name]=data;
+  }
   return createZip(xlFiles);
 }
 async function exportWork(){
   const items=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&!e.adjustment&&e.category==='work'&&e.amount<0&&!e.reimbursed);
   if(!items.length){toast('No unreimbursed work expenses',true);return;}
+  if(items.length>31)toast('Note: only first 31 items fit in template');
   toast('Preparing export...');
-  const zipFiles={};
-  zipFiles['work_expenses.xlsx']=generateXlsx(items);
-  for(const e of items){
-    if(!e.attachments||!e.attachments.length)continue;
-    const folder=e.date+'_'+(e.description||'work').replace(/[^a-zA-Z0-9._-]/g,'_');
-    for(const att of e.attachments){
-      try{
-        const res=await ghFetch(att.path);
-        if(res.ok){const j=await res.json();const raw=atob(j.content.replace(/\n/g,''));const u8=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)u8[i]=raw.charCodeAt(i);zipFiles['attachments/'+folder+'/'+att.name]=u8;}
-      }catch(err){}
+  try{
+    const zipFiles={};
+    zipFiles['work_expenses.xlsx']=await generateWorkXlsx(items);
+    for(const e of items){
+      if(!e.attachments||!e.attachments.length)continue;
+      const folder=e.date+'_'+(e.description||'work').replace(/[^a-zA-Z0-9._-]/g,'_');
+      for(const att of e.attachments){
+        try{
+          const res=await ghFetch(att.path);
+          if(res.ok){const j=await res.json();const raw=atob(j.content.replace(/\n/g,''));const u8=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)u8[i]=raw.charCodeAt(i);zipFiles['attachments/'+folder+'/'+att.name]=u8;}
+        }catch(err){}
+      }
     }
-  }
-  const zip=createZip(zipFiles);
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([zip],{type:'application/zip'}));
-  a.download='work_expenses_'+new Date().toISOString().slice(0,10)+'.zip';
-  a.click();toast('Exported');
+    const zip=createZip(zipFiles);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([zip],{type:'application/zip'}));
+    a.download='work_expenses_'+new Date().toISOString().slice(0,10)+'.zip';
+    a.click();toast('Exported');
+  }catch(err){toast('Export failed: '+err.message,true);}
 }
 function exportCSV(){const items=state.expenses.filter(e=>!e.dismissed);if(!items.length){toast('No data',true);return;}const rows=[['Date','Description','Category','Type','Account','Amount']];items.forEach(e=>rows.push([e.date,e.description,e.category,e.type,e.account||'',e.amount]));const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='expenses.csv';a.click();}
 function toast(msg,err){const el=document.getElementById('toast');el.textContent=msg;el.className='toast visible'+(err?' error':'');clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='toast',2500);}
