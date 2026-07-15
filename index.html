@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.11</div>
+  <div class="auth-version">v8.12</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -899,8 +899,7 @@ async function loadData() {
   }
 }
 
-async function saveData() {
-  // Merge any remotely-added entries before saving to prevent data loss
+async function mergeRemote(){
   try {
     const remoteRes = await ghFetch(DATA_PATH);
     if (remoteRes.ok) {
@@ -916,16 +915,25 @@ async function saveData() {
         state.sha = rj.sha;
       }
     }
-  } catch(e) { /* proceed with save even if merge check fails */ }
-  try {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.expenses, null, 2))));
-    const body = { message:`Update expenses ${new Date().toISOString().slice(0,10)}`, content };
-    if (state.sha) body.sha = state.sha;
-    const res = await ghFetch(DATA_PATH, { method:'PUT', body:JSON.stringify(body) });
-    const j = await res.json();
-    if (!res.ok) throw new Error(j.message||res.status);
-    state.sha = j.content.sha; return true;
-  } catch(e) { toast('Failed to save: '+e.message, true); return false; }
+  } catch(e) {}
+}
+async function saveData() {
+  await mergeRemote();
+  for(let attempt=0;attempt<2;attempt++){
+    try {
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(state.expenses, null, 2))));
+      const body = { message:`Update expenses ${new Date().toISOString().slice(0,10)}`, content };
+      if (state.sha) body.sha = state.sha;
+      const res = await ghFetch(DATA_PATH, { method:'PUT', body:JSON.stringify(body) });
+      const j = await res.json();
+      if (!res.ok) {
+        if(attempt===0){await mergeRemote();continue;}
+        throw new Error(j.message||res.status);
+      }
+      state.sha = j.content.sha; return true;
+    } catch(e) { if(attempt>0){toast('Failed to save: '+e.message, true); return false;} }
+  }
+  return false;
 }
 
 async function saveAccounts() {
