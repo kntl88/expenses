@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.9</div>
+  <div class="auth-version">v8.10</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -774,17 +774,26 @@ function renderAttachments(){
   ).join('');
 }
 function removeAttachment(i){formAttachments.splice(i,1);renderAttachments();}
+async function ghUploadFile(path,content,msg){
+  const body={message:msg,content};
+  try{const chk=await ghFetch(path);if(chk.ok){const j=await chk.json();body.sha=j.sha;}}catch(e){}
+  const res=await ghFetch(path,{method:'PUT',body:JSON.stringify(body)});
+  if(!res.ok){const j=await res.json().catch(()=>({}));throw new Error(j.message||res.status);}
+  return res;
+}
 async function uploadWorkAttachment(id,input){
   const e=state.expenses.find(x=>x.id===id);if(!e)return;
   const files=Array.from(input.files);if(!files.length)return;
   input.value='';toast('Uploading...');
   if(!e.attachments)e.attachments=[];
+  let added=0;
   for(const file of files){
     const data=await new Promise(r=>{const rd=new FileReader();rd.onload=()=>r(rd.result.split(',')[1]);rd.readAsDataURL(file);});
     const p='data/attachments/'+id+'/'+file.name;
-    try{const res=await ghFetch(p,{method:'PUT',body:JSON.stringify({message:'Attach '+file.name,content:data})});if(res.ok)e.attachments.push({name:file.name,path:p});}catch(err){}
+    try{await ghUploadFile(p,data,'Attach '+file.name);e.attachments.push({name:file.name,path:p});added++;}
+    catch(err){toast('Upload failed: '+err.message,true);}
   }
-  if(await saveData()){toast('Attached');render();}
+  if(added&&await saveData()){toast('Attached');render();}
 }
 
 // GitHub API
@@ -1980,7 +1989,7 @@ async function saveExpense(keepOpen){
     if(spreadDays)upd.spreadDays=spreadDays; else delete upd.spreadDays;
     if(oneTime)upd.oneTime=true; else delete upd.oneTime;
     if(cat==='work'&&formWorkType==='expense'){
-      const atts=[];for(const a of formAttachments){if(a.existing){atts.push({name:a.name,path:a.path});continue;}const p='data/attachments/'+editingId+'/'+a.name;try{const r=await ghFetch(p,{method:'PUT',body:JSON.stringify({message:'Attach '+a.name,content:a.data})});if(r.ok)atts.push({name:a.name,path:p});}catch(err){}}
+      const atts=[];for(const a of formAttachments){if(a.existing){atts.push({name:a.name,path:a.path});continue;}const p='data/attachments/'+editingId+'/'+a.name;try{await ghUploadFile(p,a.data,'Attach '+a.name);atts.push({name:a.name,path:p});}catch(err){toast('Upload failed: '+err.message,true);}}
       upd.attachments=atts.length?atts:undefined;
     } else { delete upd.attachments; }
     state.expenses[idx]=upd;
@@ -1991,7 +2000,7 @@ async function saveExpense(keepOpen){
     if(spreadDays)e.spreadDays=spreadDays;
     if(oneTime)e.oneTime=true;
     if(cat==='work'&&formWorkType==='expense'&&formAttachments.length){
-      const atts=[];for(const a of formAttachments){if(a.existing){atts.push({name:a.name,path:a.path});continue;}const p='data/attachments/'+e.id+'/'+a.name;try{const r=await ghFetch(p,{method:'PUT',body:JSON.stringify({message:'Attach '+a.name,content:a.data})});if(r.ok)atts.push({name:a.name,path:p});}catch(err){}}
+      const atts=[];for(const a of formAttachments){if(a.existing){atts.push({name:a.name,path:a.path});continue;}const p='data/attachments/'+e.id+'/'+a.name;try{await ghUploadFile(p,a.data,'Attach '+a.name);atts.push({name:a.name,path:p});}catch(err){toast('Upload failed: '+err.message,true);}}
       if(atts.length)e.attachments=atts;
     }
     state.expenses.push(e); state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
