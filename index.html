@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.19</div>
+  <div class="auth-version">v8.20</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -2637,7 +2637,7 @@ async function generateWorkXlsx(items){
   const hdRows=[],ftRows=[];let rm;
   const sdContent=sheet.substring(sdS,sdE);
   while((rm=rowRx.exec(sdContent))!==null){const rn=parseInt(rm[1]);if(rn<=10)hdRows.push(rm[0]);else if(rn>=42)ftRows.push(rm[0]);}
-  const dataRows=[],hyperlinks=[];let rIdN=100;
+  const dataRows=[];
   const maxItems=Math.min(items.length,31);
   items.slice(0,maxItems).forEach((e,idx)=>{
     const r=idx+11,f=idx===0;
@@ -2645,10 +2645,8 @@ async function generateWorkXlsx(items){
     let remarkCell=`<c r="I${r}" s="${sI}"/>`;
     if(e.attachments&&e.attachments.length){
       const names=e.attachments.map(a=>a.name).join(', ');
-      remarkCell=`<c r="I${r}" s="${sI}" t="inlineStr"><is><t>${xe(names)}</t></is></c>`;
-      const rId='rId'+(rIdN++);
-      const target=`https://github.com/${state.owner}/${state.repo}/tree/main/data/attachments/${e.id}`;
-      hyperlinks.push({ref:`I${r}`,rId,target});
+      const folder=e.date+'_'+(e.description||'work').replace(/[^a-zA-Z0-9._-]/g,'_');
+      remarkCell=`<c r="I${r}" s="${sI}" t="str"><f>HYPERLINK("attachments/${folder}/","${xe(names)}")</f><v>${xe(names)}</v></c>`;
     }
     const amt=Math.abs(e.amount);
     dataRows.push(`<row r="${r}" spans="1:19" x14ac:dyDescent="0.2"><c r="A${r}" s="33" t="inlineStr"><is><t>${xe(fmtDt(e.date))}</t></is></c><c r="B${r}" s="${sB}" t="inlineStr"><is><t>${xe(e.description||'')}</t></is></c><c r="C${r}" s="${sC}"/><c r="D${r}" s="${sD}"><v>${amt}</v></c><c r="E${r}" s="${sE}"/><c r="F${r}" s="${sF}"/><c r="G${r}" s="${sG}"/><c r="H${r}" s="31"><f>D${r}</f><v>${amt}</v></c>${remarkCell}<c r="Q${r}" s="3"/><c r="S${r}" s="3"/></row>`);
@@ -2659,16 +2657,7 @@ async function generateWorkXlsx(items){
   const merges=['B10:C10','F42:G42'];for(let r=11;r<=41;r++)merges.push(`B${r}:C${r}`);
   const mcXml=`<mergeCells count="${merges.length}">${merges.map(r=>`<mergeCell ref="${r}"/>`).join('')}</mergeCells>`;
   let newAfter=afterSD.replace(/<mergeCells[^>]*>[\s\S]*?<\/mergeCells>/,mcXml);
-  if(hyperlinks.length){
-    const hlXml=`<hyperlinks>${hyperlinks.map(h=>`<hyperlink ref="${h.ref}" r:id="${h.rId}"/>`).join('')}</hyperlinks>`;
-    newAfter=newAfter.replace('<pageMargins',hlXml+'<pageMargins');
-  }
   const newSheet=beforeSD+hdRows.join('')+dataRows.join('')+ftRows.join('')+newAfter;
-  let shRels=dec.decode(tpl['xl/worksheets/_rels/sheet1.xml.rels']);
-  if(hyperlinks.length){
-    const relXml=hyperlinks.map(h=>`<Relationship Id="${h.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xe(h.target)}" TargetMode="External"/>`).join('');
-    shRels=shRels.replace('</Relationships>',relXml+'</Relationships>');
-  }
   let ct=dec.decode(tpl['[Content_Types].xml']);
   ct=ct.replace(/<Override[^>]*calcChain[^>]*\/>/,'');
   let wbRels=dec.decode(tpl['xl/_rels/workbook.xml.rels']);
@@ -2676,7 +2665,6 @@ async function generateWorkXlsx(items){
   const xlFiles={};
   for(const[name,data]of Object.entries(tpl)){
     if(name==='xl/worksheets/sheet1.xml')xlFiles[name]=enc.encode(newSheet);
-    else if(name==='xl/worksheets/_rels/sheet1.xml.rels')xlFiles[name]=enc.encode(shRels);
     else if(name==='[Content_Types].xml')xlFiles[name]=enc.encode(ct);
     else if(name==='xl/_rels/workbook.xml.rels')xlFiles[name]=enc.encode(wbRels);
     else if(name==='xl/calcChain.xml')continue;
