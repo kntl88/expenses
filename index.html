@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.16</div>
+  <div class="auth-version">v8.17</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -2647,7 +2647,8 @@ async function generateWorkXlsx(items){
       const names=e.attachments.map(a=>a.name).join(', ');
       remarkCell=`<c r="I${r}" s="${sI}" t="inlineStr"><is><t>${xe(names)}</t></is></c>`;
       const rId='rId'+(rIdN++);
-      const target=`https://github.com/${state.owner}/${state.repo}/tree/main/data/attachments/${e.id}`;
+      const folder=e.date+'_'+(e.description||'work').replace(/[^a-zA-Z0-9._-]/g,'_');
+      const target='attachments/'+folder+'/';
       hyperlinks.push({ref:`I${r}`,rId,target});
     }
     const amt=Math.abs(e.amount);
