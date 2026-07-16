@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.18</div>
+  <div class="auth-version">v8.19</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -2661,7 +2661,7 @@ async function generateWorkXlsx(items){
   let newAfter=afterSD.replace(/<mergeCells[^>]*>[\s\S]*?<\/mergeCells>/,mcXml);
   if(hyperlinks.length){
     const hlXml=`<hyperlinks>${hyperlinks.map(h=>`<hyperlink ref="${h.ref}" r:id="${h.rId}"/>`).join('')}</hyperlinks>`;
-    newAfter=newAfter.replace('</mergeCells>','</mergeCells>'+hlXml);
+    newAfter=newAfter.replace('<pageMargins',hlXml+'<pageMargins');
   }
   const newSheet=beforeSD+hdRows.join('')+dataRows.join('')+ftRows.join('')+newAfter;
   let shRels=dec.decode(tpl['xl/worksheets/_rels/sheet1.xml.rels']);
