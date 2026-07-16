@@ -530,7 +530,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.15</div>
+  <div class="auth-version">v8.16</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -2647,9 +2647,7 @@ async function generateWorkXlsx(items){
       const names=e.attachments.map(a=>a.name).join(', ');
       remarkCell=`<c r="I${r}" s="${sI}" t="inlineStr"><is><t>${xe(names)}</t></is></c>`;
       const rId='rId'+(rIdN++);
-      const target=e.attachments.length===1
-        ?`https://github.com/${state.owner}/${state.repo}/blob/main/${e.attachments[0].path}`
-        :`https://github.com/${state.owner}/${state.repo}/tree/main/data/attachments/${e.id}`;
+      const target=`https://github.com/${state.owner}/${state.repo}/tree/main/data/attachments/${e.id}`;
       hyperlinks.push({ref:`I${r}`,rId,target});
     }
     const amt=Math.abs(e.amount);
@@ -2673,11 +2671,14 @@ async function generateWorkXlsx(items){
   }
   let ct=dec.decode(tpl['[Content_Types].xml']);
   ct=ct.replace(/<Override[^>]*calcChain[^>]*\/>/,'');
+  let wbRels=dec.decode(tpl['xl/_rels/workbook.xml.rels']);
+  wbRels=wbRels.replace(/<Relationship[^>]*calcChain[^>]*\/>/,'');
   const xlFiles={};
   for(const[name,data]of Object.entries(tpl)){
     if(name==='xl/worksheets/sheet1.xml')xlFiles[name]=enc.encode(newSheet);
     else if(name==='xl/worksheets/_rels/sheet1.xml.rels')xlFiles[name]=enc.encode(shRels);
     else if(name==='[Content_Types].xml')xlFiles[name]=enc.encode(ct);
+    else if(name==='xl/_rels/workbook.xml.rels')xlFiles[name]=enc.encode(wbRels);
     else if(name==='xl/calcChain.xml')continue;
     else xlFiles[name]=data;
   }
