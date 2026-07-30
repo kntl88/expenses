@@ -352,7 +352,8 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <p>One transaction per line: <code>date category amount description</code><br>
        Date: YYYY-MM-DD or DD.MM. &nbsp; Category: first letters work (ba, pu, ga, fu, fi, un, bu, wo, in)<br>
        <code>pu</code> = budgeted purchase &nbsp; <code>eo</code> = eating out &nbsp; <code>@bank</code> <code>@gold</code> = account override<br>
-       Example: <code>2026-03-25 ba 12.50 Groceries @bank</code></p>
+       <code>+amount</code> = refund/reimbursement: money IN on that account, reduces that category's spending<br>
+       Example: <code>2026-03-25 ba 12.50 Groceries @bank</code> &nbsp; <code>2026-03-26 eo +8.00 Mari paid back @bank</code></p>
     <textarea id="bulk-input" placeholder="2026-03-25 basic 12.50 Groceries
 25.3. fun 8 Cinema
 2026-03-24 income 3200 Salary"></textarea>
@@ -530,7 +531,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.20</div>
+  <div class="auth-version">v8.21</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -1633,6 +1634,7 @@ function parseBulkLine(line) {
   const cat = CAT_ALIASES[catInput];
   if (!cat) return { error: `Unknown category: ${parts[1]}` };
 
+  const refund = parts[2].startsWith('+') && cat !== 'income';
   const amount = parseFloat(parts[2]);
   if (isNaN(amount) || amount <= 0) return { error: `Bad amount: ${parts[2]}` };
 
@@ -1648,7 +1650,7 @@ function parseBulkLine(line) {
     if (ACCOUNTS[key]) { account = key; desc = desc.replace(/@\w+$/, '').trim() || cat; }
     else return { error: `Unknown account: @${acctMatch[1]}` };
   }
-  return { date: dateStr, category: cat, amount: type === 'expense' ? -amount : amount, description: desc, type, subCategory, account };
+  return { date: dateStr, category: cat, amount: type === 'expense' ? (refund ? amount : -amount) : amount, description: desc, type, subCategory, account, refund: refund || undefined };
 }
 
 function openBulkModal() {
@@ -1680,7 +1682,7 @@ async function bulkAdd() {
   const newEntries = parsed.map(p => ({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     amount: p.amount, date: p.date, description: p.description, category: p.category, type: p.type,
-    subCategory: p.subCategory, account: p.account,
+    subCategory: p.subCategory, account: p.account, refund: p.refund,
     created: new Date().toISOString()
   }));
 
@@ -2006,7 +2008,8 @@ async function saveExpense(keepOpen){
   const type = isPositive ? 'income' : 'expense';
   const subCat=(cat==='budgeted'||(cat==='unnecessary'&&formSubCat))?formSubCat:undefined;
   const recurringId=cat==='recurring'?formSubCat:undefined;
-  const signedAmount = isPositive ? Math.abs(amount) : -Math.abs(amount);
+  const editingRefund = editingId && state.expenses.find(x=>x.id===editingId)?.refund;
+  const signedAmount = (isPositive || editingRefund) ? Math.abs(amount) : -Math.abs(amount);
   const spreadCheck=document.getElementById('f-spread-check').checked;
   const spreadDays=spreadCheck?Math.max(2,parseInt(document.getElementById('f-spread-days').value)||7):undefined;
   const oneTime=document.getElementById('f-onetime-check').checked;
@@ -2113,7 +2116,7 @@ function renderBalances(){
     const projected=available+spreadPrepaid+projDaily*daysSince;
     savedSincePayHtml=`<div class="value" style="color:${projected>=0?'#6cc070':'var(--red)'}">${fmt(projected)}</div><div style="font-size:9px;color:var(--text-muted)">${fmt(projDaily)}/day</div>`;
     const varCats=new Set(['basic','fun','unnecessary','gas']);
-    const allNeg=confirmed.filter(e=>e.amount<0&&!e.adjustment);
+    const allNeg=confirmed.filter(e=>(e.amount<0||e.refund)&&!e.adjustment);
     const varItems=allNeg.filter(e=>varCats.has(e.category)||e.subCategory===PURCHASES_ENVELOPE_ID);
     const varSpent=varItems.filter(e=>overlapsRange(e,payDate,todayBal)).reduce((s,e)=>s+getSpreadAmount(e,payDate,todayBal),0);
     const baseDailyBudget=getWeeklyBudget()/7;
@@ -2262,7 +2265,7 @@ function overlapsRange(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDa
 function getSpreadAmount(e,rs,re){const sd=e.spreadDays&&e.spreadDays>1?e.spreadDays:1;const eStart=e.date;const eEnd=sd>1?addDaysStr(e.date,sd-1):e.date;const os=eStart>rs?eStart:rs;const oe=eEnd<re?eEnd:re;if(os>oe)return 0;const da=new Date(os+'T00:00:00'),db=new Date(oe+'T00:00:00');const overlap=Math.round((db-da)/864e5)+1;return Math.abs(e.amount)*overlap/sd;}
 
 function renderDailyRates(){
-  const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&e.amount<0&&!e.adjustment);
+  const allExpenses=state.expenses.filter(e=>!e.proposed&&!e.dismissed&&(e.amount<0||e.refund)&&!e.adjustment);
   const now=new Date();
   const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayStr=fmtD(now);
