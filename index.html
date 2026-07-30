@@ -353,9 +353,11 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
        Date: YYYY-MM-DD or DD.MM. &nbsp; Category: first letters work (ba, pu, ga, fu, fi, un, bu, wo, in)<br>
        <code>pu</code> = budgeted purchase &nbsp; <code>eo</code> = eating out &nbsp; <code>@bank</code> <code>@gold</code> = account override<br>
        <code>+amount</code> = refund/reimbursement: money IN on that account, reduces that category's spending<br>
+       Split one purchase across categories with <code>+</code>: <code>date cat1 amt1 + cat2 amt2 description</code><br>
        Example: <code>2026-03-25 ba 12.50 Groceries @bank</code> &nbsp; <code>2026-03-26 eo +8.00 Mari paid back @bank</code></p>
     <textarea id="bulk-input" placeholder="2026-03-25 basic 12.50 Groceries
 25.3. fun 8 Cinema
+2026-03-25 basic 5 + fun 5 K-market snacks and beer
 2026-03-24 income 3200 Salary"></textarea>
     <div class="bulk-preview" id="bulk-preview"></div>
     <div class="modal-actions">
@@ -531,7 +533,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.21</div>
+  <div class="auth-version">v8.22</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -573,6 +575,14 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="subcat-picker" id="subcat-picker">
       <label id="subcat-label" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:4px;display:block">Envelope</label>
       <div class="subcat-pills" id="subcat-pills"></div>
+    </div>
+    <div class="form-group" id="split-row" style="display:none;margin-bottom:5px">
+      <label>Split off part</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="f-split-amount" type="number" step="0.01" placeholder="0.00" style="width:90px;margin-bottom:0">
+        <select id="f-split-cat" style="flex:1;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none"></select>
+        <button class="btn" type="button" onclick="splitExpense()">Split</button>
+      </div>
     </div>
     <div class="attachment-area" id="attachment-area" style="display:none;margin-bottom:5px">
       <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:4px;display:block">Attachments</label>
@@ -1615,6 +1625,7 @@ CAT_ALIASES['eo'] = 'unnecessary'; CAT_ALIASES['eatingout'] = 'unnecessary';
 const PURCHASE_ALIASES = new Set(['purchase','pu']);
 const EATING_OUT_ALIASES = new Set(['eo','eatingout']);
 
+// Returns an array of entry objects (one per split part), or { error }
 function parseBulkLine(line) {
   line = line.trim();
   if (!line) return null;
@@ -1630,27 +1641,39 @@ function parseBulkLine(line) {
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { error: `Bad date: ${parts[0]}` };
 
-  const catInput = parts[1].toLowerCase();
-  const cat = CAT_ALIASES[catInput];
-  if (!cat) return { error: `Unknown category: ${parts[1]}` };
+  // One or more "category amount" pairs, joined by a standalone "+" (split expense)
+  const pairs = [];
+  let i = 1;
+  while (true) {
+    const catInput = (parts[i] || '').toLowerCase();
+    const cat = CAT_ALIASES[catInput];
+    if (!cat) return { error: `Unknown category: ${parts[i]}` };
+    const amtTok = parts[i + 1] || '';
+    const refund = amtTok.startsWith('+') && cat !== 'income';
+    const amount = parseFloat(amtTok);
+    if (isNaN(amount) || amount <= 0) return { error: `Bad amount: ${amtTok || '(missing)'}` };
+    pairs.push({ catInput, cat, amount, refund });
+    i += 2;
+    if (parts[i] === '+') { i++; continue; }
+    break;
+  }
 
-  const refund = parts[2].startsWith('+') && cat !== 'income';
-  const amount = parseFloat(parts[2]);
-  if (isNaN(amount) || amount <= 0) return { error: `Bad amount: ${parts[2]}` };
-
-  let desc = parts.slice(3).join(' ') || cat;
-  const type = cat === 'income' ? 'income' : 'expense';
-  // Auto-assign purchases envelope for purchase aliases
-  const subCategory = PURCHASE_ALIASES.has(catInput) ? PURCHASES_ENVELOPE_ID : EATING_OUT_ALIASES.has(catInput) ? 'eating_out' : undefined;
-
-  let account = type === 'income' ? 'bank' : 'norwegian';
+  let desc = parts.slice(i).join(' ');
+  let account = null;
   const acctMatch = desc.match(/@(\w+)$/);
   if (acctMatch) {
     const key = acctMatch[1].toLowerCase();
-    if (ACCOUNTS[key]) { account = key; desc = desc.replace(/@\w+$/, '').trim() || cat; }
+    if (ACCOUNTS[key]) { account = key; desc = desc.replace(/@\w+$/, '').trim(); }
     else return { error: `Unknown account: @${acctMatch[1]}` };
   }
-  return { date: dateStr, category: cat, amount: type === 'expense' ? (refund ? amount : -amount) : amount, description: desc, type, subCategory, account, refund: refund || undefined };
+
+  return pairs.map(p => {
+    const type = p.cat === 'income' ? 'income' : 'expense';
+    // Auto-assign purchases envelope for purchase aliases
+    const subCategory = PURCHASE_ALIASES.has(p.catInput) ? PURCHASES_ENVELOPE_ID : EATING_OUT_ALIASES.has(p.catInput) ? 'eating_out' : undefined;
+    return { date: dateStr, category: p.cat, amount: type === 'expense' ? (p.refund ? p.amount : -p.amount) : p.amount,
+      description: desc || p.cat, type, subCategory, account: account || (type === 'income' ? 'bank' : 'norwegian'), refund: p.refund || undefined };
+  });
 }
 
 function openBulkModal() {
@@ -1669,14 +1692,14 @@ function closeBulkModal() {
 function updateBulkPreview() {
   const lines = document.getElementById('bulk-input').value.split('\n').filter(l => l.trim());
   let ok = 0, errs = [];
-  lines.forEach((l, i) => { const r = parseBulkLine(l); if (!r) return; if (r.error) errs.push(`Line ${i+1}: ${r.error}`); else ok++; });
+  lines.forEach((l, i) => { const r = parseBulkLine(l); if (!r) return; if (r.error) errs.push(`Line ${i+1}: ${r.error}`); else ok += r.length; });
   const el = document.getElementById('bulk-preview');
   el.innerHTML = `${ok} valid transaction${ok!==1?'s':''}` + (errs.length ? `<br><span class="error">${errs.join('<br>')}</span>` : '');
 }
 
 async function bulkAdd() {
   const lines = document.getElementById('bulk-input').value.split('\n').filter(l => l.trim());
-  const parsed = lines.map(parseBulkLine).filter(r => r && !r.error);
+  const parsed = lines.map(parseBulkLine).filter(r => Array.isArray(r)).flat();
   if (!parsed.length) { toast('No valid transactions', true); return; }
 
   const newEntries = parsed.map(p => ({
@@ -1993,13 +2016,16 @@ function editExpense(id){
   }
   if(e.spreadDays&&e.spreadDays>1){document.getElementById('f-spread-check').checked=true;document.getElementById('f-spread-days').disabled=false;document.getElementById('f-spread-days').value=e.spreadDays;}else{document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';}
   document.getElementById('f-onetime-check').checked=!!e.oneTime;
+  const canSplit=!e.proposed&&!e.adjustment&&e.category!=='work'&&e.category!=='income'&&!e.refund;
+  document.getElementById('split-row').style.display=canSplit?'block':'none';
+  if(canSplit){document.getElementById('f-split-amount').value='';renderSplitCats(e.category);}
   document.getElementById('f-save-btn').textContent='Update';
   const grid=document.getElementById('pin-grid-amount');
   if(grid){grid.dataset.value=String(absAmt);updatePinDisplay('pin-grid-amount');}
   if(!isMobile())document.getElementById('f-amount').focus();
 }
 
-function clearFormKeepContext(){editingId=null;document.getElementById('f-amount').value='';document.getElementById('f-desc').value='';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');formAttachments=[];renderAttachments();}
+function clearFormKeepContext(){editingId=null;document.getElementById('split-row').style.display='none';document.getElementById('f-amount').value='';document.getElementById('f-desc').value='';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');formAttachments=[];renderAttachments();}
 async function saveExpense(keepOpen){
   const amount=parseFloat(document.getElementById('f-amount').value);
   const date=document.getElementById('f-date').value, desc=document.getElementById('f-desc').value.trim();
@@ -2048,6 +2074,45 @@ async function saveExpense(keepOpen){
   }
 }
 async function deleteExpense(id){if(!confirm('Delete?'))return;const bk=[...state.expenses];state.expenses=state.expenses.filter(e=>e.id!==id);if(await saveData()){toast('Deleted');render();}else{state.expenses=bk;}}
+
+// Split an existing expense into two parts (e.g. groceries 10 → basic 5 + fun 5)
+function renderSplitCats(currentCat){
+  const opts=[];
+  Object.keys(CATEGORIES).filter(c=>!['income','work','recurring','budgeted'].includes(c)).forEach(c=>opts.push([c,CATEGORIES[c].label]));
+  opts.push(['eo','Eating out']);
+  getEnvelopes().forEach(env=>opts.push(['budgeted:'+env.id,'Budgeted · '+env.label]));
+  const def=currentCat==='fun'?'basic':'fun';
+  document.getElementById('f-split-cat').innerHTML=opts.map(([v,l])=>`<option value="${v}" ${v===def?'selected':''}>${l}</option>`).join('');
+}
+async function splitExpense(){
+  if(!editingId)return;
+  const idx=state.expenses.findIndex(x=>x.id===editingId);
+  if(idx===-1){toast('Entry not found',true);return;}
+  const e=state.expenses[idx];
+  const total=Math.abs(e.amount);
+  const amt=parseFloat(document.getElementById('f-split-amount').value);
+  if(!amt||amt<=0||amt>=total){toast(`Split amount must be between 0 and ${total.toFixed(2)}`,true);return;}
+  const sel=document.getElementById('f-split-cat').value;
+  let cat=sel,subCat;
+  if(sel==='eo'){cat='unnecessary';subCat='eating_out';}
+  else if(sel.startsWith('budgeted:')){cat='budgeted';subCat=sel.slice(9);}
+  const sign=e.amount<0?-1:1;
+  const backup={...e};
+  const part={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), amount:sign*amt, date:e.date, description:e.description, category:cat, type:e.type, subCategory:subCat, account:e.account, created:new Date().toISOString()};
+  if(e.spreadDays)part.spreadDays=e.spreadDays;
+  if(e.oneTime)part.oneTime=true;
+  state.expenses[idx]={...e, amount:sign*+(total-amt).toFixed(2)};
+  state.expenses.push(part);
+  state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+  if(await saveData()){
+    toast(`Split off €${amt.toFixed(2)} to ${CATEGORIES[cat].label}`);
+    toggleForm();render();
+  }else{
+    state.expenses=state.expenses.filter(x=>x.id!==part.id);
+    const j=state.expenses.findIndex(x=>x.id===backup.id);
+    if(j!==-1)state.expenses[j]=backup;
+  }
+}
 
 async function toggleReimbursed(id){
   const idx=state.expenses.findIndex(e=>e.id===id);
@@ -2584,8 +2649,8 @@ function expandGroup(idsStr){
 
 function fmt(n){return '€'+n.toFixed(2);}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';formAttachments=[];renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('attachment-area').style.display='none';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
-function clearForm(){editingId=null;formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');formAttachments=[];document.getElementById('attachment-area').style.display='none';}
+function toggleForm(){const f=document.getElementById('expense-form');if(f.classList.contains('visible')){f.classList.remove('visible');clearForm();}else{editingId=null;document.getElementById('split-row').style.display='none';formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';formAttachments=[];renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('attachment-area').style.display='none';document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;f.classList.add('visible');document.getElementById('f-date').value=new Date().toISOString().slice(0,10);resetPinPad('pin-grid-amount');if(!isMobile())document.getElementById('f-amount').focus();}}
+function clearForm(){editingId=null;document.getElementById('split-row').style.display='none';formCat='basic';formSubCat='';formWorkType='expense';formAccount='norwegian';['f-amount','f-desc'].forEach(id=>document.getElementById(id).value='');renderFormCats();renderFormAccts();document.getElementById('subcat-picker').classList.remove('visible');document.getElementById('f-save-btn').textContent='Done';document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;document.getElementById('f-spread-days').value='7';document.getElementById('f-onetime-check').checked=false;resetPinPad('pin-grid-amount');formAttachments=[];document.getElementById('attachment-area').style.display='none';}
 function setCategory(c){state.activeCategory=c;renderFilters();renderList();}
 function crc32(data){let c=0xFFFFFFFF;for(let i=0;i<data.length;i++){c^=data[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xEDB88320:0);}return(c^0xFFFFFFFF)>>>0;}
 function createZip(files){
