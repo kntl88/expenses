@@ -367,6 +367,18 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
   </div>
 </div>
 
+<div id="receipt-modal" class="modal-overlay">
+  <div class="modal">
+    <h3>Receipt Split</h3>
+    <div id="receipt-status" style="font-size:11px;color:var(--text-dim);margin-bottom:10px"></div>
+    <div id="receipt-parts"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeReceiptModal()">Cancel</button>
+      <button class="btn btn-accent" id="receipt-apply-btn" onclick="applyReceiptSplit()" style="display:none">Apply</button>
+    </div>
+  </div>
+</div>
+
 <div id="chpw-modal" class="modal-overlay">
   <div class="modal">
     <h3>Change Password</h3>
@@ -533,7 +545,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
       </div>
     </div>
   </div>
-  <div class="auth-version">v8.22</div>
+  <div class="auth-version">v8.23</div>
 </div>
 
 <div id="app" class="app" style="display:none">
@@ -592,6 +604,7 @@ body { font-family: var(--mono); font-weight: 300; background: var(--bg); color:
     <div class="form-actions" style="display:flex;align-items:center;gap:8px">
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;margin-right:auto"><input type="checkbox" id="f-spread-check" onchange="document.getElementById('f-spread-days').disabled=!this.checked;if(this.checked)document.getElementById('f-onetime-check').checked=false;"> ÷<input id="f-spread-days" type="number" value="7" min="2" max="90" style="width:40px;padding:2px 4px;font-size:11px" disabled>d</label>
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap"><input type="checkbox" id="f-onetime-check" onchange="if(this.checked){document.getElementById('f-spread-check').checked=false;document.getElementById('f-spread-days').disabled=true;}"> 1×</label>
+      <label class="btn" style="cursor:pointer" title="Photograph a receipt — Claude reads the items and splits the expense into categories">📷 Receipt<input type="file" id="f-receipt" accept="image/*" style="display:none" onchange="scanReceipt(this)"></label>
       <button class="btn" onclick="toggleForm()">Cancel</button>
     </div>
   </div>
@@ -2112,6 +2125,162 @@ async function splitExpense(){
     const j=state.expenses.findIndex(x=>x.id===backup.id);
     if(j!==-1)state.expenses[j]=backup;
   }
+}
+
+// Receipt scanning: photograph a receipt, Claude reads the items and splits the
+// expense into categories (e.g. groceries -> basic + beer -> fun)
+const RECEIPT_CATS={basic:'Basic',eo:'Eating out',fun:'Fun',gas:'Gas',pu:'Purchases',misc:'Misc',un:'Unnecessary'};
+const RECEIPT_SCHEMA={type:'object',properties:{
+  merchant:{anyOf:[{type:'string'},{type:'null'}]},
+  date:{anyOf:[{type:'string'},{type:'null'}],description:'Purchase date printed on the receipt as YYYY-MM-DD, or null'},
+  total:{type:'number'},
+  parts:{type:'array',items:{type:'object',properties:{
+    category:{type:'string',enum:['basic','eo','fun','gas','pu','misc','un']},
+    amount:{type:'number'},
+    label:{type:'string'}
+  },required:['category','amount','label'],additionalProperties:false}}
+},required:['merchant','date','total','parts'],additionalProperties:false};
+let receiptParts=null,receiptMeta=null;
+
+function getAnthropicKey(){
+  let k=localStorage.getItem('anthropic_key');
+  if(!k){k=prompt('Anthropic API key for receipt scanning (sk-ant-...):');if(k){k=k.trim();localStorage.setItem('anthropic_key',k);}}
+  return k;
+}
+
+function downscaleImage(file,maxDim){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1,maxDim/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL('image/jpeg',0.85));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(img.src);rej(new Error('Could not read image'));};
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+function receiptPrompt(totalHint){
+  return `Categorize this Finnish store receipt for a personal expense tracker. Read the line items and split the total into spending categories.
+
+Categories:
+- basic: everyday groceries and food items, household essentials, non-alcoholic drinks from a store; also any restaurant/cafe purchase under 5 EUR
+- fun: alcohol (beer, wine, cider, spirits), tobacco, entertainment, games; also pub/bar purchases
+- eo: prepared restaurant/cafe/takeaway food of 5 EUR or more (only when the receipt is from a restaurant, cafe or takeaway)
+- gas: vehicle fuel
+- pu: durable goods and household purchases (electronics, tools, clothes, home items)
+- misc: parking, pharmacy, anything that fits nothing else
+- un: clearly unnecessary impulse purchases that are not alcohol
+
+Rules:
+- Merge items into as few parts as possible: at most one part per category.
+- Amounts are positive euros and must sum exactly to the receipt total. Fold discounts and bottle deposits (pantti) into the related category.
+- If everything is one category, return a single part.${totalHint?`
+- The expense being split totals ${totalHint} EUR; the parts should sum to this.`:''}
+- label: 1-3 words describing the part (e.g. "groceries", "beer", "fuel").`;
+}
+
+async function scanReceipt(input){
+  const file=input.files[0];input.value='';
+  if(!file)return;
+  const key=getAnthropicKey();
+  if(!key){toast('No API key',true);return;}
+  document.getElementById('receipt-modal').classList.add('visible');
+  const st=document.getElementById('receipt-status');
+  document.getElementById('receipt-parts').innerHTML='';
+  document.getElementById('receipt-apply-btn').style.display='none';
+  receiptParts=null;
+  try{
+    st.textContent='Reading image…';
+    const b64=(await downscaleImage(file,1568)).split(',')[1];
+    const editing=editingId?state.expenses.find(e=>e.id===editingId):null;
+    if(editing&&(editing.category==='work'||editing.amount>0))throw new Error('Cannot split this entry from a receipt');
+    st.textContent='Analyzing receipt with Claude…';
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-opus-5',
+        max_tokens:8192,
+        output_config:{format:{type:'json_schema',schema:RECEIPT_SCHEMA}},
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},
+          {type:'text',text:receiptPrompt(editing?Math.abs(editing.amount).toFixed(2):'')}
+        ]}]
+      })
+    });
+    if(!resp.ok){
+      if(resp.status===401)localStorage.removeItem('anthropic_key');
+      const err=await resp.json().catch(()=>({}));
+      throw new Error((err.error&&err.error.message)||('API error '+resp.status));
+    }
+    const msg=await resp.json();
+    if(msg.stop_reason==='refusal')throw new Error('Claude declined to read this image');
+    const textBlock=(msg.content||[]).find(b=>b.type==='text');
+    if(!textBlock)throw new Error('Empty response');
+    const data=JSON.parse(textBlock.text);
+    receiptParts=(data.parts||[]).filter(p=>p.amount>0).map(p=>({...p,amount:+(+p.amount).toFixed(2)}));
+    if(!receiptParts.length)throw new Error('No line items found on the receipt');
+    receiptMeta={date:data.date,merchant:data.merchant,total:data.total};
+    renderReceiptParts();
+  }catch(e){st.innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>';}
+}
+
+function renderReceiptParts(){
+  const st=document.getElementById('receipt-status');
+  const meta=[];
+  if(receiptMeta.merchant)meta.push(receiptMeta.merchant);
+  if(receiptMeta.date)meta.push(receiptMeta.date);
+  if(typeof receiptMeta.total==='number')meta.push('total €'+receiptMeta.total.toFixed(2));
+  const editing=editingId?state.expenses.find(e=>e.id===editingId):null;
+  const sum=receiptParts.reduce((s,p)=>s+p.amount,0);
+  let warn='';
+  if(editing&&Math.abs(sum-Math.abs(editing.amount))>0.01)warn=`<br><span style="color:var(--orange)">Parts sum €${sum.toFixed(2)} ≠ expense €${Math.abs(editing.amount).toFixed(2)} — adjust before applying</span>`;
+  else if(typeof receiptMeta.total==='number'&&Math.abs(sum-receiptMeta.total)>0.01)warn=`<br><span style="color:var(--orange)">Parts sum €${sum.toFixed(2)} ≠ receipt total €${receiptMeta.total.toFixed(2)}</span>`;
+  st.innerHTML=esc(meta.join(' · '))+warn;
+  const selStyle='padding:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none';
+  document.getElementById('receipt-parts').innerHTML=receiptParts.map((p,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <select onchange="updReceiptPart(${i},'category',this.value)" style="${selStyle}">${Object.entries(RECEIPT_CATS).map(([v,l])=>`<option value="${v}" ${v===p.category?'selected':''}>${l}</option>`).join('')}</select>
+      <input type="number" step="0.01" value="${p.amount.toFixed(2)}" onchange="updReceiptPart(${i},'amount',this.value)" style="width:80px;margin-bottom:0;padding:6px;font-size:11px">
+      <span style="flex:1;font-size:11px;color:var(--text-dim)">${esc(p.label||'')}</span>
+      <button class="btn" style="padding:2px 8px;font-size:10px" onclick="removeReceiptPart(${i})">✕</button>
+    </div>`).join('');
+  document.getElementById('receipt-apply-btn').style.display='inline-block';
+}
+
+function updReceiptPart(i,field,val){
+  if(field==='amount'){val=parseFloat(String(val).replace(',','.'));if(isNaN(val)||val<=0)val=receiptParts[i].amount;receiptParts[i].amount=+val.toFixed(2);}
+  else receiptParts[i][field]=val;
+  renderReceiptParts();
+}
+function removeReceiptPart(i){receiptParts.splice(i,1);if(!receiptParts.length){closeReceiptModal();return;}renderReceiptParts();}
+function closeReceiptModal(){document.getElementById('receipt-modal').classList.remove('visible');receiptParts=null;receiptMeta=null;}
+
+async function applyReceiptSplit(){
+  if(!receiptParts||!receiptParts.length){toast('No parts',true);return;}
+  const editing=editingId?state.expenses.find(e=>e.id===editingId):null;
+  const sum=+receiptParts.reduce((s,p)=>s+p.amount,0).toFixed(2);
+  if(editing&&Math.abs(sum-Math.abs(editing.amount))>0.01){toast(`Parts must sum to €${Math.abs(editing.amount).toFixed(2)}`,true);return;}
+  const date=(editing&&editing.date)||receiptMeta.date||document.getElementById('f-date').value||new Date().toISOString().slice(0,10);
+  const desc=(editing&&editing.description)||document.getElementById('f-desc').value.trim()||receiptMeta.merchant||'Receipt';
+  const account=editing?(editing.account||'norwegian'):formAccount;
+  const mapCat=t=>t==='eo'?{category:'unnecessary',subCategory:'eating_out'}:t==='pu'?{category:'budgeted',subCategory:PURCHASES_ENVELOPE_ID}:t==='un'?{category:'unnecessary'}:{category:t};
+  const entries=receiptParts.map(p=>{const m=mapCat(p.category);return{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),amount:-Math.abs(p.amount),date,description:desc+(p.label&&receiptParts.length>1?' · '+p.label:''),category:m.category,type:'expense',subCategory:m.subCategory,account,created:new Date().toISOString()};});
+  const backup=[...state.expenses];
+  if(editing)state.expenses=state.expenses.filter(e=>e.id!==editing.id);
+  state.expenses.push(...entries);
+  state.expenses.sort((a,b)=>b.date.localeCompare(a.date));
+  if(await saveData()){
+    toast(`${editing?'Split into':'Added'} ${entries.length} part${entries.length>1?'s':''} from receipt`);
+    closeReceiptModal();
+    if(document.getElementById('expense-form').classList.contains('visible'))toggleForm();
+    render();
+  }else{state.expenses=backup;}
 }
 
 async function toggleReimbursed(id){
