@@ -80,6 +80,26 @@ struct ExistingExpense: Identifiable, Hashable {
     let account: String?
 }
 
+/// Builds an expense row in the same key order/shape as saveExpense / applyReceiptSplit in index.html.
+enum ExpenseEntry {
+    static func make(amount: Double, date: String, description: String, category: ReceiptCategory,
+                     account: Account, created: String = Format.isoMillis.string(from: Date())) -> JSONValue {
+        let m = category.stored
+        var fields: [(String, JSONValue)] = [
+            ("id", .string(Format.newExpenseId())),
+            ("amount", .num(-abs(Format.round2(amount)))),
+            ("date", .string(date)),
+            ("description", .string(description)),
+            ("category", .string(m.category)),
+            ("type", .string("expense")),
+        ]
+        if let sub = m.subCategory { fields.append(("subCategory", .string(sub))) }
+        fields.append(("account", .string(account.rawValue)))
+        fields.append(("created", .string(created)))
+        return .object(fields)
+    }
+}
+
 enum Format {
     static let day: DateFormatter = {
         let f = DateFormatter()

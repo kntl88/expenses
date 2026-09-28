@@ -47,6 +47,14 @@ struct HomeView: View {
                     Section { Text(loadError).foregroundStyle(.red) }
                 }
 
+                if app.outboxCount > 0 {
+                    Section {
+                        Label("\(app.outboxCount) card payment\(app.outboxCount == 1 ? "" : "s") waiting to sync",
+                              systemImage: "icloud.slash")
+                            .foregroundStyle(.orange)
+                    }
+                }
+
                 Section("Recently added") {
                     if app.recent.isEmpty {
                         Text("Nothing yet. Scanned receipts show up here after saving.")
@@ -54,6 +62,9 @@ struct HomeView: View {
                     }
                     ForEach(app.recent) { r in
                         HStack {
+                            Image(systemName: r.viaCard == true ? "creditcard" : "doc.text.viewfinder")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(r.description).lineLimit(1)
                                 Text("\(r.date) · \(r.categories.joined(separator: ", "))")

@@ -9,8 +9,10 @@
 /* Begin PBXBuildFile section */
 		0FFCBC65B62F174BC4C2B3CB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 657B591D201E75C907CD1E6C /* Assets.xcassets */; };
 		110221C9047E96E2AFE5A036 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D2653A974333A7A3EA3478 /* HomeView.swift */; };
+		1623D1D77E56A1DC1679B318 /* PaymentLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */; };
 		426989F7C58503A098E6CF1E /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1494E17C7F1DCE08CAD23D76 /* Keychain.swift */; };
 		47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */; };
+		502FBE6B53BA585081C2A119 /* LogCardPaymentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */; };
 		717C66A61073F3F252645B40 /* DocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D6B6CAC11D8DD67242FA63 /* DocumentScanner.swift */; };
 		82BE9E3D753F937312E85113 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC43AF3EF6CEAEE885976BD /* AppState.swift */; };
 		9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E5D83147F3BB0050B2884 /* JSONValue.swift */; };
@@ -29,6 +31,7 @@
 		11D2653A974333A7A3EA3478 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		1494E17C7F1DCE08CAD23D76 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		164199FDAC80234F90480C83 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentLogger.swift; sourceTree = "<group>"; };
 		5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		657B591D201E75C907CD1E6C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6CC43AF3EF6CEAEE885976BD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -36,6 +39,7 @@
 		A296308186F68BE677FEBE66 /* ClaudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeClient.swift; sourceTree = "<group>"; };
 		B2E8D2852640ED13809A7D76 /* GitHubStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStore.swift; sourceTree = "<group>"; };
 		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
+		DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCardPaymentIntent.swift; sourceTree = "<group>"; };
 		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -59,7 +63,9 @@
 				11D2653A974333A7A3EA3478 /* HomeView.swift */,
 				D38E5D83147F3BB0050B2884 /* JSONValue.swift */,
 				1494E17C7F1DCE08CAD23D76 /* Keychain.swift */,
+				DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */,
 				164199FDAC80234F90480C83 /* Models.swift */,
+				341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */,
 				731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */,
 				5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */,
 				DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */,
@@ -154,7 +160,9 @@
 				110221C9047E96E2AFE5A036 /* HomeView.swift in Sources */,
 				9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */,
 				426989F7C58503A098E6CF1E /* Keychain.swift in Sources */,
+				502FBE6B53BA585081C2A119 /* LogCardPaymentIntent.swift in Sources */,
 				9D8C10D1765618DAA20D7171 /* Models.swift in Sources */,
+				1623D1D77E56A1DC1679B318 /* PaymentLogger.swift in Sources */,
 				47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */,
 				AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */,
 				C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */,

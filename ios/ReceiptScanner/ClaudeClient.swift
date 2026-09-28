@@ -75,10 +75,64 @@ struct ClaudeClient {
         guard !content.isEmpty else { throw ClaudeError(message: "Couldn't encode the image.") }
         content.append(["type": "text", "text": Self.prompt(pageCount: content.count)])
 
+        let result = try await send(content: content, schema: Self.schema)
+        let parts: [ReceiptPart] = (result["parts"] as? [[String: Any]] ?? []).compactMap { p in
+            guard let c = (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)),
+                  let a = (p["amount"] as? NSNumber)?.doubleValue, a > 0 else { return nil }
+            return ReceiptPart(category: c, amount: Format.round2(a), label: p["label"] as? String ?? "")
+        }
+        guard !parts.isEmpty else { throw ClaudeError(message: "No items found on the receipt.") }
+        let date = (result["date"] as? String).flatMap { Format.day.date(from: $0) != nil ? $0 : nil }
+        return ReceiptScan(merchant: result["merchant"] as? String, date: date,
+                           total: Format.round2((result["total"] as? NSNumber)?.doubleValue ?? parts.reduce(0) { $0 + $1.amount }),
+                           parts: parts)
+    }
+
+    static let merchantSchema: [String: Any] = [
+        "type": "object",
+        "properties": [
+            "category": ["type": "string", "enum": ReceiptCategory.allCases.map(\.rawValue)],
+            "name": ["type": "string", "description": "Clean, human-readable merchant name"],
+        ],
+        "required": ["category", "name"],
+        "additionalProperties": false,
+    ]
+
+    /// Classifies a card payment from just the merchant string (no receipt).
+    func classifyMerchant(_ merchant: String, amount: Double) async throws -> (ReceiptCategory, String) {
+        let text = """
+        A card payment of \(String(format: "%.2f", amount)) EUR was made in Finland at the merchant "\(merchant)" (as shown by the card terminal, possibly truncated).
+        Pick the single most likely spending category and give a clean merchant name (e.g. "K-MARKET HERTTONIE" → "K-Market Herttoniemi").
+
+        Categories:
+        - basic: grocery stores and supermarkets, everyday essentials; also any restaurant/cafe purchase under 5 EUR
+        - fun: pubs, bars, alcohol shops (Alko), entertainment, games, cinema
+        - eo: restaurants, cafes, takeaway and food delivery of 5 EUR or more
+        - gas: fuel stations when the purchase is likely fuel
+        - pu: durable goods: electronics, hardware, clothes, home goods stores
+        - he: health food stores, supplements
+        - med: pharmacies (apteekki), doctors
+        - ta: stores mainly selling cleaning and household consumables
+        - misc: parking, public transport, services, anything unclear
+        - un: kiosks and candy/soft-drink impulse purchases
+        """
+        let result = try await send(content: [["type": "text", "text": text]], schema: Self.merchantSchema,
+                                    maxTokens: 2000, effort: "low")
+        guard let c = (result["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) else {
+            throw ClaudeError(message: "Couldn't parse Claude's response.")
+        }
+        let name = (result["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? merchant
+        return (c, name)
+    }
+
+    private func send(content: [[String: Any]], schema: [String: Any],
+                      maxTokens: Int = 16000, effort: String? = nil) async throws -> [String: Any] {
+        var outputConfig: [String: Any] = ["format": ["type": "json_schema", "schema": schema]]
+        if let effort { outputConfig["effort"] = effort }
         let body: [String: Any] = [
             "model": Self.model,
-            "max_tokens": 16000,
-            "output_config": ["format": ["type": "json_schema", "schema": Self.schema]],
+            "max_tokens": maxTokens,
+            "output_config": outputConfig,
             // If the primary model declines, let the API retry on its default fallback model.
             "fallbacks": "default",
             "messages": [["role": "user", "content": content]],
@@ -110,17 +164,7 @@ struct ClaudeClient {
               let text = blocks.first(where: { $0["type"] as? String == "text" })?["text"] as? String,
               let result = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
         else { throw ClaudeError(message: "Couldn't parse Claude's response.") }
-
-        let parts: [ReceiptPart] = (result["parts"] as? [[String: Any]] ?? []).compactMap { p in
-            guard let c = (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)),
-                  let a = (p["amount"] as? NSNumber)?.doubleValue, a > 0 else { return nil }
-            return ReceiptPart(category: c, amount: Format.round2(a), label: p["label"] as? String ?? "")
-        }
-        guard !parts.isEmpty else { throw ClaudeError(message: "No items found on the receipt.") }
-        let date = (result["date"] as? String).flatMap { Format.day.date(from: $0) != nil ? $0 : nil }
-        return ReceiptScan(merchant: result["merchant"] as? String, date: date,
-                           total: Format.round2((result["total"] as? NSNumber)?.doubleValue ?? parts.reduce(0) { $0 + $1.amount }),
-                           parts: parts)
+        return result
     }
 }
 

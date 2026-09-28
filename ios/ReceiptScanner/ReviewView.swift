@@ -258,20 +258,10 @@ struct ReviewView: View {
         let desc = description.trimmingCharacters(in: .whitespaces).isEmpty ? "Receipt" : description.trimmingCharacters(in: .whitespaces)
         let created = Format.isoMillis.string(from: Date())
         let entries: [JSONValue] = parts.map { p in
-            let m = p.category.stored
             let label = p.label.trimmingCharacters(in: .whitespaces)
-            var fields: [(String, JSONValue)] = [
-                ("id", .string(Format.newExpenseId())),
-                ("amount", .num(-abs(Format.round2(p.amount)))),
-                ("date", .string(dateString)),
-                ("description", .string(desc + (!label.isEmpty && parts.count > 1 ? " · " + label : ""))),
-                ("category", .string(m.category)),
-                ("type", .string("expense")),
-            ]
-            if let sub = m.subCategory { fields.append(("subCategory", .string(sub))) }
-            fields.append(("account", .string(account.rawValue)))
-            fields.append(("created", .string(created)))
-            return .object(fields)
+            return ExpenseEntry.make(amount: p.amount, date: dateString,
+                                     description: desc + (!label.isEmpty && parts.count > 1 ? " · " + label : ""),
+                                     category: p.category, account: account, created: created)
         }
         do {
             try await store.commit(newEntries: entries, replacingId: replacing?.id,

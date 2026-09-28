@@ -42,25 +42,22 @@ final class AppState {
         repo = nil
     }
 
-    // MARK: Recent saves (local log only)
+    // MARK: Recent saves (local log only; card payments are added by the intent)
 
-    struct RecentSave: Codable, Identifiable {
-        var id = UUID()
-        var date: String
-        var description: String
-        var total: Double
-        var categories: [String]
-        var savedAt: Date
-    }
+    typealias RecentSave = RecentLog.Item
+    var outboxCount = Outbox.count
 
     func addRecent(_ r: RecentSave) {
-        recent.insert(r, at: 0)
-        recent = Array(recent.prefix(30))
-        if let d = try? JSONEncoder().encode(recent) { UserDefaults.standard.set(d, forKey: "recent") }
+        RecentLog.add(r)
+        recent = RecentLog.load()
     }
 
-    private static func loadRecent() -> [RecentSave] {
-        guard let d = UserDefaults.standard.data(forKey: "recent") else { return [] }
-        return (try? JSONDecoder().decode([RecentSave].self, from: d)) ?? []
+    /// Called when the app becomes active: pick up intent-logged payments and sync the offline queue.
+    func refresh() async {
+        recent = RecentLog.load()
+        await Outbox.flush()
+        outboxCount = Outbox.count
     }
+
+    private static func loadRecent() -> [RecentSave] { RecentLog.load() }
 }

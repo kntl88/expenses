@@ -24,3 +24,19 @@ Conflicts with concurrent web edits are handled by re-fetching and re-applying.
 
 Project is generated from `project.yml` with XcodeGen (`cd ios && xcodegen`), but the generated
 `.xcodeproj` is committed so XcodeGen isn't required.
+
+## Card payments (Apple Pay automation)
+The app exposes a **Log Card Payment** Shortcuts action (amount + merchant). It categorizes from your
+own history for that merchant (weighted by euros), falls back to Claude for new merchants, applies
+the "eating out < 5 € = basic" rule, and writes the expense with today's date and the default
+account. If the network is down it queues the entry and syncs next time the app opens.
+
+Setup (once):
+1. Run the app once after installing so iOS registers the action.
+2. Shortcuts → Automation → **+** → **Transaction** → choose your card(s) in Wallet → Run Immediately → Next.
+3. **New Blank Automation** → add action **Log Card Payment** (Receipts app).
+4. Tap *Amount* → select the magic variable **Shortcut Input** → change it to **Amount**.
+   Tap *Merchant* → **Shortcut Input** → **Merchant**. Done.
+
+Only Apple Pay taps trigger it (not the physical card or online payments). Scanning the receipt
+later still works: the review screen offers the card entry under "Replace existing" (same amount).
