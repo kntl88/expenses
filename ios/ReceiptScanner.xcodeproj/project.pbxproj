@@ -107,6 +107,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					E43FADB7A4D46456C064BB2B = {
+						DevelopmentTeam = 9CHRAUFN7Z;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -294,6 +295,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9CHRAUFN7Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Receipts;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan receipts.";
@@ -317,6 +319,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9CHRAUFN7Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Receipts;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan receipts.";
