@@ -1,0 +1,360 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0FFCBC65B62F174BC4C2B3CB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 657B591D201E75C907CD1E6C /* Assets.xcassets */; };
+		110221C9047E96E2AFE5A036 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D2653A974333A7A3EA3478 /* HomeView.swift */; };
+		426989F7C58503A098E6CF1E /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1494E17C7F1DCE08CAD23D76 /* Keychain.swift */; };
+		47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */; };
+		717C66A61073F3F252645B40 /* DocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D6B6CAC11D8DD67242FA63 /* DocumentScanner.swift */; };
+		82BE9E3D753F937312E85113 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC43AF3EF6CEAEE885976BD /* AppState.swift */; };
+		9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E5D83147F3BB0050B2884 /* JSONValue.swift */; };
+		9D8C10D1765618DAA20D7171 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164199FDAC80234F90480C83 /* Models.swift */; };
+		AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */; };
+		C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */; };
+		C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8E52171420D131C0C85292 /* Vault.swift */; };
+		CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A296308186F68BE677FEBE66 /* ClaudeClient.swift */; };
+		FF061FE486B75268F8F7A438 /* GitHubStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E8D2852640ED13809A7D76 /* GitHubStore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		03D6B6CAC11D8DD67242FA63 /* DocumentScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScanner.swift; sourceTree = "<group>"; };
+		0A8E52171420D131C0C85292 /* Vault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vault.swift; sourceTree = "<group>"; };
+		0DD2D05AF8660070BE20531E /* ReceiptScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ReceiptScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		11D2653A974333A7A3EA3478 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		1494E17C7F1DCE08CAD23D76 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		164199FDAC80234F90480C83 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+		657B591D201E75C907CD1E6C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6CC43AF3EF6CEAEE885976BD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScannerApp.swift; sourceTree = "<group>"; };
+		A296308186F68BE677FEBE66 /* ClaudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeClient.swift; sourceTree = "<group>"; };
+		B2E8D2852640ED13809A7D76 /* GitHubStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStore.swift; sourceTree = "<group>"; };
+		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
+		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		6668D9B73C2EB5DE7A2AD745 = {
+			isa = PBXGroup;
+			children = (
+				76ACB69EFEBC4C03EE7B9E63 /* ReceiptScanner */,
+				835EB9C5D3FF8CAA18D7A3A8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		76ACB69EFEBC4C03EE7B9E63 /* ReceiptScanner */ = {
+			isa = PBXGroup;
+			children = (
+				6CC43AF3EF6CEAEE885976BD /* AppState.swift */,
+				657B591D201E75C907CD1E6C /* Assets.xcassets */,
+				A296308186F68BE677FEBE66 /* ClaudeClient.swift */,
+				03D6B6CAC11D8DD67242FA63 /* DocumentScanner.swift */,
+				B2E8D2852640ED13809A7D76 /* GitHubStore.swift */,
+				11D2653A974333A7A3EA3478 /* HomeView.swift */,
+				D38E5D83147F3BB0050B2884 /* JSONValue.swift */,
+				1494E17C7F1DCE08CAD23D76 /* Keychain.swift */,
+				164199FDAC80234F90480C83 /* Models.swift */,
+				731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */,
+				5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */,
+				DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */,
+				0A8E52171420D131C0C85292 /* Vault.swift */,
+			);
+			path = ReceiptScanner;
+			sourceTree = "<group>";
+		};
+		835EB9C5D3FF8CAA18D7A3A8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0DD2D05AF8660070BE20531E /* ReceiptScanner.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E43FADB7A4D46456C064BB2B /* ReceiptScanner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DEAA9FEEB1BB95EBCA6883DD /* Build configuration list for PBXNativeTarget "ReceiptScanner" */;
+			buildPhases = (
+				91101EE9E5C1978DE91953B5 /* Sources */,
+				2FABFF563BA2E833679067B6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ReceiptScanner;
+			packageProductDependencies = (
+			);
+			productName = ReceiptScanner;
+			productReference = 0DD2D05AF8660070BE20531E /* ReceiptScanner.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F58F941AFC9693EFC8BCF60C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					E43FADB7A4D46456C064BB2B = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 6227B7B0C11184415B593F43 /* Build configuration list for PBXProject "ReceiptScanner" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6668D9B73C2EB5DE7A2AD745;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 835EB9C5D3FF8CAA18D7A3A8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E43FADB7A4D46456C064BB2B /* ReceiptScanner */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2FABFF563BA2E833679067B6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0FFCBC65B62F174BC4C2B3CB /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		91101EE9E5C1978DE91953B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				82BE9E3D753F937312E85113 /* AppState.swift in Sources */,
+				CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */,
+				717C66A61073F3F252645B40 /* DocumentScanner.swift in Sources */,
+				FF061FE486B75268F8F7A438 /* GitHubStore.swift in Sources */,
+				110221C9047E96E2AFE5A036 /* HomeView.swift in Sources */,
+				9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */,
+				426989F7C58503A098E6CF1E /* Keychain.swift in Sources */,
+				9D8C10D1765618DAA20D7171 /* Models.swift in Sources */,
+				47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */,
+				AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */,
+				C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */,
+				C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		8A49EE0F14D968D39D0BAFED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		8CA7F433151503049C1A6A50 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B003074E8DA7C80E20AF8DB1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Receipts;
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan receipts.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kntl88.ReceiptScanner;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C4E88546DDBF21756B4CA954 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Receipts;
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan receipts.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kntl88.ReceiptScanner;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6227B7B0C11184415B593F43 /* Build configuration list for PBXProject "ReceiptScanner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A49EE0F14D968D39D0BAFED /* Debug */,
+				8CA7F433151503049C1A6A50 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DEAA9FEEB1BB95EBCA6883DD /* Build configuration list for PBXNativeTarget "ReceiptScanner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B003074E8DA7C80E20AF8DB1 /* Debug */,
+				C4E88546DDBF21756B4CA954 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F58F941AFC9693EFC8BCF60C /* Project object */;
+}

@@ -1,3 +1,5 @@
 .DS_Store
 ExpenseData/
 Expense Form*.xlsx
+xcuserdata/
+ios/build/
