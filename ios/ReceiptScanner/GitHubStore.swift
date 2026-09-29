@@ -11,6 +11,7 @@ struct GitHubStore {
 
     struct StoreError: LocalizedError {
         let message: String
+        var notFound = false
         var errorDescription: String? { message }
     }
 
@@ -19,8 +20,12 @@ struct GitHubStore {
         var sha: String
     }
 
-    private var fileURL: URL {
-        URL(string: "https://api.github.com/repos/\(owner)/\(repo)/contents/\(Self.dataPath)")!
+    static let accountsPath = "data/accounts.json"
+
+    private var fileURL: URL { url(Self.dataPath) }
+
+    private func url(_ path: String) -> URL {
+        URL(string: "https://api.github.com/repos/\(owner)/\(repo)/contents/\(path)")!
     }
 
     private func request(_ url: URL, accept: String = "application/vnd.github.v3+json") -> URLRequest {
@@ -33,11 +38,22 @@ struct GitHubStore {
     }
 
     func load() async throws -> Snapshot {
-        let (data, resp) = try await URLSession.shared.data(for: request(fileURL))
+        let (value, sha) = try await loadFile(Self.dataPath)
+        guard case let .array(items) = value else { throw StoreError(message: "expenses.json is not an array.") }
+        return Snapshot(expenses: items, sha: sha)
+    }
+
+    /// data/accounts.json (recurring templates, envelopes, loans, …); empty object if missing.
+    func loadAccounts() async throws -> JSONValue {
+        do { return try await loadFile(Self.accountsPath).value } catch let e as StoreError where e.notFound { return .object([]) }
+    }
+
+    private func loadFile(_ path: String) async throws -> (value: JSONValue, sha: String) {
+        let (data, resp) = try await URLSession.shared.data(for: request(url(path)))
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard code == 200 else {
             if code == 401 { throw StoreError(message: "GitHub token rejected (401). Re-unlock in Settings.") }
-            throw StoreError(message: "Loading expenses failed: HTTP \(code)")
+            throw StoreError(message: "Loading \(path) failed: HTTP \(code)", notFound: code == 404)
         }
         guard let meta = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let sha = meta["sha"] as? String
@@ -49,14 +65,11 @@ struct GitHubStore {
             fileBytes = d
         } else {
             // Files over 1 MB come back without inline content; fetch raw.
-            let (raw, rresp) = try await URLSession.shared.data(for: request(fileURL, accept: "application/vnd.github.raw+json"))
-            guard (rresp as? HTTPURLResponse)?.statusCode == 200 else { throw StoreError(message: "Loading raw expenses failed.") }
+            let (raw, rresp) = try await URLSession.shared.data(for: request(url(path), accept: "application/vnd.github.raw+json"))
+            guard (rresp as? HTTPURLResponse)?.statusCode == 200 else { throw StoreError(message: "Loading raw \(path) failed.") }
             fileBytes = raw
         }
-        guard case let .array(items) = try JSONValue.parse(fileBytes) else {
-            throw StoreError(message: "expenses.json is not an array.")
-        }
-        return Snapshot(expenses: items, sha: sha)
+        return (try JSONValue.parse(fileBytes), sha)
     }
 
     /// PUTs the whole array. Returns false on a sha conflict (409/422) so the caller can re-fetch and retry.

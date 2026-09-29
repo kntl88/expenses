@@ -57,6 +57,24 @@ final class AppState {
         recent = RecentLog.load()
         await Outbox.flush()
         outboxCount = Outbox.count
+        await loadWeek()
+    }
+
+    // MARK: Week summary
+
+    var week: WeekSummary?
+    var weekError: String?
+
+    func loadWeek() async {
+        guard let store else { return }
+        do {
+            async let expenses = store.load().expenses
+            async let accounts = store.loadAccounts()
+            week = WeekSummary.compute(expenses: try await expenses, accounts: try await accounts)
+            weekError = nil
+        } catch {
+            if week == nil { weekError = error.localizedDescription }
+        }
     }
 
     private static func loadRecent() -> [RecentSave] { RecentLog.load() }

@@ -1,4 +1,3 @@
-import PhotosUI
 import SwiftUI
 
 final class ScanJob: Identifiable, Hashable {
@@ -14,12 +13,16 @@ struct HomeView: View {
     @State private var path: [ScanJob] = []
     @State private var showScanner = false
     @State private var showSettings = false
-    @State private var photoItem: PhotosPickerItem?
-    @State private var loadError: String?
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                Section {
+                    WeekSummaryView(summary: app.week, error: app.weekError)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+                        .listRowBackground(Color.clear)
+                }
+
                 Section {
                     VStack(spacing: 12) {
                         Button {
@@ -31,19 +34,9 @@ struct HomeView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
-
-                        PhotosPicker(selection: $photoItem, matching: .images) {
-                            Label("Choose from Photos", systemImage: "photo.on.rectangle")
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
                     }
-                    .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
-                }
-
-                if let loadError {
-                    Section { Text(loadError).foregroundStyle(.red) }
                 }
 
                 if app.outboxCount > 0 {
@@ -94,18 +87,8 @@ struct HomeView: View {
                 .ignoresSafeArea()
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .onChange(of: photoItem) { _, item in
-                guard let item else { return }
-                photoItem = nil
-                Task {
-                    loadError = nil
-                    if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) {
-                        path.append(ScanJob(images: [img]))
-                    } else {
-                        loadError = "Couldn't load that photo."
-                    }
-                }
-            }
+            .refreshable { await app.loadWeek() }
+            .task { await app.loadWeek() }
         }
     }
 }

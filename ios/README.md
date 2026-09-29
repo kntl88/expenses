@@ -6,7 +6,7 @@ categories, review, and save the rows straight into `data/expenses.json` in the 
 ## Run
 1. Open `ios/ReceiptScanner.xcodeproj` in Xcode 16+.
 2. Target → Signing & Capabilities → pick your Team (bundle id `com.kntl88.ReceiptScanner`).
-3. Run on your iPhone (the camera doesn't work in the simulator; "Choose from Photos" does).
+3. Run on your iPhone (the camera doesn't work in the simulator).
 
 ## First launch
 - **Vault PIN**: the same PIN as the web app. The app fetches `data/vault.json` from this repo,
@@ -14,8 +14,14 @@ categories, review, and save the rows straight into `data/expenses.json` in the 
   GitHub token in the Keychain.
 - **Anthropic API key**: stored in the Keychain.
 
+## Week summary
+The home screen shows the web app's **Consumption** card for the current week (Basic / Fun / Unnec /
+Total, Gas, Purchases, with Saving and Forecast), computed from `expenses.json` + `accounts.json` by a
+Swift port of `renderDailyRates` / `getBudgetBreakdown` (`WeekSummary.swift`). Tap combo cells to show
+the per-day bar chart; pull down to refresh. Keep the two in sync if the web formula changes.
+
 ## Flow
-Take a photo (used as-is, no auto-crop) or pick one → Claude (`claude-opus-5`) lists every line
+Take a photo (used as-is, no auto-crop) → Claude (`claude-opus-5`) lists every line
 item with a category (Basic by default) → items are grouped by category; tap an item's category to
 move it → edit date, description, account → optionally pick an existing
 expense with the same amount (±10 days) to replace/split it → save. Rows use the web app's exact

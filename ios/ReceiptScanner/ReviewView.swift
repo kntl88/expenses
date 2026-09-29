@@ -306,6 +306,7 @@ struct ReviewView: View {
             try await store.commit(newEntries: entries, replacingId: replacing?.id,
                                    message: "Add receipt \(desc) \(dateString) (iOS)")
             ItemRules.learn(from: items)
+            Task { await app.loadWeek() }
             app.addRecent(.init(date: dateString, description: desc, total: sum,
                                 categories: groups.map(\.category.label), savedAt: Date()))
             phase = .saved

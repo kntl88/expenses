@@ -16,12 +16,14 @@
 		82BE9E3D753F937312E85113 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC43AF3EF6CEAEE885976BD /* AppState.swift */; };
 		9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E5D83147F3BB0050B2884 /* JSONValue.swift */; };
 		9D8C10D1765618DAA20D7171 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164199FDAC80234F90480C83 /* Models.swift */; };
+		ADE16B7747E1E1CE8197553E /* WeekSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876D71B7830A97CB255C78E5 /* WeekSummary.swift */; };
 		AF719F1A640A935A0A7B6DD5 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */; };
 		AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */; };
 		C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */; };
 		C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8E52171420D131C0C85292 /* Vault.swift */; };
 		CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A296308186F68BE677FEBE66 /* ClaudeClient.swift */; };
 		E8B8A6DAFE998F71C97271F6 /* ItemRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */; };
+		F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */; };
 		FF061FE486B75268F8F7A438 /* GitHubStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E8D2852640ED13809A7D76 /* GitHubStore.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,7 +38,9 @@
 		5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		657B591D201E75C907CD1E6C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6CC43AF3EF6CEAEE885976BD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummaryView.swift; sourceTree = "<group>"; };
 		731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScannerApp.swift; sourceTree = "<group>"; };
+		876D71B7830A97CB255C78E5 /* WeekSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummary.swift; sourceTree = "<group>"; };
 		A296308186F68BE677FEBE66 /* ClaudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeClient.swift; sourceTree = "<group>"; };
 		B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		B2E8D2852640ED13809A7D76 /* GitHubStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStore.swift; sourceTree = "<group>"; };
@@ -73,6 +77,8 @@
 				5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */,
 				DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */,
 				0A8E52171420D131C0C85292 /* Vault.swift */,
+				876D71B7830A97CB255C78E5 /* WeekSummary.swift */,
+				6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */,
 			);
 			path = ReceiptScanner;
 			sourceTree = "<group>";
@@ -171,6 +177,8 @@
 				AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */,
 				C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */,
 				C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */,
+				ADE16B7747E1E1CE8197553E /* WeekSummary.swift in Sources */,
+				F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
