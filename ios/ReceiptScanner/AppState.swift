@@ -11,7 +11,14 @@ final class AppState {
     }
     var recent: [RecentSave] = AppState.loadRecent()
 
-    var isConfigured: Bool { store != nil && !(anthropicKey ?? "").isEmpty }
+    var isConfigured: Bool { AppState.demo || (store != nil && !(anthropicKey ?? "").isEmpty) }
+
+    /// Debug-only: launch with `-demo` to show sample data without credentials (for layout checks).
+    #if DEBUG
+    static let demo = ProcessInfo.processInfo.arguments.contains("-demo")
+    #else
+    static let demo = false
+    #endif
 
     var store: GitHubStore? {
         guard let t = githubToken, !t.isEmpty, let r = repo, !r.isEmpty else { return nil }
@@ -66,6 +73,7 @@ final class AppState {
     var weekError: String?
 
     func loadWeek() async {
+        if AppState.demo { week = DemoData.week(); return }
         guard let store else { return }
         do {
             async let expenses = store.load().expenses

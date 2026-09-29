@@ -19,24 +19,15 @@ struct HomeView: View {
             List {
                 Section {
                     WeekSummaryView(summary: app.week, error: app.weekError)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
                         .listRowBackground(Color.clear)
-                }
+                        .listRowSeparator(.hidden)
 
-                Section {
-                    VStack(spacing: 12) {
-                        Button {
-                            showScanner = true
-                        } label: {
-                            Label("Scan receipt", systemImage: "camera")
-                                .font(.title3.weight(.semibold))
-                                .frame(maxWidth: .infinity, minHeight: 56)
-                        }
-                        .buttonStyle(.borderedProminent)
+                    ScanButton { showScanner = true }
                         .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
-                    }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
-                    .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
 
                 if app.outboxCount > 0 {
@@ -68,7 +59,9 @@ struct HomeView: View {
                     }
                 }
             }
-            .navigationTitle("Receipts")
+            .contentMargins(.horizontal, 0, for: .scrollContent)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
@@ -159,5 +152,26 @@ struct LearnedItemsView: View {
 
     private func reload() {
         rules = ItemRules.all().map { ($0.key, $0.value) }.sorted { $0.rule.name.localizedCaseInsensitiveCompare($1.rule.name) == .orderedAscending }
+    }
+}
+
+/// Compact scan button in the Consumption card's style (dark surface, border, monospaced caps).
+struct ScanButton: View {
+    var action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "camera").font(.system(size: 13, weight: .light))
+                Text("SCAN RECEIPT").font(.system(size: 11, weight: .regular, design: .monospaced)).tracking(0.5)
+            }
+            .foregroundStyle(isEnabled ? WebStyle.accent : WebStyle.muted)
+            .frame(maxWidth: .infinity, minHeight: 40)
+            .background(WebStyle.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(WebStyle.border))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
     }
 }
