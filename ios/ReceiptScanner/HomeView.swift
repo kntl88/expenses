@@ -23,8 +23,13 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
 
-                    ScanButton { showScanner = true }
+                    CardButton(title: "Scan receipt", systemImage: "camera") { showScanner = true }
                         .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+
+                    CardButton(title: "Settings", systemImage: "gearshape", tint: WebStyle.dim) { showSettings = true }
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -61,12 +66,7 @@ struct HomeView: View {
             }
             .contentMargins(.horizontal, 0, for: .scrollContent)
             .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Image(systemName: "gearshape") }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ScanJob.self) { job in
                 ReviewView(job: job) { path.removeAll() }
             }
@@ -155,18 +155,21 @@ struct LearnedItemsView: View {
     }
 }
 
-/// Compact scan button in the Consumption card's style (dark surface, border, monospaced caps).
-struct ScanButton: View {
+/// Full-width button in the Consumption card's style (dark surface, border, monospaced caps).
+struct CardButton: View {
+    let title: String
+    let systemImage: String
+    var tint: Color = WebStyle.accent
     var action: () -> Void
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "camera").font(.system(size: 13, weight: .light))
-                Text("SCAN RECEIPT").font(.system(size: 11, weight: .regular, design: .monospaced)).tracking(0.5)
+                Image(systemName: systemImage).font(.system(size: 13, weight: .light))
+                Text(title.uppercased()).font(.system(size: 11, weight: .regular, design: .monospaced)).tracking(0.5)
             }
-            .foregroundStyle(isEnabled ? WebStyle.accent : WebStyle.muted)
+            .foregroundStyle(isEnabled ? tint : WebStyle.muted)
             .frame(maxWidth: .infinity, minHeight: 40)
             .background(WebStyle.surface, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(WebStyle.border))
