@@ -6,7 +6,7 @@ categories, review, and save the rows straight into `data/expenses.json` in the 
 ## Run
 1. Open `ios/ReceiptScanner.xcodeproj` in Xcode 16+.
 2. Target → Signing & Capabilities → pick your Team (bundle id `com.kntl88.ReceiptScanner`).
-3. Run on your iPhone (the document camera doesn't work in the simulator; "Choose from Photos" does).
+3. Run on your iPhone (the camera doesn't work in the simulator; "Choose from Photos" does).
 
 ## First launch
 - **Vault PIN**: the same PIN as the web app. The app fetches `data/vault.json` from this repo,
@@ -15,11 +15,20 @@ categories, review, and save the rows straight into `data/expenses.json` in the 
 - **Anthropic API key**: stored in the Keychain.
 
 ## Flow
-Scan (VisionKit, multi-page OK) or pick a photo → Claude (`claude-opus-5`, same prompt/schema as the
-web app's receipt scan) → edit parts, date, description, account → optionally pick an existing
+Take a photo (used as-is, no auto-crop) or pick one → Claude (`claude-opus-5`) lists every line
+item with a category (Basic by default) → items are grouped by category; tap an item's category to
+move it → edit date, description, account → optionally pick an existing
 expense with the same amount (±10 days) to replace/split it → save. Rows use the web app's exact
 shape (`id`, negative `amount`, `category`/`subCategory` via the same token mapping, `account`,
 `created`), and the file is re-serialized byte-compatible with `JSON.stringify(x, null, 2)`.
+One expense row is written per category.
+
+**Learning:** when a receipt is saved, every item you left in a non-Basic category is remembered
+(name normalized, pack sizes ignored: "KOFF III 0,33L" ≈ "Koff III 0,5L"). Next time those items are
+put in that category automatically (marked "learned"), and recent rules are also given to Claude so
+similar items follow. Saving an item as Basic forgets its rule; Basic itself is never stored.
+Rules live on the phone (Settings → Learned items, swipe to delete).
+
 Conflicts with concurrent web edits are handled by re-fetching and re-applying.
 
 Project is generated from `project.yml` with XcodeGen (`cd ios && xcodegen`), but the generated

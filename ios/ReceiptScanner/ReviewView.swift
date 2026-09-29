@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Sends the receipt to Claude, lets the user adjust the split, then writes the expense rows —
-/// the same flow as applyReceiptSplit in index.html.
+/// Sends the receipt to Claude, shows its line items grouped by category (tap an item's category
+/// to move it), then writes one expense row per category — like applyReceiptSplit in index.html.
 struct ReviewView: View {
     @Environment(AppState.self) private var app
     let job: ScanJob
@@ -12,7 +12,7 @@ struct ReviewView: View {
     @State private var error: String?
 
     @State private var scan: ReceiptScan?
-    @State private var parts: [ReceiptPart] = []
+    @State private var items: [ReceiptItem] = []
     @State private var description = ""
     @State private var date = Date()
     @State private var account: Account = .norwegian
@@ -22,13 +22,21 @@ struct ReviewView: View {
     @State private var replacing: ExistingExpense?
     @State private var showImage = false
 
-    private var sum: Double { Format.round2(parts.reduce(0) { $0 + $1.amount }) }
+    private var sum: Double { Format.round2(items.reduce(0) { $0 + $1.amount }) }
     private var dateString: String { Format.day.string(from: date) }
+
+    /// Categories in use, in the standard order, with their totals.
+    private var groups: [(category: ReceiptCategory, items: [ReceiptItem], total: Double)] {
+        ReceiptCategory.allCases.compactMap { c in
+            let list = items.filter { $0.category == c }
+            return list.isEmpty ? nil : (c, list, Format.round2(list.reduce(0) { $0 + $1.amount }))
+        }
+    }
 
     /// Expenses that could be this same purchase (e.g. already imported from the card statement):
     /// same amount, within ±10 days. Norwegian booking dates can lag the purchase, so match by amount.
     private var candidates: [ExistingExpense] {
-        guard !parts.isEmpty else { return [] }
+        guard !items.isEmpty else { return [] }
         let targets = [sum, scan?.total ?? sum]
         return existing
             .filter { e in
@@ -44,7 +52,7 @@ struct ReviewView: View {
     }
 
     private var canSave: Bool {
-        phase == .review && !parts.isEmpty && parts.allSatisfy { $0.amount > 0 } && !replaceMismatch
+        phase == .review && !groups.isEmpty && groups.allSatisfy { $0.total > 0 } && !replaceMismatch
     }
 
     var body: some View {
@@ -85,7 +93,7 @@ struct ReviewView: View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(.green)
             Text("Added to expenses").font(.title2.weight(.semibold))
-            Text("\(parts.count) \(parts.count == 1 ? "entry" : "entries") · \(Format.euro(sum))")
+            Text("\(groups.count) \(groups.count == 1 ? "entry" : "entries") · \(Format.euro(sum))")
                 .foregroundStyle(.secondary)
             Button("Done", action: onDone).buttonStyle(.borderedProminent).padding(.top)
         }
@@ -120,19 +128,31 @@ struct ReviewView: View {
                 }
             }
 
-            Section {
-                ForEach($parts) { $part in
-                    PartRow(part: $part)
+            ForEach(groups, id: \.category) { group in
+                Section {
+                    ForEach(group.items) { item in
+                        ItemRow(item: binding(item.id))
+                    }
+                    .onDelete { offsets in
+                        let ids = Set(offsets.map { group.items[$0].id })
+                        items.removeAll { ids.contains($0.id) }
+                    }
+                } header: {
+                    HStack {
+                        Label(group.category.label, systemImage: group.category.symbol)
+                        Spacer()
+                        Text(Format.euro(group.total)).monospacedDigit()
+                    }
                 }
-                .onDelete { parts.remove(atOffsets: $0) }
+            }
+
+            Section {
                 Button {
                     let remaining = Format.round2((replacing.map { abs($0.amount) } ?? scan?.total ?? 0) - sum)
-                    parts.append(ReceiptPart(category: .basic, amount: max(remaining, 0), label: ""))
+                    items.append(ReceiptItem(name: "", amount: max(remaining, 0), category: .basic))
                 } label: {
-                    Label("Add part", systemImage: "plus.circle")
+                    Label("Add item", systemImage: "plus.circle")
                 }
-            } header: {
-                Text("Split")
             } footer: {
                 totalsFooter
             }
@@ -150,7 +170,7 @@ struct ReviewView: View {
                     HStack {
                         Spacer()
                         if phase == .saving { ProgressView() } else {
-                            Text(replacing == nil ? "Add \(parts.count) \(parts.count == 1 ? "expense" : "expenses")" : "Replace with split")
+                            Text(replacing == nil ? "Add \(groups.count) \(groups.count == 1 ? "expense" : "expenses")" : "Replace with split")
                                 .fontWeight(.semibold)
                         }
                         Spacer()
@@ -160,17 +180,21 @@ struct ReviewView: View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .animation(.default, value: items.map(\.category))
     }
 
     private var totalsFooter: some View {
         let total = replacing.map { abs($0.amount) } ?? scan?.total
-        return HStack {
-            Text("Sum \(Format.euro(sum))")
-            if let total, abs(total - sum) > 0.01 {
-                Text("≠ \(Format.euro(total))").foregroundStyle(.orange)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Sum \(Format.euro(sum))")
+                if let total, abs(total - sum) > 0.01 {
+                    Text("≠ \(Format.euro(total))").foregroundStyle(.orange)
+                }
             }
+            .monospacedDigit()
+            Text("Tap an item's category to move it. Non-Basic choices are remembered for next time.")
         }
-        .monospacedDigit()
     }
 
     @ViewBuilder private var replaceSection: some View {
@@ -190,13 +214,13 @@ struct ReviewView: View {
                 .pickerStyle(.inline)
                 .labelsHidden()
                 if replaceMismatch {
-                    Text("Parts must sum to \(Format.euro(abs(replacing!.amount))).").foregroundStyle(.red)
+                    Text("Items must sum to \(Format.euro(abs(replacing!.amount))).").foregroundStyle(.red)
                 }
             }
         } header: {
             Text("Replace existing")
         } footer: {
-            Text("Pick a matching expense (e.g. from the card statement) to split it by this receipt instead of adding a duplicate.")
+            Text("Pick a matching expense (e.g. a card payment) to split it by this receipt instead of adding a duplicate.")
         }
         .onChange(of: replacing) { _, r in
             guard let r else { return }
@@ -219,6 +243,13 @@ struct ReviewView: View {
         }
     }
 
+    private func binding(_ id: UUID) -> Binding<ReceiptItem> {
+        Binding(
+            get: { items.first { $0.id == id } ?? ReceiptItem(name: "", amount: 0, category: .basic) },
+            set: { v in if let i = items.firstIndex(where: { $0.id == id }) { items[i] = v } }
+        )
+    }
+
     // MARK: Actions
 
     private func runScan() async {
@@ -229,7 +260,7 @@ struct ReviewView: View {
         do {
             let result = try await claude.scan(images: job.images)
             scan = result
-            parts = result.parts
+            items = result.items
             description = result.merchant ?? "Receipt"
             if let d = result.date.flatMap({ Format.day.date(from: $0) }) { date = d }
             phase = .review
@@ -251,23 +282,32 @@ struct ReviewView: View {
         }
     }
 
+    /// Row label for a category's expense: the item's name if it's alone, else the category.
+    private static func label(for items: [ReceiptItem], category: ReceiptCategory) -> String {
+        if items.count == 1, !items[0].name.trimmingCharacters(in: .whitespaces).isEmpty {
+            return items[0].name.trimmingCharacters(in: .whitespaces).lowercased()
+        }
+        return category.label.lowercased()
+    }
+
     private func save() async {
         guard canSave, let store = app.store else { return }
         phase = .saving
         error = nil
         let desc = description.trimmingCharacters(in: .whitespaces).isEmpty ? "Receipt" : description.trimmingCharacters(in: .whitespaces)
         let created = Format.isoMillis.string(from: Date())
-        let entries: [JSONValue] = parts.map { p in
-            let label = p.label.trimmingCharacters(in: .whitespaces)
-            return ExpenseEntry.make(amount: p.amount, date: dateString,
-                                     description: desc + (!label.isEmpty && parts.count > 1 ? " · " + label : ""),
-                                     category: p.category, account: account, created: created)
+        let groups = self.groups
+        let entries: [JSONValue] = groups.map { g in
+            ExpenseEntry.make(amount: g.total, date: dateString,
+                              description: desc + (groups.count > 1 ? " · " + Self.label(for: g.items, category: g.category) : ""),
+                              category: g.category, account: account, created: created)
         }
         do {
             try await store.commit(newEntries: entries, replacingId: replacing?.id,
                                    message: "Add receipt \(desc) \(dateString) (iOS)")
+            ItemRules.learn(from: items)
             app.addRecent(.init(date: dateString, description: desc, total: sum,
-                                categories: parts.map(\.category.label), savedAt: Date()))
+                                categories: groups.map(\.category.label), savedAt: Date()))
             phase = .saved
         } catch {
             self.error = error.localizedDescription
@@ -281,32 +321,35 @@ struct ReviewView: View {
     }
 }
 
-private struct PartRow: View {
-    @Binding var part: ReceiptPart
+private struct ItemRow: View {
+    @Binding var item: ReceiptItem
 
     var body: some View {
         HStack(spacing: 10) {
             Menu {
-                Picker("Category", selection: $part.category) {
+                Picker("Category", selection: $item.category) {
                     ForEach(ReceiptCategory.allCases) { c in
                         Label(c.label, systemImage: c.symbol).tag(c)
                     }
                 }
             } label: {
-                Label(part.category.label, systemImage: part.category.symbol)
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 8).padding(.vertical, 5)
-                    .background(.tint.opacity(0.12), in: Capsule())
+                Image(systemName: item.category.symbol)
+                    .frame(width: 32, height: 28)
+                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             }
-            TextField("label", text: $part.label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            TextField("0.00", value: $part.amount, format: .number.precision(.fractionLength(2)))
-                .keyboardType(.decimalPad)
+            VStack(alignment: .leading, spacing: 1) {
+                TextField("Item", text: $item.name)
+                    .font(.subheadline)
+                if item.learned {
+                    Label("learned", systemImage: "sparkles")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            TextField("0.00", value: $item.amount, format: .number.precision(.fractionLength(2)))
+                .keyboardType(.numbersAndPunctuation)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
-                .frame(width: 80)
-            Text("€").foregroundStyle(.secondary)
+                .frame(width: 72)
         }
     }
 }

@@ -1,6 +1,5 @@
 import PhotosUI
 import SwiftUI
-import VisionKit
 
 final class ScanJob: Identifiable, Hashable {
     let id = UUID()
@@ -26,12 +25,12 @@ struct HomeView: View {
                         Button {
                             showScanner = true
                         } label: {
-                            Label("Scan receipt", systemImage: "doc.viewfinder")
+                            Label("Scan receipt", systemImage: "camera")
                                 .font(.title3.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 56)
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(!VNDocumentCameraViewController.isSupported)
+                        .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
 
                         PhotosPicker(selection: $photoItem, matching: .images) {
                             Label("Choose from Photos", systemImage: "photo.on.rectangle")
@@ -86,9 +85,9 @@ struct HomeView: View {
                 ReviewView(job: job) { path.removeAll() }
             }
             .fullScreenCover(isPresented: $showScanner) {
-                DocumentScanner { images in
+                CameraPicker { image in
                     showScanner = false
-                    if !images.isEmpty { path.append(ScanJob(images: images)) }
+                    path.append(ScanJob(images: [image]))
                 } onCancel: {
                     showScanner = false
                 }
@@ -130,6 +129,11 @@ struct SettingsView: View {
                     NavigationLink("Change PIN unlock / API key") { SetupView(pushed: true) }
                 }
                 Section {
+                    NavigationLink("Learned items") { LearnedItemsView() }
+                } footer: {
+                    Text("Items you've put in a category other than Basic on past receipts.")
+                }
+                Section {
                     Button("Sign out", role: .destructive) {
                         app.signOut()
                         dismiss()
@@ -141,5 +145,36 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
         }
+    }
+}
+
+struct LearnedItemsView: View {
+    @State private var rules: [(key: String, rule: ItemRules.Rule)] = []
+
+    var body: some View {
+        List {
+            if rules.isEmpty {
+                Text("Nothing learned yet. Move an item out of Basic on a receipt and save it.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(rules, id: \.key) { entry in
+                HStack {
+                    Text(entry.rule.name)
+                    Spacer()
+                    Text(ReceiptCategory(rawValue: entry.rule.category)?.label ?? entry.rule.category)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onDelete { offsets in
+                offsets.map { rules[$0].key }.forEach(ItemRules.remove)
+                reload()
+            }
+        }
+        .navigationTitle("Learned items")
+        .onAppear(perform: reload)
+    }
+
+    private func reload() {
+        rules = ItemRules.all().map { ($0.key, $0.value) }.sorted { $0.rule.name.localizedCaseInsensitiveCompare($1.rule.name) == .orderedAscending }
     }
 }

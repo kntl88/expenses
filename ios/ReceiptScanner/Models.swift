@@ -56,18 +56,20 @@ enum Account: String, CaseIterable, Identifiable {
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
 }
 
-struct ReceiptPart: Identifiable, Equatable {
+struct ReceiptItem: Identifiable, Equatable {
     let id = UUID()
-    var category: ReceiptCategory
+    var name: String
     var amount: Double
-    var label: String
+    var category: ReceiptCategory
+    /// Category came from a learned rule rather than Claude.
+    var learned = false
 }
 
 struct ReceiptScan {
     var merchant: String?
     var date: String?
     var total: Double
-    var parts: [ReceiptPart]
+    var items: [ReceiptItem]
 }
 
 /// Lightweight view of an existing expense row, used for "replace existing" matching.
