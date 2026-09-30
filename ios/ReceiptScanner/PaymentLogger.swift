@@ -9,7 +9,7 @@ enum PaymentLogger {
 
     static func log(amountText: String, merchant rawMerchant: String) async throws -> String {
         guard let amount = parseAmount(amountText), amount > 0 else {
-            throw LogError(message: "Couldn't read the amount \"\(amountText)\".")
+            throw LogError(message: "Couldn't read the amount \"\(amountText)\". In the automation, tap the Amount field's token and choose Amount (it's passing the whole transaction or the card name).")
         }
         let merchant = rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let store = Credentials.store else {
