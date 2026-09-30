@@ -17,7 +17,14 @@ struct LogCardPaymentIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
-        let message = try await PaymentLogger.log(amountText: amount, merchant: merchant)
+        let message: String
+        do {
+            message = try await PaymentLogger.log(amountText: amount, merchant: merchant)
+        } catch {
+            AutomationLog.add(amount: amount, merchant: merchant, result: "Error: \(error.localizedDescription)")
+            throw error
+        }
+        AutomationLog.add(amount: amount, merchant: merchant, result: message)
         return .result(value: message, dialog: "\(message)")
     }
 }

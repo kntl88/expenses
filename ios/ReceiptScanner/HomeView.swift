@@ -161,6 +161,7 @@ struct SettingsView: View {
                 }
                 Section {
                     NavigationLink("Learned items") { LearnedItemsView() }
+                    NavigationLink("Automation log") { AutomationLogView() }
                 } footer: {
                     Text("Items you've put in a category other than Basic on past receipts.")
                 }
@@ -231,5 +232,29 @@ struct CardButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct AutomationLogView: View {
+    @State private var entries: [AutomationLog.Entry] = []
+
+    var body: some View {
+        List {
+            if entries.isEmpty {
+                Text("The card payment automation hasn't run yet.").foregroundStyle(.secondary)
+            }
+            ForEach(entries) { e in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(e.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                    LabeledContent("Amount", value: "\"\(e.amount)\"")
+                    LabeledContent("Merchant", value: "\"\(e.merchant)\"")
+                    Text(e.result).font(.subheadline)
+                        .foregroundStyle(e.result.hasPrefix("Error") ? .red : .primary)
+                }
+                .textSelection(.enabled)
+            }
+        }
+        .navigationTitle("Automation log")
+        .onAppear { entries = AutomationLog.load() }
     }
 }

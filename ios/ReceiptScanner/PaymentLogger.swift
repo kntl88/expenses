@@ -159,3 +159,26 @@ enum Outbox {
         } catch {}
     }
 }
+
+/// What the Shortcuts automation actually passed in, for troubleshooting (Settings → Automation log).
+enum AutomationLog {
+    struct Entry: Codable, Identifiable {
+        var id = UUID()
+        var date: Date
+        var amount: String
+        var merchant: String
+        var result: String
+    }
+
+    private static let key = "automationLog"
+
+    static func load() -> [Entry] {
+        guard let d = UserDefaults.standard.data(forKey: key) else { return [] }
+        return (try? JSONDecoder().decode([Entry].self, from: d)) ?? []
+    }
+
+    static func add(amount: String, merchant: String, result: String) {
+        let list = Array(([Entry(date: Date(), amount: amount, merchant: merchant, result: result)] + load()).prefix(20))
+        if let d = try? JSONEncoder().encode(list) { UserDefaults.standard.set(d, forKey: key) }
+    }
+}

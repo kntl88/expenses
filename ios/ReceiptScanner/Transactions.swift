@@ -47,6 +47,9 @@ struct Transaction: Identifiable, Hashable {
         }
     }
 
+    /// The app only shows transactions from this date on (the week summary still uses all data).
+    static let displayCutoff = "2026-09-28"
+
     static func categoryLabel(_ key: String) -> String {
         let labels = ["basic": "Basic", "gas": "Gas", "fun": "Fun", "fixed": "Fixed", "unnecessary": "Unnecessary",
                       "budgeted": "Budgeted", "recurring": "Recurring", "work": "Work", "income": "Income", "misc": "Misc"]

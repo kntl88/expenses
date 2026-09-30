@@ -71,7 +71,7 @@ final class AppState {
     func loadData() async {
         if AppState.demo {
             week = DemoData.week()
-            transactions = Transaction.group(DemoData.expenses())
+            transactions = Transaction.group(DemoData.expenses()).filter { $0.date >= Transaction.displayCutoff }
             return
         }
         guard let store else { return }
@@ -80,7 +80,7 @@ final class AppState {
             async let accounts = store.loadAccounts()
             let (ex, ac) = try await (expenses, accounts)
             week = WeekSummary.compute(expenses: ex, accounts: ac)
-            transactions = Transaction.group(ex)
+            transactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
             weekError = nil
         } catch {
             if week == nil { weekError = error.localizedDescription }
