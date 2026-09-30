@@ -30,99 +30,85 @@ struct TransactionRow: View {
     }
 }
 
-/// A transaction with its receipt lines grouped by category, plus actions: scan a receipt to
-/// itemize it, allocate/re-split it by hand, and (for pending card payments) confirm or delete.
-struct TransactionDetailView: View {
-    @Environment(AppState.self) private var app
+/// A transaction row that expands in place (tap) to show its receipt lines grouped by category,
+/// with actions to scan a receipt, re-split it, or confirm a pending payment.
+struct ExpandableTransaction: View {
     let tx: Transaction
+    let expanded: Bool
+    var onToggle: () -> Void
     var onScan: () -> Void
     var onAllocate: () -> Void
-    var onDone: () -> Void
-
-    @State private var busy = false
-    @State private var error: String?
-    @State private var confirmDelete = false
+    var onConfirm: () -> Void
 
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(tx.title).font(.title3.weight(.semibold))
-                    Text([tx.date, tx.account.flatMap(Account.init(rawValue:))?.label].compactMap { $0 }.joined(separator: " · "))
-                        .foregroundStyle(.secondary)
-                    Text(Format.euro(tx.total)).font(.title2.monospacedDigit())
-                    if tx.pending {
-                        Label("Waiting for receipt or allocation", systemImage: "hourglass")
-                            .font(.subheadline).foregroundStyle(.orange)
-                    }
-                }
-                .padding(.vertical, 4)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                TransactionRow(tx: tx)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(expanded ? 90 : 0))
             }
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onToggle)
 
-            ForEach(tx.rows, id: \.id) { row in
-                Section {
-                    if row.items.isEmpty {
-                        Text(tx.pending ? "Guessed from the merchant" : "No receipt lines")
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(Array(row.items.enumerated()), id: \.offset) { _, item in
-                        HStack {
-                            Text(item.name)
-                            Spacer()
-                            Text(Format.euro(item.amount)).monospacedDigit().foregroundStyle(.secondary)
+            if expanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(tx.rows, id: \.id) { row in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                if let t = row.token {
+                                    Label(row.label, systemImage: t.symbol)
+                                } else {
+                                    Text(row.label)
+                                }
+                                Spacer()
+                                Text(Format.euro(row.amount)).monospacedDigit()
+                            }
+                            .font(.subheadline.weight(.medium))
+                            if row.items.isEmpty {
+                                Text(tx.pending ? "Guessed from the merchant" : "No receipt lines")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .padding(.leading, 28)
+                            }
+                            ForEach(Array(row.items.enumerated()), id: \.offset) { _, item in
+                                HStack {
+                                    Text(item.name).lineLimit(1)
+                                    Spacer()
+                                    Text(Format.euro(item.amount)).monospacedDigit()
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 28)
+                            }
                         }
                     }
-                } header: {
-                    HStack {
-                        if let t = row.token { Label(row.label, systemImage: t.symbol) } else { Text(row.label) }
-                        Spacer()
-                        Text(Format.euro(row.amount)).monospacedDigit()
-                    }
-                }
-            }
 
-            Section {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button { onScan() } label: {
-                        Label(tx.isItemized ? "Rescan receipt" : "Scan receipt", systemImage: "camera")
+                    HStack(spacing: 6) {
+                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                            actionButton(tx.isItemized ? "Rescan" : "Receipt", "camera", action: onScan)
+                        }
+                        actionButton(tx.pending ? "Allocate" : "Edit split", "square.split.2x1", action: onAllocate)
+                        if tx.pending {
+                            actionButton("Confirm", "checkmark", action: onConfirm)
+                        }
                     }
+                    .padding(.top, 2)
                 }
-                Button { onAllocate() } label: {
-                    Label(tx.pending ? "Allocate without receipt" : "Edit split", systemImage: "square.split.2x1")
-                }
-                if tx.pending {
-                    Button { run { try await app.confirm(tx) } } label: {
-                        Label("Confirm as \(tx.categorySummary)", systemImage: "checkmark")
-                    }
-                    Button(role: .destructive) { confirmDelete = true } label: {
-                        Label("Delete payment", systemImage: "trash")
-                    }
-                }
-            } footer: {
-                if let error { Text(error).foregroundStyle(.red) }
-            }
-            .disabled(busy)
-        }
-        .navigationTitle(tx.pending ? "Pending" : "Transaction")
-        .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Delete this payment?", isPresented: $confirmDelete) {
-            Button("Delete \(tx.title) · \(Format.euro(tx.total))", role: .destructive) {
-                run { try await app.delete(tx) }
+                .padding(.leading, 36)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
-    private func run(_ action: @escaping () async throws -> Void) {
-        Task {
-            busy = true
-            error = nil
-            do {
-                try await action()
-                onDone()
-            } catch {
-                self.error = error.localizedDescription
-            }
-            busy = false
+    private func actionButton(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .fixedSize()
         }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 }

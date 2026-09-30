@@ -10,7 +10,6 @@ final class ScanJob: Identifiable, Hashable {
 
 enum Route: Hashable {
     case review(ScanJob?, Transaction?)
-    case detail(Transaction)
 }
 
 struct HomeView: View {
@@ -21,6 +20,7 @@ struct HomeView: View {
     @State private var showSettings = false
     @State private var confirmDelete: Transaction?
     @State private var actionError: String?
+    @State private var expanded: Set<String> = []
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -58,7 +58,7 @@ struct HomeView: View {
                 if !app.pending.isEmpty {
                     Section {
                         ForEach(app.pending) { tx in
-                            NavigationLink(value: Route.detail(tx)) { TransactionRow(tx: tx) }
+                            expandable(tx)
                                 .swipeActions(edge: .leading) {
                                     Button { run { try await app.confirm(tx) } } label: {
                                         Label("Confirm", systemImage: "checkmark")
@@ -78,7 +78,7 @@ struct HomeView: View {
                     } header: {
                         Text("Pending · \(app.pending.count)")
                     } footer: {
-                        Text("Card payments waiting for a receipt or allocation. Swipe right to confirm the category, left to scan the receipt.")
+                        Text("Card payments waiting for a receipt or allocation. Tap to see details, swipe right to confirm the category, left to scan the receipt.")
                     }
                 }
 
@@ -87,7 +87,7 @@ struct HomeView: View {
                         Text("No transactions yet.").foregroundStyle(.secondary)
                     }
                     ForEach(app.recent) { tx in
-                        NavigationLink(value: Route.detail(tx)) { TransactionRow(tx: tx) }
+                        expandable(tx)
                     }
                 }
             }
@@ -98,11 +98,6 @@ struct HomeView: View {
                 switch route {
                 case let .review(job, target):
                     ReviewView(job: job, target: target) { path.removeAll() }
-                case let .detail(tx):
-                    TransactionDetailView(tx: tx,
-                                          onScan: { scan(for: tx) },
-                                          onAllocate: { path.append(.review(nil, tx)) },
-                                          onDone: { path.removeAll() })
                 }
             }
             .fullScreenCover(isPresented: $showScanner) {
@@ -123,8 +118,28 @@ struct HomeView: View {
                 }
             }
             .refreshable { await app.loadData() }
-            .task { await app.loadData() }
+            .task {
+                await app.loadData()
+                // Debug layout check: `-demo -expand` opens every row.
+                if AppState.demo, ProcessInfo.processInfo.arguments.contains("-expand") {
+                    expanded = Set(app.transactions.map(\.id))
+                }
+            }
         }
+    }
+
+    private func expandable(_ tx: Transaction) -> some View {
+        ExpandableTransaction(
+            tx: tx,
+            expanded: expanded.contains(tx.id),
+            onToggle: {
+                withAnimation(.snappy) {
+                    if expanded.contains(tx.id) { expanded.remove(tx.id) } else { expanded.insert(tx.id) }
+                }
+            },
+            onScan: { scan(for: tx) },
+            onAllocate: { path.append(.review(nil, tx)) },
+            onConfirm: { run { try await app.confirm(tx) } })
     }
 
     /// Opens the camera; the photo goes to review, replacing `target` if given.

@@ -48,9 +48,10 @@ fields the web app ignores and preserves on edit:
 - `pending: true` — a card payment logged by the automation that still waits for a receipt or
   allocation. It already counts in its guessed category in the web app.
 
-The home screen lists **Pending** payments (swipe right to confirm the guessed category, left to scan
-the receipt or delete; tap for details/allocation) and recent **Transactions** (tap to see the
-line items by category, rescan, or edit the split). Scanning a receipt for a pending payment replaces
+The home screen lists **Pending** payments and recent **Transactions**. Tap a row to expand its line items by category in place, with buttons to
+scan/rescan the receipt, allocate or edit the split, and confirm a pending payment (pending rows can
+also be swiped: right to confirm, left to scan or delete). A photo with several receipts is reviewed
+and saved one receipt at a time. Scanning a receipt for a pending payment replaces
 its row with itemized category rows. Older receipt splits without a `txId` are grouped by their shared
 `created` timestamp, date and base description.
 
