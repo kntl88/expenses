@@ -1,14 +1,20 @@
 import SwiftUI
 
-/// Sends the receipt to Claude, shows its line items grouped by category (tap an item's category
-/// to move it), then writes one expense row per category — like applyReceiptSplit in index.html.
+/// Two modes:
+/// - receipt (`job` set): sends the photo to Claude, shows its line items grouped by category
+///   (tap an item's category to move it) and writes one row per category with its receipt lines;
+/// - allocate (`job` nil): splits/categorizes an existing transaction (e.g. a pending card payment)
+///   without a receipt.
+/// Either way it can replace a transaction (`target`, or one picked from matching candidates).
 struct ReviewView: View {
     @Environment(AppState.self) private var app
-    let job: ScanJob
+    let job: ScanJob?
+    var target: Transaction? = nil
     var onDone: () -> Void
 
     enum Phase { case scanning, review, saving, saved }
     @State private var phase: Phase = .scanning
+    @State private var started = false
     @State private var error: String?
 
     @State private var scan: ReceiptScan?
@@ -17,9 +23,7 @@ struct ReviewView: View {
     @State private var date = Date()
     @State private var account: Account = .norwegian
 
-    @State private var existing: [ExistingExpense] = []
-    @State private var existingLoadError: String?
-    @State private var replacing: ExistingExpense?
+    @State private var replacing: Transaction?
     @State private var showImage = false
 
     private var sum: Double { Format.round2(items.reduce(0) { $0 + $1.amount }) }
@@ -33,22 +37,27 @@ struct ReviewView: View {
         }
     }
 
-    /// Expenses that could be this same purchase (e.g. already imported from the card statement):
-    /// same amount, within ±10 days. Norwegian booking dates can lag the purchase, so match by amount.
-    private var candidates: [ExistingExpense] {
+    /// Receipt lines are stored with the rows; manual allocation splits are not receipt lines.
+    private var storesItems: Bool { job != nil || (target?.isItemized ?? false) }
+
+    /// Transactions that could be this same purchase (a pending card payment, or one imported from the
+    /// statement): same amount, within ±10 days — Norwegian booking dates lag, so match by amount.
+    /// Pending payments first.
+    private var candidates: [Transaction] {
         guard !items.isEmpty else { return [] }
         let targets = [sum, scan?.total ?? sum]
-        return existing
-            .filter { e in
-                e.amount < 0 && targets.contains { abs(abs(e.amount) - $0) < 0.011 }
-                    && Self.dayDistance(e.date, dateString) <= 10
+        return app.transactions
+            .filter { t in
+                targets.contains { abs(t.total - $0) < 0.011 } && Self.dayDistance(t.date, dateString) <= 10
             }
-            .sorted { Self.dayDistance($0.date, dateString) < Self.dayDistance($1.date, dateString) }
+            .sorted { a, b in
+                a.pending != b.pending ? a.pending : Self.dayDistance(a.date, dateString) < Self.dayDistance(b.date, dateString)
+            }
     }
 
     private var replaceMismatch: Bool {
         guard let r = replacing else { return false }
-        return abs(abs(r.amount) - sum) > 0.01
+        return abs(r.total - sum) > 0.01
     }
 
     private var canSave: Bool {
@@ -63,9 +72,9 @@ struct ReviewView: View {
             case .saved: savedView
             }
         }
-        .navigationTitle("Receipt")
+        .navigationTitle(job == nil ? "Allocate" : "Receipt")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await runScan() }
+        .task { await start() }
         .sheet(isPresented: $showImage) { imageSheet }
     }
 
@@ -73,7 +82,7 @@ struct ReviewView: View {
 
     private var scanningView: some View {
         VStack(spacing: 20) {
-            if let first = job.images.first {
+            if let first = job?.images.first {
                 Image(uiImage: first).resizable().scaledToFit()
                     .frame(maxHeight: 320).clipShape(RoundedRectangle(cornerRadius: 12))
                     .opacity(error == nil ? 0.6 : 1)
@@ -104,7 +113,7 @@ struct ReviewView: View {
         Form {
             Section {
                 HStack(spacing: 12) {
-                    if let first = job.images.first {
+                    if let first = job?.images.first {
                         Button { showImage = true } label: {
                             Image(uiImage: first).resizable().scaledToFill()
                                 .frame(width: 56, height: 72).clipShape(RoundedRectangle(cornerRadius: 6))
@@ -112,9 +121,15 @@ struct ReviewView: View {
                         .buttonStyle(.plain)
                     }
                     VStack(alignment: .leading) {
-                        Text(scan?.merchant ?? "Unknown merchant").font(.headline)
-                        if let total = scan?.total {
-                            Text("Receipt total \(Format.euro(total))").font(.subheadline).foregroundStyle(.secondary)
+                        if job != nil {
+                            Text(scan?.merchant ?? "Unknown merchant").font(.headline)
+                            if let total = scan?.total {
+                                Text("Receipt total \(Format.euro(total))").font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        } else if let t = target {
+                            Text(t.title).font(.headline)
+                            Text("\(t.pending ? "Pending card payment" : "Transaction") · \(Format.euro(t.total))")
+                                .font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -148,7 +163,7 @@ struct ReviewView: View {
 
             Section {
                 Button {
-                    let remaining = Format.round2((replacing.map { abs($0.amount) } ?? scan?.total ?? 0) - sum)
+                    let remaining = Format.round2((replacing?.total ?? scan?.total ?? 0) - sum)
                     items.append(ReceiptItem(name: "", amount: max(remaining, 0), category: .basic))
                 } label: {
                     Label("Add item", systemImage: "plus.circle")
@@ -184,7 +199,7 @@ struct ReviewView: View {
     }
 
     private var totalsFooter: some View {
-        let total = replacing.map { abs($0.amount) } ?? scan?.total
+        let total = replacing?.total ?? scan?.total
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Sum \(Format.euro(sum))")
@@ -193,40 +208,45 @@ struct ReviewView: View {
                 }
             }
             .monospacedDigit()
-            Text("Tap an item's category to move it. Non-Basic choices are remembered for next time.")
+            Text(job != nil ? "Tap an item's category to move it. Non-Basic choices are remembered for next time."
+                            : "Tap the category to change it; add items to split the amount.")
         }
     }
 
     @ViewBuilder private var replaceSection: some View {
-        Section {
-            if let existingLoadError {
-                Text(existingLoadError).foregroundStyle(.secondary)
-            } else if candidates.isEmpty && replacing == nil {
-                Text("No existing expense with this amount nearby — will add as new.")
-                    .foregroundStyle(.secondary)
-            } else {
-                Picker("Existing expense", selection: $replacing) {
-                    Text("None (add as new)").tag(ExistingExpense?.none)
-                    ForEach(candidates) { e in
-                        Text("\(e.date) · \(e.description) · \(Format.euro(abs(e.amount)))").tag(Optional(e))
-                    }
-                }
-                .pickerStyle(.inline)
-                .labelsHidden()
+        if let t = target {
+            Section("Replaces") {
+                TransactionRow(tx: t)
                 if replaceMismatch {
-                    Text("Items must sum to \(Format.euro(abs(replacing!.amount))).").foregroundStyle(.red)
+                    Text("Items must sum to \(Format.euro(t.total)).").foregroundStyle(.red)
                 }
             }
-        } header: {
-            Text("Replace existing")
-        } footer: {
-            Text("Pick a matching expense (e.g. a card payment) to split it by this receipt instead of adding a duplicate.")
-        }
-        .onChange(of: replacing) { _, r in
-            guard let r else { return }
-            if let d = Format.day.date(from: r.date) { date = d }
-            if !r.description.isEmpty { description = r.description }
-            if let a = r.account.flatMap(Account.init(rawValue:)) { account = a }
+        } else {
+            Section {
+                if candidates.isEmpty && replacing == nil {
+                    Text("No transaction with this amount nearby — will add as new.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Existing transaction", selection: $replacing) {
+                        Text("None (add as new)").tag(Transaction?.none)
+                        ForEach(candidates) { t in
+                            Text("\(t.pending ? "⏳ " : "")\(t.date) · \(t.title) · \(Format.euro(t.total))").tag(Optional(t))
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                    if replaceMismatch, let r = replacing {
+                        Text("Items must sum to \(Format.euro(r.total)).").foregroundStyle(.red)
+                    }
+                }
+            } header: {
+                Text("Replace existing")
+            } footer: {
+                Text("Pick the matching card payment or expense so this receipt itemizes it instead of adding a duplicate.")
+            }
+            .onChange(of: replacing) { _, r in
+                if let r { adopt(r) }
+            }
         }
     }
 
@@ -234,7 +254,7 @@ struct ReviewView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(Array(job.images.enumerated()), id: \.offset) { _, img in
+                    ForEach(Array((job?.images ?? []).enumerated()), id: \.offset) { _, img in
                         Image(uiImage: img).resizable().scaledToFit()
                     }
                 }
@@ -252,17 +272,45 @@ struct ReviewView: View {
 
     // MARK: Actions
 
-    private func runScan() async {
-        guard scan == nil, let claude = app.claude else { return }
-        error = nil
+    private func start() async {
+        guard !started else { return }
+        started = true
         account = app.defaultAccount
-        async let existingTask: Void = loadExisting()
+        if let t = target {
+            replacing = t
+            adopt(t)
+        }
+        if job == nil {
+            // Allocate: start from the transaction's receipt lines, or one item per row.
+            if let t = target {
+                items = t.isItemized ? t.receiptItems
+                    : t.rows.map { ReceiptItem(name: t.title, amount: $0.amount, category: $0.token ?? .basic) }
+            }
+            phase = .review
+        } else {
+            if app.transactions.isEmpty { await app.loadData() }
+            await runScan()
+        }
+    }
+
+    /// Takes date, description and account from the transaction being replaced.
+    private func adopt(_ t: Transaction) {
+        if let d = Format.day.date(from: t.date) { date = d }
+        description = t.title
+        if let a = t.account.flatMap(Account.init(rawValue:)) { account = a }
+    }
+
+    private func runScan() async {
+        guard scan == nil, let job, let claude = app.claude else { return }
+        error = nil
         do {
             let result = try await claude.scan(images: job.images)
             scan = result
             items = result.items
-            description = result.merchant ?? "Receipt"
-            if let d = result.date.flatMap({ Format.day.date(from: $0) }) { date = d }
+            if target == nil {
+                description = result.merchant ?? "Receipt"
+                if let d = result.date.flatMap({ Format.day.date(from: $0) }) { date = d }
+            }
             phase = .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
             app.saveAnthropicKey(nil)
@@ -270,21 +318,11 @@ struct ReviewView: View {
         } catch {
             self.error = error.localizedDescription
         }
-        await existingTask
-    }
-
-    private func loadExisting() async {
-        guard let store = app.store else { return }
-        do {
-            existing = GitHubStore.existing(from: try await store.load().expenses)
-        } catch {
-            existingLoadError = "Couldn't check existing expenses: \(error.localizedDescription)"
-        }
     }
 
     /// Row label for a category's expense: the item's name if it's alone, else the category.
-    private static func label(for items: [ReceiptItem], category: ReceiptCategory) -> String {
-        if items.count == 1, !items[0].name.trimmingCharacters(in: .whitespaces).isEmpty {
+    private func label(for items: [ReceiptItem], category: ReceiptCategory) -> String {
+        if storesItems, items.count == 1, !items[0].name.trimmingCharacters(in: .whitespaces).isEmpty {
             return items[0].name.trimmingCharacters(in: .whitespaces).lowercased()
         }
         return category.label.lowercased()
@@ -297,18 +335,18 @@ struct ReviewView: View {
         let desc = description.trimmingCharacters(in: .whitespaces).isEmpty ? "Receipt" : description.trimmingCharacters(in: .whitespaces)
         let created = Format.isoMillis.string(from: Date())
         let groups = self.groups
+        let txId = "tx" + Format.newExpenseId()
         let entries: [JSONValue] = groups.map { g in
             ExpenseEntry.make(amount: g.total, date: dateString,
-                              description: desc + (groups.count > 1 ? " · " + Self.label(for: g.items, category: g.category) : ""),
-                              category: g.category, account: account, created: created)
+                              description: desc + (groups.count > 1 ? " · " + label(for: g.items, category: g.category) : ""),
+                              category: g.category, account: account, created: created,
+                              txId: txId, items: storesItems ? g.items : [])
         }
         do {
-            try await store.commit(newEntries: entries, replacingId: replacing?.id,
-                                   message: "Add receipt \(desc) \(dateString) (iOS)")
-            ItemRules.learn(from: items)
-            Task { await app.loadWeek() }
-            app.addRecent(.init(date: dateString, description: desc, total: sum,
-                                categories: groups.map(\.category.label), savedAt: Date()))
+            try await store.commit(newEntries: entries, replacingIds: replacing?.rowIds ?? [],
+                                   message: "\(job != nil ? "Receipt" : "Allocate") \(desc) \(dateString) (iOS)")
+            if job != nil { ItemRules.learn(from: items) }
+            await app.loadData()
             phase = .saved
         } catch {
             self.error = error.localizedDescription

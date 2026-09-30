@@ -9,7 +9,6 @@ final class AppState {
     var defaultAccount: Account = Account(rawValue: UserDefaults.standard.string(forKey: "defaultAccount") ?? "") ?? .norwegian {
         didSet { UserDefaults.standard.set(defaultAccount.rawValue, forKey: "defaultAccount") }
     }
-    var recent: [RecentSave] = AppState.loadRecent()
 
     var isConfigured: Bool { AppState.demo || (store != nil && !(anthropicKey ?? "").isEmpty) }
 
@@ -49,41 +48,61 @@ final class AppState {
         repo = nil
     }
 
-    // MARK: Recent saves (local log only; card payments are added by the intent)
-
-    typealias RecentSave = RecentLog.Item
     var outboxCount = Outbox.count
 
-    func addRecent(_ r: RecentSave) {
-        RecentLog.add(r)
-        recent = RecentLog.load()
-    }
-
-    /// Called when the app becomes active: pick up intent-logged payments and sync the offline queue.
+    /// Called when the app becomes active: sync the offline queue and reload data
+    /// (picks up card payments logged by the Shortcuts automation).
     func refresh() async {
-        recent = RecentLog.load()
         await Outbox.flush()
         outboxCount = Outbox.count
-        await loadWeek()
+        await loadData()
     }
 
-    // MARK: Week summary
+    // MARK: Data (week summary + transactions)
 
     var week: WeekSummary?
     var weekError: String?
+    var transactions: [Transaction] = []
 
-    func loadWeek() async {
-        if AppState.demo { week = DemoData.week(); return }
+    /// Card payments waiting for a receipt or allocation.
+    var pending: [Transaction] { transactions.filter(\.pending) }
+    var recent: [Transaction] { Array(transactions.filter { !$0.pending }.prefix(30)) }
+
+    func loadData() async {
+        if AppState.demo {
+            week = DemoData.week()
+            transactions = Transaction.group(DemoData.expenses())
+            return
+        }
         guard let store else { return }
         do {
             async let expenses = store.load().expenses
             async let accounts = store.loadAccounts()
-            week = WeekSummary.compute(expenses: try await expenses, accounts: try await accounts)
+            let (ex, ac) = try await (expenses, accounts)
+            week = WeekSummary.compute(expenses: ex, accounts: ac)
+            transactions = Transaction.group(ex)
             weekError = nil
         } catch {
             if week == nil { weekError = error.localizedDescription }
         }
     }
 
-    private static func loadRecent() -> [RecentSave] { RecentLog.load() }
+    /// Accepts a pending payment's guessed category as final.
+    func confirm(_ tx: Transaction) async throws {
+        guard let store else { return }
+        let ids = tx.rowIds
+        try await store.mutate(message: "Confirm \(tx.title) \(tx.date) (iOS)") { list in
+            list.map { v in ids.contains(v["id"]?.stringValue ?? "") ? v.removing("pending") : v }
+        }
+        await loadData()
+    }
+
+    func delete(_ tx: Transaction) async throws {
+        guard let store else { return }
+        let ids = tx.rowIds
+        try await store.mutate(message: "Delete \(tx.title) \(tx.date) (iOS)") { list in
+            list.filter { !ids.contains($0["id"]?.stringValue ?? "") }
+        }
+        await loadData()
+    }
 }

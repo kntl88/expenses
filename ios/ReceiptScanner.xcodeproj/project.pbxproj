@@ -20,12 +20,14 @@
 		ADE16B7747E1E1CE8197553E /* WeekSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876D71B7830A97CB255C78E5 /* WeekSummary.swift */; };
 		AF719F1A640A935A0A7B6DD5 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */; };
 		AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */; };
+		C02524FAFC2CE5BEE9417C44 /* TransactionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */; };
 		C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */; };
 		C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8E52171420D131C0C85292 /* Vault.swift */; };
 		CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A296308186F68BE677FEBE66 /* ClaudeClient.swift */; };
 		E8B8A6DAFE998F71C97271F6 /* ItemRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */; };
 		F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */; };
 		FF061FE486B75268F8F7A438 /* GitHubStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E8D2852640ED13809A7D76 /* GitHubStore.swift */; };
+		FF6E7D9C38006A11213DE274 /* Transactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E80B0C1014D31268D8CCC1 /* Transactions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,9 +45,11 @@
 		6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummaryView.swift; sourceTree = "<group>"; };
 		731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScannerApp.swift; sourceTree = "<group>"; };
 		876D71B7830A97CB255C78E5 /* WeekSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummary.swift; sourceTree = "<group>"; };
+		99E80B0C1014D31268D8CCC1 /* Transactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transactions.swift; sourceTree = "<group>"; };
 		A296308186F68BE677FEBE66 /* ClaudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeClient.swift; sourceTree = "<group>"; };
 		B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		B2E8D2852640ED13809A7D76 /* GitHubStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStore.swift; sourceTree = "<group>"; };
+		C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViews.swift; sourceTree = "<group>"; };
 		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCardPaymentIntent.swift; sourceTree = "<group>"; };
 		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
@@ -79,6 +83,8 @@
 				731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */,
 				5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */,
 				DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */,
+				99E80B0C1014D31268D8CCC1 /* Transactions.swift */,
+				C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */,
 				0A8E52171420D131C0C85292 /* Vault.swift */,
 				876D71B7830A97CB255C78E5 /* WeekSummary.swift */,
 				6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */,
@@ -180,6 +186,8 @@
 				47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */,
 				AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */,
 				C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */,
+				C02524FAFC2CE5BEE9417C44 /* TransactionViews.swift in Sources */,
+				FF6E7D9C38006A11213DE274 /* Transactions.swift in Sources */,
 				C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */,
 				ADE16B7747E1E1CE8197553E /* WeekSummary.swift in Sources */,
 				F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */,

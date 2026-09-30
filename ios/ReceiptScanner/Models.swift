@@ -72,20 +72,14 @@ struct ReceiptScan {
     var items: [ReceiptItem]
 }
 
-/// Lightweight view of an existing expense row, used for "replace existing" matching.
-struct ExistingExpense: Identifiable, Hashable {
-    let id: String
-    let amount: Double
-    let date: String
-    let description: String
-    let category: String
-    let account: String?
-}
-
 /// Builds an expense row in the same key order/shape as saveExpense / applyReceiptSplit in index.html.
 enum ExpenseEntry {
+    /// Extra fields (ignored by the web app's calculations, preserved by its edits):
+    /// `txId` groups the rows of one receipt, `items` holds that row's receipt lines,
+    /// `pending` marks a card payment still waiting for a receipt or allocation.
     static func make(amount: Double, date: String, description: String, category: ReceiptCategory,
-                     account: Account, created: String = Format.isoMillis.string(from: Date())) -> JSONValue {
+                     account: Account, created: String = Format.isoMillis.string(from: Date()),
+                     txId: String? = nil, items: [ReceiptItem] = [], pending: Bool = false) -> JSONValue {
         let m = category.stored
         var fields: [(String, JSONValue)] = [
             ("id", .string(Format.newExpenseId())),
@@ -98,6 +92,11 @@ enum ExpenseEntry {
         if let sub = m.subCategory { fields.append(("subCategory", .string(sub))) }
         fields.append(("account", .string(account.rawValue)))
         fields.append(("created", .string(created)))
+        if let txId { fields.append(("txId", .string(txId))) }
+        if !items.isEmpty {
+            fields.append(("items", .array(items.map { .object([("name", .string($0.name)), ("amount", .num(Format.round2($0.amount)))]) })))
+        }
+        if pending { fields.append(("pending", .bool(true))) }
         return .object(fields)
     }
 }

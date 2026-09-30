@@ -88,17 +88,12 @@ struct GitHubStore {
         throw StoreError(message: "Saving failed: \(msg ?? "HTTP \(code)")")
     }
 
-    /// Appends `newEntries`, optionally removing the expense with id `replacingId`, and saves.
-    /// Re-fetches and re-applies on conflict, so concurrent web edits aren't lost.
-    func commit(newEntries: [JSONValue], replacingId: String?, message: String) async throws {
-        let newIds = Set(newEntries.compactMap { $0["id"]?.stringValue })
+    /// Applies `change` to the latest expense list and saves it. On a sha conflict it re-fetches and
+    /// re-applies, so concurrent web edits aren't lost.
+    func mutate(message: String, _ change: ([JSONValue]) -> [JSONValue]) async throws {
         for _ in 0..<3 {
             let snap = try await load()
-            var list = snap.expenses.filter { item in
-                guard let id = item["id"]?.stringValue else { return true }
-                return id != replacingId && !newIds.contains(id)
-            }
-            list.append(contentsOf: newEntries)
+            var list = change(snap.expenses)
             // Stable sort by date descending, same as the web app.
             list = list.enumerated().sorted { a, b in
                 let da = a.element["date"]?.stringValue ?? "", db = b.element["date"]?.stringValue ?? ""
@@ -109,14 +104,14 @@ struct GitHubStore {
         throw StoreError(message: "Saving failed: the file kept changing on GitHub. Try again.")
     }
 
-    static func existing(from items: [JSONValue]) -> [ExistingExpense] {
-        items.compactMap { v in
-            guard let id = v["id"]?.stringValue, let amount = v["amount"]?.doubleValue,
-                  let date = v["date"]?.stringValue else { return nil }
-            return ExistingExpense(id: id, amount: amount, date: date,
-                                   description: v["description"]?.stringValue ?? "",
-                                   category: v["category"]?.stringValue ?? "",
-                                   account: v["account"]?.stringValue)
+    /// Appends `newEntries`, removing the rows in `replacingIds` (e.g. the pending card payment a receipt replaces).
+    func commit(newEntries: [JSONValue], replacingIds: Set<String> = [], message: String) async throws {
+        let newIds = Set(newEntries.compactMap { $0["id"]?.stringValue })
+        try await mutate(message: message) { list in
+            list.filter { item in
+                guard let id = item["id"]?.stringValue else { return true }
+                return !replacingIds.contains(id) && !newIds.contains(id)
+            } + newEntries
         }
     }
 }

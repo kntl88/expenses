@@ -34,17 +34,16 @@ enum PaymentLogger {
         let name = guess?.name ?? (merchant.isEmpty ? "Card payment" : merchant)
 
         let date = Format.day.string(from: Date())
+        // Pending until a receipt is scanned for it or it's allocated in the app.
         let entry = ExpenseEntry.make(amount: amount, date: date, description: name,
-                                      category: category, account: Credentials.defaultAccount)
+                                      category: category, account: Credentials.defaultAccount, pending: true)
         var offline = false
         do {
-            try await store.commit(newEntries: [entry], replacingId: nil, message: "Card payment \(name) \(date) (iOS)")
+            try await store.commit(newEntries: [entry], message: "Card payment \(name) \(date) (iOS)")
         } catch {
             Outbox.add(entry)
             offline = true
         }
-        RecentLog.add(.init(date: date, description: name, total: Format.round2(amount),
-                            categories: [category.label], savedAt: Date(), viaCard: true))
         let msg = "\(Format.euro(amount)) · \(name) → \(category.label)"
         return offline ? msg + " (saved offline, will sync)" : msg + (source == "Claude" ? " ✦" : "")
     }
@@ -154,34 +153,9 @@ enum Outbox {
         let entries = list.compactMap { try? JSONValue.parse(Data($0.utf8)) }
         do {
             // commit() de-duplicates by id, so a retry after a partial failure is safe.
-            try await store.commit(newEntries: entries, replacingId: nil, message: "Sync \(entries.count) offline card payments (iOS)")
+            try await store.commit(newEntries: entries, message: "Sync \(entries.count) offline card payments (iOS)")
             let now = UserDefaults.standard.stringArray(forKey: key) ?? []
             UserDefaults.standard.set(Array(now.dropFirst(list.count)), forKey: key)
         } catch {}
-    }
-}
-
-/// Local "Recently added" log shared by the UI and the intent.
-enum RecentLog {
-    struct Item: Codable, Identifiable {
-        var id = UUID()
-        var date: String
-        var description: String
-        var total: Double
-        var categories: [String]
-        var savedAt: Date
-        var viaCard: Bool? = nil
-    }
-
-    private static let key = "recent"
-
-    static func load() -> [Item] {
-        guard let d = UserDefaults.standard.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([Item].self, from: d)) ?? []
-    }
-
-    static func add(_ item: Item) {
-        let list = Array(([item] + load()).prefix(30))
-        if let d = try? JSONEncoder().encode(list) { UserDefaults.standard.set(d, forKey: key) }
     }
 }

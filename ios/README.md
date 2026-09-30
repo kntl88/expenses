@@ -40,11 +40,25 @@ Conflicts with concurrent web edits are handled by re-fetching and re-applying.
 Project is generated from `project.yml` with XcodeGen (`cd ios && xcodegen`), but the generated
 `.xcodeproj` is committed so XcodeGen isn't required.
 
+## Transactions, itemization and pending payments
+`expenses.json` stays one row per category (so every web calculation keeps working), with optional
+fields the web app ignores and preserves on edit:
+- `txId` — rows from the same receipt/transaction share it; the phone shows them as one transaction.
+- `items` — that row's receipt lines, `[{name, amount}]` (itemized transactions).
+- `pending: true` — a card payment logged by the automation that still waits for a receipt or
+  allocation. It already counts in its guessed category in the web app.
+
+The home screen lists **Pending** payments (swipe right to confirm the guessed category, left to scan
+the receipt or delete; tap for details/allocation) and recent **Transactions** (tap to see the
+line items by category, rescan, or edit the split). Scanning a receipt for a pending payment replaces
+its row with itemized category rows. Older receipt splits without a `txId` are grouped by their shared
+`created` timestamp, date and base description.
+
 ## Card payments (Apple Pay automation)
 The app exposes a **Log Card Payment** Shortcuts action (amount + merchant). It categorizes from your
 own history for that merchant (weighted by euros), falls back to Claude for new merchants, applies
-the "eating out < 5 € = basic" rule, and writes the expense with today's date and the default
-account. If the network is down it queues the entry and syncs next time the app opens.
+the "eating out < 5 € = basic" rule, and writes the expense as **pending** with today's date and the
+default account. If the network is down it queues the entry and syncs next time the app opens.
 
 Setup (once):
 1. Run the app once after installing so iOS registers the action.

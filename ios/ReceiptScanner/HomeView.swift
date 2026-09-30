@@ -8,11 +8,19 @@ final class ScanJob: Identifiable, Hashable {
     func hash(into h: inout Hasher) { h.combine(id) }
 }
 
+enum Route: Hashable {
+    case review(ScanJob?, Transaction?)
+    case detail(Transaction)
+}
+
 struct HomeView: View {
     @Environment(AppState.self) private var app
-    @State private var path: [ScanJob] = []
+    @State private var path: [Route] = []
     @State private var showScanner = false
+    @State private var scanTarget: Transaction?
     @State private var showSettings = false
+    @State private var confirmDelete: Transaction?
+    @State private var actionError: String?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -23,7 +31,7 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
 
-                    CardButton(title: "Scan receipt", systemImage: "camera") { showScanner = true }
+                    CardButton(title: "Scan receipt", systemImage: "camera") { scan(for: nil) }
                         .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
                         .listRowBackground(Color.clear)
@@ -43,45 +51,92 @@ struct HomeView: View {
                     }
                 }
 
-                Section("Recently added") {
-                    if app.recent.isEmpty {
-                        Text("Nothing yet. Scanned receipts show up here after saving.")
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(app.recent) { r in
-                        HStack {
-                            Image(systemName: r.viaCard == true ? "creditcard" : "doc.text.viewfinder")
-                                .foregroundStyle(.secondary)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(r.description).lineLimit(1)
-                                Text("\(r.date) · \(r.categories.joined(separator: ", "))")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(Format.euro(r.total)).monospacedDigit()
+                if let actionError {
+                    Section { Text(actionError).foregroundStyle(.red) }
+                }
+
+                if !app.pending.isEmpty {
+                    Section {
+                        ForEach(app.pending) { tx in
+                            NavigationLink(value: Route.detail(tx)) { TransactionRow(tx: tx) }
+                                .swipeActions(edge: .leading) {
+                                    Button { run { try await app.confirm(tx) } } label: {
+                                        Label("Confirm", systemImage: "checkmark")
+                                    }
+                                    .tint(.green)
+                                }
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) { confirmDelete = tx } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    Button { scan(for: tx) } label: {
+                                        Label("Receipt", systemImage: "camera")
+                                    }
+                                    .tint(.blue)
+                                }
                         }
+                    } header: {
+                        Text("Pending · \(app.pending.count)")
+                    } footer: {
+                        Text("Card payments waiting for a receipt or allocation. Swipe right to confirm the category, left to scan the receipt.")
+                    }
+                }
+
+                Section("Transactions") {
+                    if app.recent.isEmpty {
+                        Text("No transactions yet.").foregroundStyle(.secondary)
+                    }
+                    ForEach(app.recent) { tx in
+                        NavigationLink(value: Route.detail(tx)) { TransactionRow(tx: tx) }
                     }
                 }
             }
             .contentMargins(.horizontal, 0, for: .scrollContent)
             .navigationTitle("")
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: ScanJob.self) { job in
-                ReviewView(job: job) { path.removeAll() }
+            .navigationDestination(for: Route.self) { route in
+                switch route {
+                case let .review(job, target):
+                    ReviewView(job: job, target: target) { path.removeAll() }
+                case let .detail(tx):
+                    TransactionDetailView(tx: tx,
+                                          onScan: { scan(for: tx) },
+                                          onAllocate: { path.append(.review(nil, tx)) },
+                                          onDone: { path.removeAll() })
+                }
             }
             .fullScreenCover(isPresented: $showScanner) {
                 CameraPicker { image in
                     showScanner = false
-                    path.append(ScanJob(images: [image]))
+                    path.append(.review(ScanJob(images: [image]), scanTarget))
                 } onCancel: {
                     showScanner = false
                 }
                 .ignoresSafeArea()
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .refreshable { await app.loadWeek() }
-            .task { await app.loadWeek() }
+            .confirmationDialog("Delete this payment?", isPresented: Binding(
+                get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }
+            ), presenting: confirmDelete) { tx in
+                Button("Delete \(tx.title) · \(Format.euro(tx.total))", role: .destructive) {
+                    run { try await app.delete(tx) }
+                }
+            }
+            .refreshable { await app.loadData() }
+            .task { await app.loadData() }
+        }
+    }
+
+    /// Opens the camera; the photo goes to review, replacing `target` if given.
+    private func scan(for target: Transaction?) {
+        scanTarget = target
+        showScanner = true
+    }
+
+    private func run(_ action: @escaping () async throws -> Void) {
+        Task {
+            actionError = nil
+            do { try await action() } catch { actionError = error.localizedDescription }
         }
     }
 }

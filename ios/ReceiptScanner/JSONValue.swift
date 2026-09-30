@@ -36,6 +36,19 @@ enum JSONValue: Equatable {
         return nil
     }
 
+    /// Copy of an object with `key` set (replaced in place, or appended at the end).
+    func setting(_ key: String, _ value: JSONValue) -> JSONValue {
+        guard case var .object(pairs) = self else { return self }
+        if let i = pairs.firstIndex(where: { $0.0 == key }) { pairs[i].1 = value } else { pairs.append((key, value)) }
+        return .object(pairs)
+    }
+
+    /// Copy of an object without `key`.
+    func removing(_ key: String) -> JSONValue {
+        guard case let .object(pairs) = self else { return self }
+        return .object(pairs.filter { $0.0 != key })
+    }
+
     var stringValue: String? { if case let .string(s) = self { return s }; return nil }
     var doubleValue: Double? { if case let .number(d, _) = self { return d }; return nil }
     var boolValue: Bool? { if case let .bool(b) = self { return b }; return nil }
