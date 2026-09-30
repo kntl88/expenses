@@ -15,7 +15,9 @@ struct ClaudeClient {
 
     static func prompt(pageCount: Int, learned: [(name: String, category: ReceiptCategory)]) -> String {
         var s = """
-        Read this Finnish store receipt for a personal expense tracker. List every purchased line item and assign each one a spending category.
+        Read the Finnish store receipt(s) in this photo for a personal expense tracker. List every purchased line item and assign each one a spending category.
+
+        The photo may show more than one receipt. Return each separate receipt (its own store header, total and payment) as its own entry in `receipts`, in order from top to bottom / left to right. Never merge different receipts into one.
 
         Categories:
         - basic (the default): everyday groceries and food items (incl. fresh fruit), household essentials, milk/juice/water; also any restaurant/cafe purchase under 5 EUR
@@ -32,7 +34,7 @@ struct ClaudeClient {
         Rules:
         - One entry per purchased line, in receipt order, with the item name as printed.
         - amount: the final euros paid for that line (quantity x unit price). Apply line discounts to the item they belong to and add bottle deposits (pantti) to the drink they belong to, so discounts and deposits are not separate entries.
-        - Item amounts must sum exactly to the receipt total. Subtract a receipt-level discount from the largest item.
+        - Each receipt's item amounts must sum exactly to that receipt's total. Subtract a receipt-level discount from the largest item.
         - When unsure, use basic.
         """
         if !learned.isEmpty {
@@ -40,12 +42,12 @@ struct ClaudeClient {
             s += learned.map { "- \($0.name) → \($0.category.rawValue)" }.joined(separator: "\n")
         }
         if pageCount > 1 {
-            s += "\n\nThe \(pageCount) images are consecutive sections of the same receipt, top to bottom."
+            s += "\n\nThe \(pageCount) images are consecutive photos, top to bottom."
         }
         return s
     }
 
-    static let schema: [String: Any] = [
+    private static let receiptSchema: [String: Any] = [
         "type": "object",
         "properties": [
             "merchant": ["anyOf": [["type": "string"], ["type": "null"]]],
@@ -70,7 +72,15 @@ struct ClaudeClient {
         "additionalProperties": false,
     ]
 
-    func scan(images: [UIImage]) async throws -> ReceiptScan {
+    static let schema: [String: Any] = [
+        "type": "object",
+        "properties": ["receipts": ["type": "array", "items": receiptSchema]],
+        "required": ["receipts"],
+        "additionalProperties": false,
+    ]
+
+    /// One entry per separate receipt found in the photo(s).
+    func scan(images: [UIImage]) async throws -> [ReceiptScan] {
         var content: [[String: Any]] = images.compactMap { img in
             guard let jpeg = ImageUtil.jpegForClaude(img) else { return nil }
             return ["type": "image",
@@ -80,16 +90,20 @@ struct ClaudeClient {
         content.append(["type": "text", "text": Self.prompt(pageCount: content.count, learned: ItemRules.promptHints())])
 
         let result = try await send(content: content, schema: Self.schema)
-        let items: [ReceiptItem] = (result["items"] as? [[String: Any]] ?? []).compactMap { p in
-            guard let a = (p["amount"] as? NSNumber)?.doubleValue, a != 0 else { return nil }
-            let c = (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) ?? .basic
-            return ReceiptItem(name: p["name"] as? String ?? "", amount: Format.round2(a), category: c)
+        let receipts: [ReceiptScan] = (result["receipts"] as? [[String: Any]] ?? []).compactMap { r in
+            let items: [ReceiptItem] = (r["items"] as? [[String: Any]] ?? []).compactMap { p in
+                guard let a = (p["amount"] as? NSNumber)?.doubleValue, a != 0 else { return nil }
+                let c = (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) ?? .basic
+                return ReceiptItem(name: p["name"] as? String ?? "", amount: Format.round2(a), category: c)
+            }
+            guard !items.isEmpty else { return nil }
+            let date = (r["date"] as? String).flatMap { Format.day.date(from: $0) != nil ? $0 : nil }
+            return ReceiptScan(merchant: r["merchant"] as? String, date: date,
+                               total: Format.round2((r["total"] as? NSNumber)?.doubleValue ?? items.reduce(0) { $0 + $1.amount }),
+                               items: ItemRules.apply(to: items))
         }
-        guard !items.isEmpty else { throw ClaudeError(message: "No items found on the receipt.") }
-        let date = (result["date"] as? String).flatMap { Format.day.date(from: $0) != nil ? $0 : nil }
-        return ReceiptScan(merchant: result["merchant"] as? String, date: date,
-                           total: Format.round2((result["total"] as? NSNumber)?.doubleValue ?? items.reduce(0) { $0 + $1.amount }),
-                           items: ItemRules.apply(to: items))
+        guard !receipts.isEmpty else { throw ClaudeError(message: "No items found on the receipt.") }
+        return receipts
     }
 
     static let merchantSchema: [String: Any] = [

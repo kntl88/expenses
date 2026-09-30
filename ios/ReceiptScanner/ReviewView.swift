@@ -18,6 +18,11 @@ struct ReviewView: View {
     @State private var error: String?
 
     @State private var scan: ReceiptScan?
+    /// All receipts found in the photo; they're reviewed and saved one after another.
+    @State private var queue: [ReceiptScan] = []
+    @State private var position = 0
+    @State private var savedCount = 0
+    @State private var savedTotal = 0.0
     @State private var items: [ReceiptItem] = []
     @State private var description = ""
     @State private var date = Date()
@@ -73,6 +78,13 @@ struct ReviewView: View {
             }
         }
         .navigationTitle(job == nil ? "Allocate" : "Receipt")
+        .toolbar {
+            if queue.count > 1, phase == .review {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(position + 1 < queue.count ? "Skip" : "Skip & finish") { advance() }
+                }
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .task { await start() }
         .sheet(isPresented: $showImage) { imageSheet }
@@ -102,7 +114,8 @@ struct ReviewView: View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(.green)
             Text("Added to expenses").font(.title2.weight(.semibold))
-            Text("\(groups.count) \(groups.count == 1 ? "entry" : "entries") · \(Format.euro(sum))")
+            Text(savedCount > 1 ? "\(savedCount) receipts · \(Format.euro(savedTotal))"
+                 : "\(groups.count) \(groups.count == 1 ? "entry" : "entries") · \(Format.euro(sum))")
                 .foregroundStyle(.secondary)
             Button("Done", action: onDone).buttonStyle(.borderedProminent).padding(.top)
         }
@@ -122,6 +135,9 @@ struct ReviewView: View {
                     }
                     VStack(alignment: .leading) {
                         if job != nil {
+                            if queue.count > 1 {
+                                Text("Receipt \(position + 1) of \(queue.count)").font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                            }
                             Text(scan?.merchant ?? "Unknown merchant").font(.headline)
                             if let total = scan?.total {
                                 Text("Receipt total \(Format.euro(total))").font(.subheadline).foregroundStyle(.secondary)
@@ -304,19 +320,48 @@ struct ReviewView: View {
         guard scan == nil, let job, let claude = app.claude else { return }
         error = nil
         do {
-            let result = try await claude.scan(images: job.images)
-            scan = result
-            items = result.items
-            if target == nil {
-                description = result.merchant ?? "Receipt"
-                if let d = result.date.flatMap({ Format.day.date(from: $0) }) { date = d }
+            var receipts = try await claude.scan(images: job.images)
+            // When scanning for a specific transaction, review the receipt that matches it first.
+            if let t = target, let i = receipts.firstIndex(where: { abs($0.total - t.total) < 0.011 }), i > 0 {
+                receipts.insert(receipts.remove(at: i), at: 0)
             }
-            phase = .review
+            queue = receipts
+            show(0)
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
             app.saveAnthropicKey(nil)
             error = "Anthropic API key was rejected. Enter a new one in Settings."
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Loads receipt `i` of the queue into the form. Only the first one replaces `target`.
+    private func show(_ i: Int) {
+        position = i
+        let r = queue[i]
+        scan = r
+        items = r.items
+        error = nil
+        if i == 0, let t = target {
+            replacing = t
+            adopt(t)
+        } else {
+            replacing = nil
+            account = app.defaultAccount
+            description = r.merchant ?? "Receipt"
+            if let d = r.date.flatMap({ Format.day.date(from: $0) }) { date = d } else { date = Date() }
+        }
+        phase = .review
+    }
+
+    /// Next receipt in the queue, or the done screen.
+    private func advance() {
+        if position + 1 < queue.count {
+            show(position + 1)
+        } else if savedCount > 0 {
+            phase = .saved
+        } else {
+            onDone()
         }
     }
 
@@ -347,7 +392,9 @@ struct ReviewView: View {
                                    message: "\(job != nil ? "Receipt" : "Allocate") \(desc) \(dateString) (iOS)")
             if job != nil { ItemRules.learn(from: items) }
             await app.loadData()
-            phase = .saved
+            savedCount += 1
+            savedTotal += sum
+            if job != nil && position + 1 < queue.count { advance() } else { phase = .saved }
         } catch {
             self.error = error.localizedDescription
             phase = .review
