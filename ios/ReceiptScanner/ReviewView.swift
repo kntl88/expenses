@@ -349,7 +349,7 @@ struct ReviewView: View {
     private func finish() {
         onDone()
         if savedAny {
-            Task { await app.loadData(week: .after(.seconds(1.2))) }
+            Task { await app.loadData(week: .after(.seconds(2.4))) }
         }
     }
 

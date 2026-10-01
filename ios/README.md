@@ -71,8 +71,8 @@ also lists Basic/Fun/Unnec/Total and has a Scan button. The app caches `expenses
 card-payment automation logs a payment; the widget recomputes `WeekSummary` from that cache (also at
 midnight), so it needs no network or credentials.
 
-After saving, the app returns straight to Home; the Consumption card keeps the old numbers for about a
-second, then animates to the new ones.
+After saving, the app returns straight to Home; the Consumption card keeps the old numbers for about
+two seconds, then animates to the new ones.
 
 ## Card payments (Apple Pay automation)
 The app exposes a **Log Card Payment** Shortcuts action (amount + merchant). It categorizes from your

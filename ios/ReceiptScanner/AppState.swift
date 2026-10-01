@@ -69,7 +69,7 @@ final class AppState {
     var pending: [Transaction] { transactions.filter(\.pending) }
     var recent: [Transaction] { Array(transactions.filter { !$0.pending }.prefix(30)) }
 
-    /// How a reload treats the Consumption card.
+    /// How a reload treats the Consumption card.x<
     enum WeekUpdate {
         case now
         /// Keep the old numbers on screen at least this long (from the call), then animate to the new ones.
