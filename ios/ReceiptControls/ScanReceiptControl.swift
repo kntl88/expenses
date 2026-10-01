@@ -6,6 +6,7 @@ import WidgetKit
 struct ReceiptControlsBundle: WidgetBundle {
     var body: some Widget {
         ScanReceiptControl()
+        ConsumptionWidget()
     }
 }
 

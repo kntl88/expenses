@@ -40,6 +40,9 @@ enum PaymentLogger {
         var offline = false
         do {
             try await store.commit(newEntries: [entry], message: "Card payment \(name) \(date) (iOS)")
+            if !history.isEmpty { // a failed history load would leave the widgets with one row
+                WidgetData.save(expenses: [entry] + history, accounts: try? await store.loadAccounts())
+            }
         } catch {
             Outbox.add(entry)
             offline = true

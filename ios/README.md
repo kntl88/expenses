@@ -61,6 +61,14 @@ lock screen → Customize → Lock Screen → tap a bottom button slot (or add i
 search "Receipts". It runs `ScanReceiptIntent` (Shared/), which opens the app straight into the
 camera. The same action is available in Shortcuts / the Action button.
 
+## Widgets
+**Consumption** (home screen small/medium, lock screen rectangular/inline/circular): this week's
+Saving (Basic+Fun+Unnec row), today's net, Forecast and the pending-payment count; the medium size
+also lists Basic/Fun/Unnec/Total and has a Scan button. The app caches `expenses.json` +
+`accounts.json` in the App Group `group.com.kntl88.ReceiptScanner` whenever it loads data or the
+card-payment automation logs a payment; the widget recomputes `WeekSummary` from that cache (also at
+midnight), so it needs no network or credentials.
+
 After saving, the app returns straight to Home; the Consumption card keeps the old numbers for about a
 second, then animates to the new ones.
 

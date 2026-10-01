@@ -92,6 +92,7 @@ final class AppState {
             let (ex, ac) = try await (expenses, accounts)
             transactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
             let newWeek = WeekSummary.compute(expenses: ex, accounts: ac)
+            WidgetData.save(expenses: ex, accounts: ac)
             switch update {
             case .keep: return
             case .now: break

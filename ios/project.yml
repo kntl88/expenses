@@ -16,6 +16,10 @@ targets:
     sources:
       - ReceiptScanner
       - Shared
+    entitlements:
+      path: ReceiptScanner/ReceiptScanner.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.kntl88.ReceiptScanner]
     dependencies:
       - target: ReceiptControls
     settings:
@@ -39,6 +43,15 @@ targets:
     sources:
       - ReceiptControls
       - Shared
+      # Foundation-only model code the Consumption widget reuses.
+      - ReceiptScanner/WeekSummary.swift
+      - ReceiptScanner/JSONValue.swift
+      - ReceiptScanner/Models.swift
+      - ReceiptScanner/WeekSummaryStyle.swift
+    entitlements:
+      path: ReceiptControls/ReceiptControls.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.kntl88.ReceiptScanner]
     info:
       path: ReceiptControls/Info.plist
       properties:
