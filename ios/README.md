@@ -76,6 +76,14 @@ gets a category from your past naming of that merchant in the app's transactions
 Rows matching a transaction already in the app (same amount within 5 days), declined ones and refunds
 start unchecked. **Add** saves the checked ones as pending card payments.
 
+### Card taps waiting for details
+Shortcuts → Automation → **Transaction** (your payment card only, Run Immediately) → **Register Card
+Tap** (Receipts), with Merchant and Amount set to the Shortcut Input's Merchant / Amount (both
+optional; usually empty at the tap). The tap is kept on the phone and listed on Home under
+**Waiting for details** (tap a row to open Wallet, swipe to dismiss; dropped after 14 days). The
+Wallet import pairs taps with payments (same day ±1, same amount/merchant when the tap has them),
+shows "card tap HH:MM" on the row, and clears the tap once its payment is added or already in Receipts.
+
 ## Widgets
 **Consumption** (home screen small/medium, lock screen rectangular/inline/circular): this week's
 Saving (Basic+Fun+Unnec row), today's net, Forecast and the pending-payment count; the medium size

@@ -57,6 +57,38 @@ struct HomeView: View {
                     Section { Text(actionError).foregroundStyle(.red) }
                 }
 
+                if !app.cardTaps.isEmpty {
+                    Section {
+                        ForEach(app.cardTaps) { tap in
+                            Button { UIApplication.shared.open(URL(string: "shoebox://")!) } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "clock.badge.questionmark")
+                                        .foregroundStyle(.orange)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(tap.merchant.isEmpty ? "Card payment" : tap.merchant).lineLimit(1)
+                                        Text(tap.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()))
+                                            .font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text(tap.amount.map(Format.euro) ?? "—").monospacedDigit()
+                                        .foregroundStyle(tap.amount == nil ? .secondary : .primary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { app.clearTaps([tap.id]) } label: {
+                                    Label("Dismiss", systemImage: "xmark")
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Waiting for details · \(app.cardTaps.count)")
+                    } footer: {
+                        Text("Card taps from the automation. Details reach Wallet 30–60 min later: tap to open Wallet, then triple-tap to import. Swipe to dismiss.")
+                    }
+                }
+
                 if !app.pending.isEmpty {
                     Section {
                         ForEach(app.pending) { tx in

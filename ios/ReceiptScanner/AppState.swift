@@ -49,8 +49,17 @@ final class AppState {
         repo = nil
     }
 
-    /// Called when the app becomes active (picks up edits made in the web app).
+    /// Card taps from the Transaction automation, waiting for their Wallet details.
+    var cardTaps = CardTaps.load()
+
+    func clearTaps(_ ids: Set<UUID>) {
+        CardTaps.remove(ids)
+        cardTaps = CardTaps.load()
+    }
+
+    /// Called when the app becomes active (picks up edits made in the web app and new card taps).
     func refresh() async {
+        cardTaps = CardTaps.load()
         await loadData()
     }
 

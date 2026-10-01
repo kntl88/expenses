@@ -104,6 +104,8 @@ struct WalletImportView: View {
                 found[i].existing = match
                 found[i].include = match == nil && (found[i].status == "completed" || found[i].status == "pending")
             }
+            let taps = CardTaps.match(found, taps: app.cardTaps)
+            for i in found.indices { found[i].tap = taps[found[i].id] }
             payments = found
             phase = .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
@@ -126,6 +128,8 @@ struct WalletImportView: View {
         do {
             try await store.commit(newEntries: entries,
                                    message: "Wallet import \(entries.count) payment\(entries.count == 1 ? "" : "s") (iOS)")
+            // A tap is done once its payment is added, or was already in Receipts.
+            app.clearTaps(Set(payments.compactMap { p in p.include || p.existing != nil ? p.tap?.id : nil }))
             onDone()
             Task { await app.loadData(week: .after(.seconds(2.4))) }
         } catch {
@@ -145,6 +149,7 @@ private struct PaymentRow: View {
 
     private var subtitle: String {
         if let t = payment.existing { return "\(payment.date) · already added: \(t.title)" }
+        if let tap = payment.tap { return "\(payment.date) · card tap \(tap.date.formatted(date: .omitted, time: .shortened))" }
         switch payment.status {
         case "declined": return "\(payment.date) · declined"
         case "refund": return "\(payment.date) · refund"

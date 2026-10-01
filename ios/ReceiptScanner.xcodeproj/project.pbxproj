@@ -35,6 +35,7 @@
 		CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A296308186F68BE677FEBE66 /* ClaudeClient.swift */; };
 		DF4A3335520B63E9DA160A9C /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DEB32A53A766E3F6A68DBEA /* WidgetData.swift */; };
 		E8B8A6DAFE998F71C97271F6 /* ItemRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */; };
+		EA7B6FA4A5CC458C0AB9D9E9 /* CardTaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0800DBA0F40E8AF98F802F5 /* CardTaps.swift */; };
 		EE9769FE59274D9463ED269B /* WalletImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3A14FF55BC8816CED85588 /* WalletImportView.swift */; };
 		EF16FF413112C67FF529EED9 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DEB32A53A766E3F6A68DBEA /* WidgetData.swift */; };
 		F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */; };
@@ -99,6 +100,7 @@
 		B96893D94E71B89E61556BC0 /* WalletImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletImport.swift; sourceTree = "<group>"; };
 		BBB1B58928D31D534C11CF86 /* ReceiptControls.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ReceiptControls.entitlements; sourceTree = "<group>"; };
 		C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViews.swift; sourceTree = "<group>"; };
+		D0800DBA0F40E8AF98F802F5 /* CardTaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardTaps.swift; sourceTree = "<group>"; };
 		D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanWidget.swift; sourceTree = "<group>"; };
 		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 				6CC43AF3EF6CEAEE885976BD /* AppState.swift */,
 				657B591D201E75C907CD1E6C /* Assets.xcassets */,
 				B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */,
+				D0800DBA0F40E8AF98F802F5 /* CardTaps.swift */,
 				A296308186F68BE677FEBE66 /* ClaudeClient.swift */,
 				47369034472BE10A92CA1F4A /* DemoData.swift */,
 				B2E8D2852640ED13809A7D76 /* GitHubStore.swift */,
@@ -292,6 +295,7 @@
 				5ED4C81CD7D74255087D9068 /* AppShortcuts.swift in Sources */,
 				82BE9E3D753F937312E85113 /* AppState.swift in Sources */,
 				AF719F1A640A935A0A7B6DD5 /* CameraPicker.swift in Sources */,
+				EA7B6FA4A5CC458C0AB9D9E9 /* CardTaps.swift in Sources */,
 				CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */,
 				538773F9E414B55198B5CC4F /* DemoData.swift in Sources */,
 				FF061FE486B75268F8F7A438 /* GitHubStore.swift in Sources */,

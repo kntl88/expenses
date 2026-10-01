@@ -54,6 +54,8 @@ struct WalletPayment: Identifiable {
     var status: String      // completed, pending, declined, refund
     /// A transaction already in expenses with the same amount nearby.
     var existing: Transaction?
+    /// The waiting card tap this payment fills in.
+    var tap: CardTaps.Tap?
     var include = true
 }
 
