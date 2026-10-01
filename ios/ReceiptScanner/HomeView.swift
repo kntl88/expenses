@@ -37,6 +37,15 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
 
+                    // Card details reach Wallet 30–60 min after paying; check them there.
+                    // Apps can't link to one card's transactions, so this opens Wallet's card stack.
+                    CardButton(title: "Open Wallet", systemImage: "wallet.pass", tint: WebStyle.dim) {
+                        UIApplication.shared.open(URL(string: "shoebox://")!)
+                    }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+
                     CardButton(title: "Settings", systemImage: "gearshape", tint: WebStyle.dim) { showSettings = true }
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
                         .listRowBackground(Color.clear)
