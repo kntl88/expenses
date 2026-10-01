@@ -11,7 +11,7 @@ struct Transaction: Identifiable, Hashable {
         let description: String
         let items: [Item]
 
-        var token: ReceiptCategory? { MerchantCategorizer.token(category: category, subCategory: subCategory) }
+        var token: ReceiptCategory? { Transaction.token(category: category, subCategory: subCategory) }
         var label: String { token?.label ?? Transaction.categoryLabel(category) }
     }
 
@@ -49,6 +49,23 @@ struct Transaction: Identifiable, Hashable {
 
     /// The app only shows transactions from this date on (the week summary still uses all data).
     static let displayCutoff = "2026-09-28"
+
+    /// Reverse of ReceiptCategory.stored.
+    static func token(category: String, subCategory: String?) -> ReceiptCategory? {
+        switch (category, subCategory) {
+        case ("unnecessary", "eating_out"): return .eo
+        case ("unnecessary", _): return .un
+        case ("budgeted", "purchases"): return .pu
+        case ("budgeted", "health"): return .he
+        case ("budgeted", "medical"): return .med
+        case ("budgeted", "taloustarvikkeet"): return .ta
+        case ("basic", _): return .basic
+        case ("fun", _): return .fun
+        case ("gas", _): return .gas
+        case ("misc", _): return .misc
+        default: return nil
+        }
+    }
 
     static func categoryLabel(_ key: String) -> String {
         let labels = ["basic": "Basic", "gas": "Gas", "fun": "Fun", "fixed": "Fixed", "unnecessary": "Unnecessary",

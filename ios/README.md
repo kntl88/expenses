@@ -45,7 +45,7 @@ Project is generated from `project.yml` with XcodeGen (`cd ios && xcodegen`), bu
 fields the web app ignores and preserves on edit:
 - `txId` — rows from the same receipt/transaction share it; the phone shows them as one transaction.
 - `items` — that row's receipt lines, `[{name, amount}]` (itemized transactions).
-- `pending: true` — a card payment logged by the automation that still waits for a receipt or
+- `pending: true` — a card payment (logged by the former Apple Pay automation) that still waits for a receipt or
   allocation. It already counts in its guessed category in the web app.
 
 The home screen lists **Pending** payments and recent **Transactions**. Tap a row to expand its line items by category in place, with buttons to
@@ -67,33 +67,8 @@ can't run intents).
 **Consumption** (home screen small/medium, lock screen rectangular/inline/circular): this week's
 Saving (Basic+Fun+Unnec row), today's net, Forecast and the pending-payment count; the medium size
 also lists Basic/Fun/Unnec/Total and has a Scan button. The app caches `expenses.json` +
-`accounts.json` in the App Group `group.com.kntl88.ReceiptScanner` whenever it loads data or the
-card-payment automation logs a payment; the widget recomputes `WeekSummary` from that cache (also at
+`accounts.json` in the App Group `group.com.kntl88.ReceiptScanner` whenever it loads data; the widget recomputes `WeekSummary` from that cache (also at
 midnight), so it needs no network or credentials.
 
 After saving, the app returns straight to Home; the Consumption card keeps the old numbers for about
 two seconds, then animates to the new ones.
-
-## Card payments (Apple Pay automation)
-
-**Delayed amounts:** the Transaction trigger only waits briefly for the bank's details; Bank
-Norwegian's arrive 30–60 min later, so the automation often runs with an empty Amount. Those taps are
-kept (`MissedTaps`) and listed on Home under **Needs amount**: tap one, enter the amount from Wallet,
-and it's logged for the tap's date like any other card payment (swipe to dismiss; taps older than
-14 days are dropped since the statement import covers them). Reading Wallet history directly isn't
-possible: FinanceKit only covers Apple Card/Cash/Savings (US) and UK open banking, behind an
-App Store–only managed entitlement.
-The app exposes a **Log Card Payment** Shortcuts action (amount + merchant). It categorizes from your
-own history for that merchant (weighted by euros), falls back to Claude for new merchants, applies
-the "eating out < 5 € = basic" rule, and writes the expense as **pending** with today's date and the
-default account. If the network is down it queues the entry and syncs next time the app opens.
-
-Setup (once):
-1. Run the app once after installing so iOS registers the action.
-2. Shortcuts → Automation → **+** → **Transaction** → choose your card(s) in Wallet → Run Immediately → Next.
-3. **New Blank Automation** → add action **Log Card Payment** (Receipts app).
-4. Tap *Amount* → select the magic variable **Shortcut Input** → change it to **Amount**.
-   Tap *Merchant* → **Shortcut Input** → **Merchant**. Done.
-
-Only Apple Pay taps trigger it (not the physical card or online payments). Scanning the receipt
-later still works: the review screen offers the card entry under "Replace existing" (same amount).

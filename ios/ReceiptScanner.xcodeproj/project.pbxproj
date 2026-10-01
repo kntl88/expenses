@@ -11,13 +11,12 @@
 		0FFCBC65B62F174BC4C2B3CB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 657B591D201E75C907CD1E6C /* Assets.xcassets */; };
 		110221C9047E96E2AFE5A036 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D2653A974333A7A3EA3478 /* HomeView.swift */; };
 		120AF21129DB35CBEBC2ACF9 /* ReceiptControls.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 10BE64BA523D2DB6BE5B3C92 /* ReceiptControls.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		1623D1D77E56A1DC1679B318 /* PaymentLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */; };
 		1914D745D9F94C9209F8BF6E /* ConsumptionWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B522912C69D6B8D39A5F121D /* ConsumptionWidget.swift */; };
 		426989F7C58503A098E6CF1E /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1494E17C7F1DCE08CAD23D76 /* Keychain.swift */; };
 		47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */; };
-		502FBE6B53BA585081C2A119 /* LogCardPaymentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */; };
 		538773F9E414B55198B5CC4F /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47369034472BE10A92CA1F4A /* DemoData.swift */; };
 		576822B5016D7017B864AD02 /* WeekSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876D71B7830A97CB255C78E5 /* WeekSummary.swift */; };
+		5ED4C81CD7D74255087D9068 /* AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2B5E2CAE9E14A15E583B32 /* AppShortcuts.swift */; };
 		67BA830BA2DC899049AB4A58 /* WeekSummaryStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C0593F95D022F08F055F6F /* WeekSummaryStyle.swift */; };
 		684BBF9EC7B46AEB6A60C06A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164199FDAC80234F90480C83 /* Models.swift */; };
 		81F6C88DAF444B215BD5EE35 /* ScanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */; };
@@ -76,7 +75,6 @@
 		1494E17C7F1DCE08CAD23D76 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		164199FDAC80234F90480C83 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		1DEB32A53A766E3F6A68DBEA /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
-		341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentLogger.swift; sourceTree = "<group>"; };
 		47369034472BE10A92CA1F4A /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRules.swift; sourceTree = "<group>"; };
 		5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
@@ -91,6 +89,7 @@
 		99E80B0C1014D31268D8CCC1 /* Transactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transactions.swift; sourceTree = "<group>"; };
 		9EC73C9CB0F87E95CB6DFE9C /* ReceiptScanner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ReceiptScanner.entitlements; sourceTree = "<group>"; };
 		A296308186F68BE677FEBE66 /* ClaudeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeClient.swift; sourceTree = "<group>"; };
+		AB2B5E2CAE9E14A15E583B32 /* AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShortcuts.swift; sourceTree = "<group>"; };
 		B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		B2E8D2852640ED13809A7D76 /* GitHubStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStore.swift; sourceTree = "<group>"; };
 		B522912C69D6B8D39A5F121D /* ConsumptionWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsumptionWidget.swift; sourceTree = "<group>"; };
@@ -98,7 +97,6 @@
 		C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViews.swift; sourceTree = "<group>"; };
 		D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanWidget.swift; sourceTree = "<group>"; };
 		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
-		DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCardPaymentIntent.swift; sourceTree = "<group>"; };
 		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		F3E30737E5A2D558DD7F073D /* ScanReceiptControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReceiptControl.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -129,6 +127,7 @@
 		76ACB69EFEBC4C03EE7B9E63 /* ReceiptScanner */ = {
 			isa = PBXGroup;
 			children = (
+				AB2B5E2CAE9E14A15E583B32 /* AppShortcuts.swift */,
 				6CC43AF3EF6CEAEE885976BD /* AppState.swift */,
 				657B591D201E75C907CD1E6C /* Assets.xcassets */,
 				B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */,
@@ -140,9 +139,7 @@
 				4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */,
 				D38E5D83147F3BB0050B2884 /* JSONValue.swift */,
 				1494E17C7F1DCE08CAD23D76 /* Keychain.swift */,
-				DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */,
 				164199FDAC80234F90480C83 /* Models.swift */,
-				341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */,
 				9EC73C9CB0F87E95CB6DFE9C /* ReceiptScanner.entitlements */,
 				731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */,
 				5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */,
@@ -286,6 +283,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5ED4C81CD7D74255087D9068 /* AppShortcuts.swift in Sources */,
 				82BE9E3D753F937312E85113 /* AppState.swift in Sources */,
 				AF719F1A640A935A0A7B6DD5 /* CameraPicker.swift in Sources */,
 				CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */,
@@ -295,9 +293,7 @@
 				E8B8A6DAFE998F71C97271F6 /* ItemRules.swift in Sources */,
 				9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */,
 				426989F7C58503A098E6CF1E /* Keychain.swift in Sources */,
-				502FBE6B53BA585081C2A119 /* LogCardPaymentIntent.swift in Sources */,
 				9D8C10D1765618DAA20D7171 /* Models.swift in Sources */,
-				1623D1D77E56A1DC1679B318 /* PaymentLogger.swift in Sources */,
 				47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */,
 				AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */,
 				B66FE03E6B9C0EF58DB857FB /* ScanReceiptIntent.swift in Sources */,

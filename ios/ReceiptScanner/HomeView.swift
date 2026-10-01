@@ -21,9 +21,6 @@ struct HomeView: View {
     @State private var confirmDelete: Transaction?
     @State private var actionError: String?
     @State private var expanded: Set<String> = []
-    @State private var pricing: MissedTaps.Tap?
-    @State private var priceAmount = ""
-    @State private var priceMerchant = ""
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -46,50 +43,8 @@ struct HomeView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                if app.outboxCount > 0 {
-                    Section {
-                        Label("\(app.outboxCount) card payment\(app.outboxCount == 1 ? "" : "s") waiting to sync",
-                              systemImage: "icloud.slash")
-                            .foregroundStyle(.orange)
-                    }
-                }
-
                 if let actionError {
                     Section { Text(actionError).foregroundStyle(.red) }
-                }
-
-                if !app.missedTaps.isEmpty {
-                    Section {
-                        ForEach(app.missedTaps) { tap in
-                            Button {
-                                priceAmount = ""
-                                priceMerchant = tap.merchant
-                                pricing = tap
-                            } label: {
-                                HStack {
-                                    Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                                        .foregroundStyle(.orange)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(tap.merchant.isEmpty ? "Card payment" : tap.merchant)
-                                        Text(tap.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()))
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Text("Add amount").font(.subheadline).foregroundStyle(.tint)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) { app.dismiss(tap) } label: {
-                                    Label("Dismiss", systemImage: "xmark")
-                                }
-                            }
-                        }
-                    } header: {
-                        Text("Needs amount · \(app.missedTaps.count)")
-                    } footer: {
-                        Text("Card taps where Wallet didn't have the amount yet (it arrives 30–60 min later). Check Wallet and enter it, or swipe to dismiss.")
-                    }
                 }
 
                 if !app.pending.isEmpty {
@@ -152,20 +107,6 @@ struct HomeView: View {
                 .ignoresSafeArea()
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .alert("Card payment", isPresented: Binding(
-                get: { pricing != nil }, set: { if !$0 { pricing = nil } }
-            ), presenting: pricing) { tap in
-                TextField("Amount, e.g. 12,40", text: $priceAmount)
-                    .keyboardType(.decimalPad)
-                TextField("Merchant", text: $priceMerchant)
-                Button("Add") {
-                    let amount = priceAmount, merchant = priceMerchant
-                    run { _ = try await app.price(tap, amount: amount, merchant: merchant) }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: { tap in
-                Text("Tapped \(tap.date.formatted(date: .abbreviated, time: .shortened)). Enter the amount shown in Wallet.")
-            }
             .confirmationDialog("Delete this transaction?", isPresented: Binding(
                 get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }
             ), presenting: confirmDelete) { tx in
@@ -247,7 +188,6 @@ struct SettingsView: View {
                 }
                 Section {
                     NavigationLink("Learned items") { LearnedItemsView() }
-                    NavigationLink("Automation log") { AutomationLogView() }
                 } footer: {
                     Text("Items you've put in a category other than Basic on past receipts.")
                 }
@@ -318,29 +258,5 @@ struct CardButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
-    }
-}
-
-struct AutomationLogView: View {
-    @State private var entries: [AutomationLog.Entry] = []
-
-    var body: some View {
-        List {
-            if entries.isEmpty {
-                Text("The card payment automation hasn't run yet.").foregroundStyle(.secondary)
-            }
-            ForEach(entries) { e in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(e.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                    LabeledContent("Amount", value: "\"\(e.amount)\"")
-                    LabeledContent("Merchant", value: "\"\(e.merchant)\"")
-                    Text(e.result).font(.subheadline)
-                        .foregroundStyle(e.result.hasPrefix("Error") ? .red : .primary)
-                }
-                .textSelection(.enabled)
-            }
-        }
-        .navigationTitle("Automation log")
-        .onAppear { entries = AutomationLog.load() }
     }
 }

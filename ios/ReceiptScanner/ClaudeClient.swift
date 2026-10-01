@@ -106,43 +106,6 @@ struct ClaudeClient {
         return receipts
     }
 
-    static let merchantSchema: [String: Any] = [
-        "type": "object",
-        "properties": [
-            "category": ["type": "string", "enum": ReceiptCategory.allCases.map(\.rawValue)],
-            "name": ["type": "string", "description": "Clean, human-readable merchant name"],
-        ],
-        "required": ["category", "name"],
-        "additionalProperties": false,
-    ]
-
-    /// Classifies a card payment from just the merchant string (no receipt).
-    func classifyMerchant(_ merchant: String, amount: Double) async throws -> (ReceiptCategory, String) {
-        let text = """
-        A card payment of \(String(format: "%.2f", amount)) EUR was made in Finland at the merchant "\(merchant)" (as shown by the card terminal, possibly truncated).
-        Pick the single most likely spending category and give a clean merchant name (e.g. "K-MARKET HERTTONIE" → "K-Market Herttoniemi").
-
-        Categories:
-        - basic: grocery stores and supermarkets, everyday essentials; also any restaurant/cafe purchase under 5 EUR
-        - fun: pubs, bars, alcohol shops (Alko), entertainment, games, cinema
-        - eo: restaurants, cafes, takeaway and food delivery of 5 EUR or more
-        - gas: fuel stations when the purchase is likely fuel
-        - pu: durable goods: electronics, hardware, clothes, home goods stores
-        - he: health food stores, supplements
-        - med: pharmacies (apteekki), doctors
-        - ta: stores mainly selling cleaning and household consumables
-        - misc: parking, public transport, services, anything unclear
-        - un: kiosks and candy/soft-drink impulse purchases
-        """
-        let result = try await send(content: [["type": "text", "text": text]], schema: Self.merchantSchema,
-                                    maxTokens: 2000, effort: "low")
-        guard let c = (result["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) else {
-            throw ClaudeError(message: "Couldn't parse Claude's response.")
-        }
-        let name = (result["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? merchant
-        return (c, name)
-    }
-
     private func send(content: [[String: Any]], schema: [String: Any],
                       maxTokens: Int = 16000, effort: String? = nil) async throws -> [String: Any] {
         var outputConfig: [String: Any] = ["format": ["type": "json_schema", "schema": schema]]
