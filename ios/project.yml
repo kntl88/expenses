@@ -70,3 +70,14 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 9CHRAUFN7Z
+schemes:
+  # Only the app gets a scheme; the widget extension is embedded in it (running the extension's
+  # own scheme makes Xcode try to show the widget on SpringBoard, which fails).
+  ReceiptScanner:
+    build:
+      targets:
+        ReceiptScanner: all
+    run:
+      config: Debug
+    archive:
+      config: Release
