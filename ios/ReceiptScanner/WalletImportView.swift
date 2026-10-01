@@ -6,8 +6,9 @@ struct WalletImportView: View {
     let job: ScanJob
     var onDone: () -> Void
 
-    enum Phase { case reading, review, saving }
-    @State private var phase: Phase = .reading
+    /// `confirm` first, so an accidental Back Tap screenshot is never sent to Claude.
+    enum Phase { case confirm, reading, review, saving }
+    @State private var phase: Phase = .confirm
     @State private var started = false
     @State private var error: String?
     @State private var payments: [WalletPayment] = []
@@ -17,14 +18,24 @@ struct WalletImportView: View {
     var body: some View {
         Group {
             switch phase {
+            case .confirm: confirmView
             case .reading: readingView
             case .review, .saving: reviewList
             }
         }
         .navigationTitle("Wallet import")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(phase == .confirm)
         .toolbar {
-            if phase != .reading {
+            if phase == .confirm {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onDone)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Import") { Task { await start() } }.fontWeight(.semibold)
+                }
+            }
+            if phase == .review || phase == .saving {
                 ToolbarItem(placement: .confirmationAction) {
                     if phase == .saving {
                         ProgressView()
@@ -36,7 +47,20 @@ struct WalletImportView: View {
                 }
             }
         }
-        .task { await start() }
+    }
+
+    private var confirmView: some View {
+        VStack(spacing: 12) {
+            if let first = job.images.first {
+                Image(uiImage: first).resizable().scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(.quaternary))
+            }
+            Text("Read the card payments in this screenshot?")
+                .font(.subheadline).foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var readingView: some View {
@@ -80,6 +104,7 @@ struct WalletImportView: View {
     private func start() async {
         guard !started else { return }
         started = true
+        phase = .reading
         if app.transactions.isEmpty { await app.loadData() }
         await read()
     }
