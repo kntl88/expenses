@@ -71,6 +71,12 @@ payments are imported from a screenshot of Wallet's transaction list instead:
 2. Settings → Accessibility → Touch → Back Tap → **Triple Tap** → that shortcut.
 3. In Wallet, open the card's transactions and triple-tap the back of the phone.
 
+**Only in Wallet:** Back Tap works everywhere, so the shortcut checks first. Add two app automations
+(Shortcuts → Automation → App → Wallet, Run Immediately): *Is Opened* → **Wallet Opened**, *Is Closed*
+→ **Wallet Closed**. Then wrap the shortcut: **Is Wallet Open** → **If** result is true → Take
+Screenshot → Import Wallet Screenshot → End If. The open flag expires after 15 min in case a
+"closed" run is missed.
+
 Receipts opens and Claude reads the rows (relative dates like "Yesterday" resolved to dates). Each row
 gets a category from your past naming of that merchant in the app's transactions, else Claude's guess.
 Rows matching a transaction already in the app (same amount within 5 days), declined ones and refunds
