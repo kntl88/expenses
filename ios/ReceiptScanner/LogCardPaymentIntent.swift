@@ -18,6 +18,13 @@ struct LogCardPaymentIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         let message: String
+        // Wallet sometimes fires the trigger with no amount (a pass tap, or a card whose bank
+        // doesn't share transaction details). Nothing to log then; the bank statement import covers it.
+        if amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            message = "Skipped: Wallet gave no amount" + (merchant.isEmpty ? "" : " for \(merchant)")
+            AutomationLog.add(amount: amount, merchant: merchant, result: message)
+            return .result(value: message, dialog: "\(message)")
+        }
         do {
             message = try await PaymentLogger.log(amountText: amount, merchant: merchant)
         } catch {
