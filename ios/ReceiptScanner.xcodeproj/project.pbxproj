@@ -35,8 +35,10 @@
 		CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A296308186F68BE677FEBE66 /* ClaudeClient.swift */; };
 		DF4A3335520B63E9DA160A9C /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DEB32A53A766E3F6A68DBEA /* WidgetData.swift */; };
 		E8B8A6DAFE998F71C97271F6 /* ItemRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */; };
+		EE9769FE59274D9463ED269B /* WalletImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3A14FF55BC8816CED85588 /* WalletImportView.swift */; };
 		EF16FF413112C67FF529EED9 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DEB32A53A766E3F6A68DBEA /* WidgetData.swift */; };
 		F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */; };
+		F8F198AB8CF266CC6EB976E0 /* WalletImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B96893D94E71B89E61556BC0 /* WalletImport.swift */; };
 		FABEF238968D9203AF6E47F3 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E5D83147F3BB0050B2884 /* JSONValue.swift */; };
 		FF061FE486B75268F8F7A438 /* GitHubStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E8D2852640ED13809A7D76 /* GitHubStore.swift */; };
 		FF6E7D9C38006A11213DE274 /* Transactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E80B0C1014D31268D8CCC1 /* Transactions.swift */; };
@@ -80,6 +82,7 @@
 		5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		63C0593F95D022F08F055F6F /* WeekSummaryStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummaryStyle.swift; sourceTree = "<group>"; };
 		657B591D201E75C907CD1E6C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6A3A14FF55BC8816CED85588 /* WalletImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletImportView.swift; sourceTree = "<group>"; };
 		6CC43AF3EF6CEAEE885976BD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummaryView.swift; sourceTree = "<group>"; };
 		6E36E222E386F2D674404AAB /* ScanReceiptIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReceiptIntent.swift; sourceTree = "<group>"; };
@@ -93,6 +96,7 @@
 		B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		B2E8D2852640ED13809A7D76 /* GitHubStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStore.swift; sourceTree = "<group>"; };
 		B522912C69D6B8D39A5F121D /* ConsumptionWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsumptionWidget.swift; sourceTree = "<group>"; };
+		B96893D94E71B89E61556BC0 /* WalletImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletImport.swift; sourceTree = "<group>"; };
 		BBB1B58928D31D534C11CF86 /* ReceiptControls.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ReceiptControls.entitlements; sourceTree = "<group>"; };
 		C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViews.swift; sourceTree = "<group>"; };
 		D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanWidget.swift; sourceTree = "<group>"; };
@@ -147,6 +151,8 @@
 				99E80B0C1014D31268D8CCC1 /* Transactions.swift */,
 				C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */,
 				0A8E52171420D131C0C85292 /* Vault.swift */,
+				B96893D94E71B89E61556BC0 /* WalletImport.swift */,
+				6A3A14FF55BC8816CED85588 /* WalletImportView.swift */,
 				876D71B7830A97CB255C78E5 /* WeekSummary.swift */,
 				63C0593F95D022F08F055F6F /* WeekSummaryStyle.swift */,
 				6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */,
@@ -301,6 +307,8 @@
 				C02524FAFC2CE5BEE9417C44 /* TransactionViews.swift in Sources */,
 				FF6E7D9C38006A11213DE274 /* Transactions.swift in Sources */,
 				C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */,
+				F8F198AB8CF266CC6EB976E0 /* WalletImport.swift in Sources */,
+				EE9769FE59274D9463ED269B /* WalletImportView.swift in Sources */,
 				ADE16B7747E1E1CE8197553E /* WeekSummary.swift in Sources */,
 				67BA830BA2DC899049AB4A58 /* WeekSummaryStyle.swift in Sources */,
 				F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */,

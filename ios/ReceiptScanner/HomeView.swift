@@ -10,6 +10,7 @@ final class ScanJob: Identifiable, Hashable {
 
 enum Route: Hashable {
     case review(ScanJob?, Transaction?)
+    case walletImport(ScanJob)
 }
 
 struct HomeView: View {
@@ -104,6 +105,8 @@ struct HomeView: View {
                 switch route {
                 case let .review(job, target):
                     ReviewView(job: job, target: target) { path.removeAll() }
+                case let .walletImport(job):
+                    WalletImportView(job: job) { path.removeAll() }
                 }
             }
             .fullScreenCover(isPresented: $showScanner) {
@@ -130,8 +133,12 @@ struct HomeView: View {
             .onReceive(NotificationCenter.default.publisher(for: ScanRequest.notification)) { _ in
                 handleScanRequest()
             }
+            .onReceive(NotificationCenter.default.publisher(for: WalletImport.notification)) { _ in
+                handleWalletImport()
+            }
             .task {
                 handleScanRequest()
+                handleWalletImport()
                 await app.loadData()
                 // Debug layout check: `-demo -expand` opens every row.
                 if AppState.demo, ProcessInfo.processInfo.arguments.contains("-expand") {
@@ -161,6 +168,14 @@ struct HomeView: View {
         guard ScanRequest.take(), UIImagePickerController.isSourceTypeAvailable(.camera) else { return }
         showSettings = false
         scan(for: nil)
+    }
+
+    /// From the Import Wallet Screenshot intent (Back Tap shortcut).
+    private func handleWalletImport() {
+        guard let image = WalletImport.take() else { return }
+        showSettings = false
+        showScanner = false
+        path = [.walletImport(ScanJob(images: [image]))]
     }
 
     /// Opens the camera; the photo goes to review, replacing `target` if given.

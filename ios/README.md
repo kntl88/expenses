@@ -63,6 +63,19 @@ camera. The same action is available in Shortcuts / the Action button. For the l
 row there's also a circular **Scan Receipt** widget (opens `receipts://scan`, since lock screen widgets
 can't run intents).
 
+## Wallet screenshot import (Back Tap)
+Card details reach Wallet 30–60 min after paying, too late for the Shortcuts Transaction trigger, so
+payments are imported from a screenshot of Wallet's transaction list instead:
+1. Shortcuts → new shortcut: **Take Screenshot** → **Import Wallet Screenshot** (Receipts), with
+   Screenshot set to the Take Screenshot result.
+2. Settings → Accessibility → Touch → Back Tap → **Triple Tap** → that shortcut.
+3. In Wallet, open the card's transactions and triple-tap the back of the phone.
+
+Receipts opens and Claude reads the rows (relative dates like "Yesterday" resolved to dates). Each row
+gets a category from your past naming of that merchant in the app's transactions, else Claude's guess.
+Rows matching a transaction already in the app (same amount within 5 days), declined ones and refunds
+start unchecked. **Add** saves the checked ones as pending card payments.
+
 ## Widgets
 **Consumption** (home screen small/medium, lock screen rectangular/inline/circular): this week's
 Saving (Basic+Fun+Unnec row), today's net, Forecast and the pending-payment count; the medium size

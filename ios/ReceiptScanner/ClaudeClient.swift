@@ -106,7 +106,7 @@ struct ClaudeClient {
         return receipts
     }
 
-    private func send(content: [[String: Any]], schema: [String: Any],
+    func send(content: [[String: Any]], schema: [String: Any],
                       maxTokens: Int = 16000, effort: String? = nil) async throws -> [String: Any] {
         var outputConfig: [String: Any] = ["format": ["type": "json_schema", "schema": schema]]
         if let effort { outputConfig["effort"] = effort }
