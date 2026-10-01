@@ -40,10 +40,9 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
 
-                    // Card details reach Wallet 30–60 min after paying; check them there.
-                    // Apps can't link to one card's transactions, so this opens Wallet's card stack.
-                    CardButton(title: "Open Wallet", systemImage: "wallet.pass", tint: WebStyle.dim) {
-                        UIApplication.shared.open(URL(string: "shoebox://")!)
+                    // The bank app shows card payments immediately (Wallet lags 30–60 min); triple-tap there to import.
+                    CardButton(title: "Open Bank Norwegian", systemImage: "building.columns", tint: WebStyle.dim) {
+                        openBank()
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
                     .listRowBackground(Color.clear)
@@ -62,7 +61,7 @@ struct HomeView: View {
                 if !app.cardTaps.isEmpty {
                     Section {
                         ForEach(app.cardTaps) { tap in
-                            Button { UIApplication.shared.open(URL(string: "shoebox://")!) } label: {
+                            Button { openBank() } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "clock.badge.questionmark")
                                         .foregroundStyle(.orange)
@@ -87,7 +86,7 @@ struct HomeView: View {
                     } header: {
                         Text("Waiting for details · \(app.cardTaps.count)")
                     } footer: {
-                        Text("Card taps from the automation. Details reach Wallet 30–60 min later: tap to open Wallet, then triple-tap to import. Swipe to dismiss.")
+                        Text("Card taps from the automation. Tap to open Bank Norwegian, then triple-tap to import. Swipe to dismiss.")
                     }
                 }
 
@@ -200,6 +199,12 @@ struct HomeView: View {
             onDelete: { confirmDelete = tx })
             .modifier(VanishEffect(phase: vanish))
             .listRowBackground(vanish == nil ? nil : Color.green.opacity(0.18))
+    }
+
+    /// Runs the user's "Open Norwegian" shortcut (Open App → Bank Norwegian); apps can't open
+    /// another app without a link it supports.
+    private func openBank() {
+        UIApplication.shared.open(URL(string: "shortcuts://run-shortcut?name=Open%20Norwegian")!)
     }
 
     /// From the lock-screen control / Scan Receipt intent.
