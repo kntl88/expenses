@@ -39,6 +39,7 @@ struct ExpandableTransaction: View {
     var onScan: () -> Void
     var onAllocate: () -> Void
     var onConfirm: () -> Void
+    var onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -91,6 +92,16 @@ struct ExpandableTransaction: View {
                         actionButton(tx.pending ? "Allocate" : "Edit split", "square.split.2x1", action: onAllocate)
                         if tx.pending {
                             actionButton("Confirm", "checkmark", action: onConfirm)
+                        } else {
+                            // Pending rows delete by swiping; their three buttons leave no room here.
+                            Button(role: .destructive, action: onDelete) {
+                                Label("Delete", systemImage: "trash")
+                                    .font(.caption.weight(.medium))
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                     }
                     .padding(.top, 2)

@@ -88,6 +88,11 @@ struct HomeView: View {
                     }
                     ForEach(app.recent) { tx in
                         expandable(tx)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { confirmDelete = tx } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                     }
                 }
             }
@@ -110,12 +115,15 @@ struct HomeView: View {
                 .ignoresSafeArea()
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .confirmationDialog("Delete this payment?", isPresented: Binding(
+            .confirmationDialog("Delete this transaction?", isPresented: Binding(
                 get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }
             ), presenting: confirmDelete) { tx in
                 Button("Delete \(tx.title) · \(Format.euro(tx.total))", role: .destructive) {
                     run { try await app.delete(tx) }
                 }
+            } message: { tx in
+                Text(tx.rows.count > 1 ? "Removes all \(tx.rows.count) category rows of this receipt from expenses."
+                                       : "Removes it from expenses.")
             }
             .refreshable { await app.loadData() }
             .onReceive(NotificationCenter.default.publisher(for: ScanRequest.notification)) { _ in
@@ -143,7 +151,8 @@ struct HomeView: View {
             },
             onScan: { scan(for: tx) },
             onAllocate: { path.append(.review(nil, tx)) },
-            onConfirm: { run { try await app.confirm(tx) } })
+            onConfirm: { run { try await app.confirm(tx) } },
+            onDelete: { confirmDelete = tx })
     }
 
     /// From the lock-screen control / Scan Receipt intent.

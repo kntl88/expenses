@@ -49,7 +49,7 @@ fields the web app ignores and preserves on edit:
   allocation. It already counts in its guessed category in the web app.
 
 The home screen lists **Pending** payments and recent **Transactions**. Tap a row to expand its line items by category in place, with buttons to
-scan/rescan the receipt, allocate or edit the split, and confirm a pending payment (pending rows can
+scan/rescan the receipt, allocate or edit the split, confirm a pending payment, or delete a transaction (swipe left also deletes; a receipt split into categories is deleted as a whole) (pending rows can
 also be swiped: right to confirm, left to scan or delete). A photo with several receipts is reviewed
 and saved one receipt at a time. Scanning a receipt for a pending payment replaces
 its row with itemized category rows. Older receipt splits without a `txId` are grouped by their shared
