@@ -74,6 +74,11 @@ row there's also a circular **Scan Receipt** widget (opens `receipts://scan`, si
 can't run intents).
 
 ## Wallet screenshot import (Back Tap)
+Works on any card transaction list — Apple Wallet or the **Bank Norwegian app** (shows payments
+immediately, with times). Finnish/Nordic dates and statuses are understood; reservations count as
+pending, while invoice payments, interest, transfers and cash withdrawals are marked "not a purchase"
+and start unchecked.
+
 Card details reach Wallet 30–60 min after paying, too late for the Shortcuts Transaction trigger, so
 payments are imported from a screenshot of Wallet's transaction list instead:
 1. Shortcuts → new shortcut: **Take Screenshot** → **Import Wallet Screenshot** (Receipts), with

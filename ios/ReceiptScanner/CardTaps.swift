@@ -83,7 +83,7 @@ enum CardTaps {
     static func match(_ payments: [WalletPayment], taps: [Tap]) -> [UUID: Tap] {
         var result: [UUID: Tap] = [:]
         var free = taps.sorted { $0.date < $1.date }
-        for p in payments where p.status != "declined" && p.status != "refund" {
+        for p in payments where p.status == "completed" || p.status == "pending" {
             guard let pd = Format.day.date(from: p.date) else { continue }
             let i = free.firstIndex { t in
                 let days = abs(Calendar(identifier: .gregorian).dateComponents([.day], from: Calendar.current.startOfDay(for: t.date), to: pd).day ?? 99)

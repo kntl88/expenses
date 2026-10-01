@@ -6,7 +6,7 @@ import UIKit
 /// which reads the payments in the screenshot of Wallet's transaction list.
 struct ImportWalletScreenshotIntent: AppIntent {
     static var title: LocalizedStringResource = "Import Wallet Screenshot"
-    static var description = IntentDescription("Adds the card payments in a screenshot of Wallet's transaction list to Receipts.")
+    static var description = IntentDescription("Adds the card payments in a screenshot of a transaction list (Wallet or a bank app) to Receipts.")
     static var openAppWhenRun = true
 
     @Parameter(title: "Screenshot", supportedContentTypes: [.image], inputConnectionBehavior: .connectToPreviousIntentResult)
@@ -74,7 +74,7 @@ extension ClaudeClient {
                         "date": ["type": "string", "description": "YYYY-MM-DD"],
                         "time": ["anyOf": [["type": "string"], ["type": "null"]],
                                  "description": "HH:MM (24h) when the row shows a clock time or an hours/minutes-ago time, else null"],
-                        "status": ["type": "string", "enum": ["completed", "pending", "declined", "refund"]],
+                        "status": ["type": "string", "enum": ["completed", "pending", "declined", "refund", "other"]],
                         "category": ["type": "string", "enum": ReceiptCategory.allCases.map(\.rawValue)],
                     ],
                     "required": ["merchant", "amount", "date", "time", "status", "category"],
@@ -93,11 +93,13 @@ extension ClaudeClient {
         let weekday = now.formatted(.dateTime.weekday(.wide).locale(Locale(identifier: "en_US")))
         let time = now.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())
         let text = """
-        This is a screenshot of Apple Wallet's transaction list for a payment card, from a personal expense tracker in Finland. List every transaction row shown.
+        This is a screenshot of a payment card's transaction list — Apple Wallet or a bank app such as Bank Norwegian (the app may be in Finnish, Swedish, Norwegian or English) — from a personal expense tracker in Finland. List every transaction row shown.
 
-        Now is \(weekday) \(today) \(time). Wallet shows recent dates relatively ("2 hours ago", "Yesterday", "Tuesday") — convert each to an absolute date YYYY-MM-DD; a weekday name means the most recent past such day. Give a time HH:MM only when the row shows a clock time or "N minutes/hours ago".
+        Now is \(weekday) \(today) \(time). Convert every date to an absolute YYYY-MM-DD: relative ones ("2 hours ago", "Yesterday", "Tänään", "Eilen", a weekday name = the most recent past such day), day-month ones without a year ("1.10.", "1. okt.", "1 Oct" = this year unless that is in the future), and dates from a section header the row sits under. Give a time HH:MM only when the row shows a clock time or "N minutes/hours ago".
 
-        For each row: merchant as shown, amount in euros as a positive number, date, status (declined if the row says declined, pending if it says pending, refund if it's money back / a credit, otherwise completed) and the most likely spending category:
+        For each row: merchant as shown, amount in euros as a positive number, date, status and the most likely spending category.
+        Status: declined if the row says declined/hylätty; pending if it's reserved, pending or authorized but not booked (varaus, katevaraus, reservert, reserverad); refund if it's money back to the card from a merchant; other for anything that isn't a purchase — payments to the card / invoice payments (maksu, innbetaling, inbetalning), interest (korko, rente), transfers, cash withdrawals; otherwise completed.
+        Categories:
         - basic: grocery stores and supermarkets, everyday essentials; also any restaurant/cafe purchase under 5 EUR
         - fun: pubs, bars, alcohol shops (Alko), entertainment, games, cinema
         - eo: restaurants, cafes, takeaway and food delivery of 5 EUR or more
@@ -109,7 +111,7 @@ extension ClaudeClient {
         - misc: parking, public transport, services, anything unclear
         - un: kiosks and candy/soft-drink impulse purchases
 
-        Ignore anything that isn't a transaction row (card image, balance, headers). If there are no transaction rows, return an empty list.
+        Ignore anything that isn't a transaction row (card image, balance, credit limit, headers, buttons). If there are no transaction rows, return an empty list.
         """
         let content: [[String: Any]] = [
             ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],

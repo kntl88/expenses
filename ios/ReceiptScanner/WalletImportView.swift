@@ -23,7 +23,7 @@ struct WalletImportView: View {
             case .review, .saving: reviewList
             }
         }
-        .navigationTitle("Wallet import")
+        .navigationTitle("Import payments")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(phase == .confirm)
         .toolbar {
@@ -74,7 +74,7 @@ struct WalletImportView: View {
                 Text(error).foregroundStyle(.red).multilineTextAlignment(.center)
                 Button("Try again") { Task { await read() } }.buttonStyle(.borderedProminent)
             } else {
-                ProgressView("Reading Wallet…")
+                ProgressView("Reading payments…")
             }
         }
         .padding()
@@ -94,7 +94,7 @@ struct WalletImportView: View {
                     PaymentRow(payment: $p)
                 }
             } footer: {
-                Text("New payments are added as pending, to confirm or itemize later. Ones already in Receipts (same amount within 5 days), declined ones and refunds are unchecked.")
+                Text("New payments are added as pending, to confirm or itemize later. Ones already in Receipts (same amount within 5 days), declined ones, refunds and non-purchases are unchecked.")
             }
         }
     }
@@ -181,7 +181,8 @@ private struct PaymentRow: View {
         switch payment.status {
         case "declined": return "\(payment.date) · declined"
         case "refund": return "\(payment.date) · refund"
-        case "pending": return "\(payment.date) · pending in Wallet"
+        case "pending": return "\(payment.date) · reserved, not booked yet"
+        case "other": return "\(payment.date) · not a purchase"
         default: return payment.date
         }
     }
