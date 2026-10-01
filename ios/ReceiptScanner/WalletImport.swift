@@ -1,4 +1,5 @@
 import AppIntents
+import UniformTypeIdentifiers
 import UIKit
 
 /// Shortcuts action for Back Tap: "Take Screenshot" → "Import Wallet Screenshot". Opens the app,
@@ -8,7 +9,7 @@ struct ImportWalletScreenshotIntent: AppIntent {
     static var description = IntentDescription("Adds the card payments in a screenshot of Wallet's transaction list to Receipts.")
     static var openAppWhenRun = true
 
-    @Parameter(title: "Screenshot", supportedTypeIdentifiers: ["public.image"])
+    @Parameter(title: "Screenshot", supportedContentTypes: [.image], inputConnectionBehavior: .connectToPreviousIntentResult)
     var screenshot: IntentFile
 
     @MainActor

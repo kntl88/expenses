@@ -67,7 +67,7 @@ can't run intents).
 Card details reach Wallet 30–60 min after paying, too late for the Shortcuts Transaction trigger, so
 payments are imported from a screenshot of Wallet's transaction list instead:
 1. Shortcuts → new shortcut: **Take Screenshot** → **Import Wallet Screenshot** (Receipts), with
-   Screenshot set to the Take Screenshot result.
+   Screenshot connected to the Take Screenshot result (automatic when it follows Take Screenshot).
 2. Settings → Accessibility → Touch → Back Tap → **Triple Tap** → that shortcut.
 3. In Wallet, open the card's transactions and triple-tap the back of the phone.
 
