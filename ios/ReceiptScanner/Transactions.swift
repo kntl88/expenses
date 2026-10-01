@@ -24,6 +24,8 @@ struct Transaction: Identifiable, Hashable {
     let date: String
     let created: String
     let account: String?
+    /// When it was paid (HH:MM), if known.
+    let time: String?
     let rows: [Row]
     let pending: Bool
 
@@ -113,7 +115,8 @@ struct Transaction: Identifiable, Hashable {
             let id = first["txId"]?.stringValue ?? rows[0].id
             return Transaction(id: id, date: first["date"]?.stringValue ?? "",
                                created: first["created"]?.stringValue ?? "",
-                               account: first["account"]?.stringValue, rows: rows,
+                               account: first["account"]?.stringValue,
+                               time: first["time"]?.stringValue, rows: rows,
                                pending: vs.contains { WeekSummary.truthy($0["pending"]) })
         }
         return txs.sorted { $0.date != $1.date ? $0.date > $1.date : $0.created > $1.created }

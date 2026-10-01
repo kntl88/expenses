@@ -73,6 +73,10 @@ final class AppState {
     var pending: [Transaction] { transactions.filter(\.pending) }
     var recent: [Transaction] { Array(transactions.filter { !$0.pending }.prefix(30)) }
 
+    /// Pending payments being animated away after a receipt or allocation settled them.
+    enum Vanish { case pop, fly }
+    var vanishing: [String: Vanish] = [:]
+
     /// How a reload treats the Consumption card.x<
     enum WeekUpdate {
         case now
@@ -94,20 +98,55 @@ final class AppState {
             async let expenses = store.load().expenses
             async let accounts = store.loadAccounts()
             let (ex, ac) = try await (expenses, accounts)
-            transactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
+            let newTransactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
             let newWeek = WeekSummary.compute(expenses: ex, accounts: ac)
             WidgetData.save(expenses: ex, accounts: ac)
             switch update {
-            case .keep: return
-            case .now: break
-            case let .after(delay): try? await Task.sleep(until: start + delay)
+            case .keep:
+                transactions = newTransactions
+                return
+            case .now:
+                transactions = newTransactions
+                withAnimation(.easeInOut(duration: 0.6)) { week = newWeek }
+            case let .after(delay):
+                // Old list and numbers stay on screen; numbers change first, then any pending payment
+                // that was just settled pops and flies off before the list updates.
+                try? await Task.sleep(until: start + delay)
+                withAnimation(.easeInOut(duration: 0.6)) { week = newWeek }
+                await show(newTransactions, settlingAfter: .seconds(1.2))
             }
-            withAnimation(.easeInOut(duration: 0.6)) { week = newWeek }
             weekError = nil
         } catch {
             if week == nil { weekError = error.localizedDescription }
         }
     }
+
+    /// Swaps in `new`; pending payments it no longer has first pop and fly off (after `pause`).
+    private func show(_ new: [Transaction], settlingAfter pause: Duration) async {
+        let stillPending = Set(new.filter(\.pending).map(\.id))
+        let settled = pending.map(\.id).filter { !stillPending.contains($0) }
+        if !settled.isEmpty {
+            try? await Task.sleep(for: pause)
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.4)) {
+                for id in settled { vanishing[id] = .pop }
+            }
+            try? await Task.sleep(for: .seconds(0.7))
+            withAnimation(.easeIn(duration: 0.35)) {
+                for id in settled { vanishing[id] = .fly }
+            }
+            try? await Task.sleep(for: .seconds(0.35))
+        }
+        withAnimation(.snappy) { transactions = new }
+        vanishing = [:]
+    }
+
+    #if DEBUG
+    /// `-demo -settle`: plays the settle animation on the first pending payment (layout check).
+    func demoSettle() async {
+        guard let first = pending.first else { return }
+        await show(transactions.filter { $0.id != first.id }, settlingAfter: .seconds(1.5))
+    }
+    #endif
 
     /// Accepts a pending payment's guessed category as final.
     func confirm(_ tx: Transaction) async throws {

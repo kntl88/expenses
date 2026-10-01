@@ -53,6 +53,8 @@ struct ClaudeClient {
             "merchant": ["anyOf": [["type": "string"], ["type": "null"]]],
             "date": ["anyOf": [["type": "string"], ["type": "null"]],
                      "description": "Purchase date printed on the receipt as YYYY-MM-DD, or null"],
+            "time": ["anyOf": [["type": "string"], ["type": "null"]],
+                     "description": "Purchase time printed on the receipt as HH:MM (24h), or null"],
             "total": ["type": "number"],
             "items": [
                 "type": "array",
@@ -68,7 +70,7 @@ struct ClaudeClient {
                 ],
             ],
         ],
-        "required": ["merchant", "date", "total", "items"],
+        "required": ["merchant", "date", "time", "total", "items"],
         "additionalProperties": false,
     ]
 
@@ -98,7 +100,8 @@ struct ClaudeClient {
             }
             guard !items.isEmpty else { return nil }
             let date = (r["date"] as? String).flatMap { Format.day.date(from: $0) != nil ? $0 : nil }
-            return ReceiptScan(merchant: r["merchant"] as? String, date: date,
+            let time = (r["time"] as? String).flatMap { Format.minutes($0) != nil ? $0 : nil }
+            return ReceiptScan(merchant: r["merchant"] as? String, date: date, time: time,
                                total: Format.round2((r["total"] as? NSNumber)?.doubleValue ?? items.reduce(0) { $0 + $1.amount }),
                                items: ItemRules.apply(to: items))
         }

@@ -68,6 +68,8 @@ struct ReceiptItem: Identifiable, Equatable {
 struct ReceiptScan {
     var merchant: String?
     var date: String?
+    /// Purchase time printed on the receipt, HH:MM.
+    var time: String? = nil
     var total: Double
     var items: [ReceiptItem]
 }
@@ -76,10 +78,11 @@ struct ReceiptScan {
 enum ExpenseEntry {
     /// Extra fields (ignored by the web app's calculations, preserved by its edits):
     /// `txId` groups the rows of one receipt, `items` holds that row's receipt lines,
-    /// `pending` marks a card payment still waiting for a receipt or allocation.
+    /// `pending` marks a card payment still waiting for a receipt or allocation,
+    /// `time` (HH:MM) is when it was paid, used to pair receipts with card payments.
     static func make(amount: Double, date: String, description: String, category: ReceiptCategory,
                      account: Account, created: String = Format.isoMillis.string(from: Date()),
-                     txId: String? = nil, items: [ReceiptItem] = [], pending: Bool = false) -> JSONValue {
+                     time: String? = nil, txId: String? = nil, items: [ReceiptItem] = [], pending: Bool = false) -> JSONValue {
         let m = category.stored
         var fields: [(String, JSONValue)] = [
             ("id", .string(Format.newExpenseId())),
@@ -92,6 +95,7 @@ enum ExpenseEntry {
         if let sub = m.subCategory { fields.append(("subCategory", .string(sub))) }
         fields.append(("account", .string(account.rawValue)))
         fields.append(("created", .string(created)))
+        if let time { fields.append(("time", .string(time))) }
         if let txId { fields.append(("txId", .string(txId))) }
         if !items.isEmpty {
             fields.append(("items", .array(items.map { .object([("name", .string($0.name)), ("amount", .num(Format.round2($0.amount)))]) })))
@@ -115,6 +119,18 @@ enum Format {
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
+
+    /// "21:56" → minutes since midnight.
+    static func minutes(_ hhmm: String?) -> Int? {
+        guard let parts = hhmm?.split(separator: ":"), parts.count == 2,
+              let h = Int(parts[0]), let m = Int(parts[1]), (0..<24).contains(h), (0..<60).contains(m) else { return nil }
+        return h * 60 + m
+    }
+
+    static func hhmm(_ d: Date) -> String {
+        let c = Calendar(identifier: .gregorian).dateComponents([.hour, .minute], from: d)
+        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    }
 
     static func euro(_ v: Double) -> String { String(format: "%.2f €", v) }
 

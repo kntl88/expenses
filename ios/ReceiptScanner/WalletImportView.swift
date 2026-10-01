@@ -130,7 +130,10 @@ struct WalletImportView: View {
                 found[i].include = match == nil && (found[i].status == "completed" || found[i].status == "pending")
             }
             let taps = CardTaps.match(found, taps: app.cardTaps)
-            for i in found.indices { found[i].tap = taps[found[i].id] }
+            for i in found.indices {
+                found[i].tap = taps[found[i].id]
+                if let tap = found[i].tap { found[i].time = Format.hhmm(tap.date) } // exact, from the tap
+            }
             payments = found
             phase = .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
@@ -148,7 +151,7 @@ struct WalletImportView: View {
         let entries = selected.map { p in
             ExpenseEntry.make(amount: p.amount, date: p.date,
                               description: p.merchant.isEmpty ? "Card payment" : p.merchant,
-                              category: p.category, account: app.defaultAccount, pending: true)
+                              category: p.category, account: app.defaultAccount, time: p.time, pending: true)
         }
         do {
             try await store.commit(newEntries: entries,

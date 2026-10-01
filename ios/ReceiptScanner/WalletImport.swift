@@ -50,6 +50,7 @@ struct WalletPayment: Identifiable {
     var merchant: String
     var amount: Double      // positive euros
     var date: String        // YYYY-MM-DD
+    var time: String?       // HH:MM when Wallet shows one (or a matched card tap does)
     var category: ReceiptCategory
     var status: String      // completed, pending, declined, refund
     /// A transaction already in expenses with the same amount nearby.
@@ -71,10 +72,12 @@ extension ClaudeClient {
                         "merchant": ["type": "string"],
                         "amount": ["type": "number", "description": "Euros, positive"],
                         "date": ["type": "string", "description": "YYYY-MM-DD"],
+                        "time": ["anyOf": [["type": "string"], ["type": "null"]],
+                                 "description": "HH:MM (24h) when the row shows a clock time or an hours/minutes-ago time, else null"],
                         "status": ["type": "string", "enum": ["completed", "pending", "declined", "refund"]],
                         "category": ["type": "string", "enum": ReceiptCategory.allCases.map(\.rawValue)],
                     ],
-                    "required": ["merchant", "amount", "date", "status", "category"],
+                    "required": ["merchant", "amount", "date", "time", "status", "category"],
                     "additionalProperties": false,
                 ],
             ],
@@ -92,7 +95,7 @@ extension ClaudeClient {
         let text = """
         This is a screenshot of Apple Wallet's transaction list for a payment card, from a personal expense tracker in Finland. List every transaction row shown.
 
-        Now is \(weekday) \(today) \(time). Wallet shows recent dates relatively ("2 hours ago", "Yesterday", "Tuesday") — convert each to an absolute date YYYY-MM-DD; a weekday name means the most recent past such day.
+        Now is \(weekday) \(today) \(time). Wallet shows recent dates relatively ("2 hours ago", "Yesterday", "Tuesday") — convert each to an absolute date YYYY-MM-DD; a weekday name means the most recent past such day. Give a time HH:MM only when the row shows a clock time or "N minutes/hours ago".
 
         For each row: merchant as shown, amount in euros as a positive number, date, status (declined if the row says declined, pending if it says pending, refund if it's money back / a credit, otherwise completed) and the most likely spending category:
         - basic: grocery stores and supermarkets, everyday essentials; also any restaurant/cafe purchase under 5 EUR
@@ -118,6 +121,7 @@ extension ClaudeClient {
                   let date = p["date"] as? String, Format.day.date(from: date) != nil else { return nil }
             return WalletPayment(merchant: (p["merchant"] as? String ?? "").trimmingCharacters(in: .whitespaces),
                                  amount: Format.round2(abs(amount)), date: date,
+                                 time: (p["time"] as? String).flatMap { Format.minutes($0) != nil ? $0 : nil },
                                  category: (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) ?? .misc,
                                  status: p["status"] as? String ?? "completed")
         }

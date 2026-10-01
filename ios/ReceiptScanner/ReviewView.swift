@@ -29,6 +29,8 @@ struct ReviewView: View {
     @State private var account: Account = .norwegian
 
     @State private var replacing: Transaction?
+    /// A card tap still waiting for Wallet details that this receipt fills in (matched by time).
+    @State private var matchedTap: CardTaps.Tap?
     @State private var showImage = false
 
     private var sum: Double { Format.round2(items.reduce(0) { $0 + $1.amount }) }
@@ -237,6 +239,11 @@ struct ReviewView: View {
                         Text("Items must sum to \(Format.euro(r.total)).").foregroundStyle(.red)
                     }
                 }
+                if replacing == nil, let tap = matchedTap {
+                    Label("Fills in the card tap at \(Format.hhmm(tap.date))\(tap.merchant.isEmpty ? "" : " · \(tap.merchant)")",
+                          systemImage: "clock.badge.checkmark")
+                        .foregroundStyle(.green)
+                }
             } header: {
                 Text("Replace existing")
             } footer: {
@@ -332,8 +339,42 @@ struct ReviewView: View {
             account = app.defaultAccount
             description = r.merchant ?? "Receipt"
             if let d = r.date.flatMap({ Format.day.date(from: $0) }) { date = d } else { date = Date() }
+            autoMatch(r)
         }
         phase = .review
+    }
+
+    /// Assigns the receipt to the pending card payment it most likely is: same total, same day ±1,
+    /// closest paid time when both times are known. Failing that, to a card tap still waiting for
+    /// Wallet details from within 30 min of the receipt's time.
+    private func autoMatch(_ r: ReceiptScan) {
+        matchedTap = nil
+        let day = r.date ?? Format.day.string(from: Date())
+        let receiptMinutes = Format.minutes(r.time)
+        func distance(_ t: Transaction) -> Int? {
+            let days = Self.dayDistance(t.date, day)
+            guard abs(t.total - r.total) < 0.011, days <= 1 else { return nil }
+            if days == 0, let a = receiptMinutes, let b = Format.minutes(t.time) {
+                return abs(a - b) <= 120 ? abs(a - b) : nil
+            }
+            return 200 + days * 1440 // no times to compare: after any time match, nearest day first
+        }
+        if let best = app.pending.compactMap({ t in distance(t).map { (t, $0) } }).min(by: { $0.1 < $1.1 })?.0 {
+            replacing = best
+            adopt(best)
+            return
+        }
+        matchedTap = app.cardTaps
+            .filter { tap in
+                guard tap.day == day else { return false }
+                if let a = tap.amount, abs(a - r.total) > 0.011 { return false }
+                if let m = receiptMinutes { return abs(m - (Format.minutes(Format.hhmm(tap.date)) ?? -999)) <= 30 }
+                return tap.amount != nil // no receipt time: only a tap that knows the amount
+            }
+            .min { a, b in
+                let m = receiptMinutes ?? 0
+                return abs(m - (Format.minutes(Format.hhmm(a.date)) ?? 0)) < abs(m - (Format.minutes(Format.hhmm(b.date)) ?? 0))
+            }
     }
 
     /// Next receipt in the queue, or the done screen.
@@ -373,12 +414,13 @@ struct ReviewView: View {
             ExpenseEntry.make(amount: g.total, date: dateString,
                               description: desc + (groups.count > 1 ? " · " + label(for: g.items, category: g.category) : ""),
                               category: g.category, account: account, created: created,
-                              txId: txId, items: storesItems ? g.items : [])
+                              time: scan?.time ?? replacing?.time, txId: txId, items: storesItems ? g.items : [])
         }
         do {
             try await store.commit(newEntries: entries, replacingIds: replacing?.rowIds ?? [],
                                    message: "\(job != nil ? "Receipt" : "Allocate") \(desc) \(dateString) (iOS)")
             if job != nil { ItemRules.learn(from: items) }
+            if replacing == nil, let tap = matchedTap { app.clearTaps([tap.id]) }
             savedAny = true
             if job != nil && position + 1 < queue.count {
                 await app.loadData(week: .keep) // refresh candidates for the next receipt

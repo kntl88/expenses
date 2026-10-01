@@ -24,7 +24,9 @@ struct HomeView: View {
     @State private var expanded: Set<String> = []
 
     var body: some View {
-        NavigationStack(path: $path) {
+        // Read here so List rows redraw when it changes (rows don't track it on their own).
+        let vanishing = app.vanishing
+        return NavigationStack(path: $path) {
             List {
                 Section {
                     WeekSummaryView(summary: app.week, error: app.weekError)
@@ -92,7 +94,7 @@ struct HomeView: View {
                 if !app.pending.isEmpty {
                     Section {
                         ForEach(app.pending) { tx in
-                            expandable(tx)
+                            expandable(tx, vanish: vanishing[tx.id])
                                 .swipeActions(edge: .leading) {
                                     Button { run { try await app.confirm(tx) } } label: {
                                         Label("Confirm", systemImage: "checkmark")
@@ -121,7 +123,7 @@ struct HomeView: View {
                         Text("No transactions yet.").foregroundStyle(.secondary)
                     }
                     ForEach(app.recent) { tx in
-                        expandable(tx)
+                        expandable(tx, vanish: vanishing[tx.id])
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) { confirmDelete = tx } label: {
                                     Label("Delete", systemImage: "trash")
@@ -176,11 +178,14 @@ struct HomeView: View {
                 if AppState.demo, ProcessInfo.processInfo.arguments.contains("-expand") {
                     expanded = Set(app.transactions.map(\.id))
                 }
+                #if DEBUG
+                if AppState.demo, ProcessInfo.processInfo.arguments.contains("-settle") { await app.demoSettle() }
+                #endif
             }
         }
     }
 
-    private func expandable(_ tx: Transaction) -> some View {
+    private func expandable(_ tx: Transaction, vanish: AppState.Vanish?) -> some View {
         ExpandableTransaction(
             tx: tx,
             expanded: expanded.contains(tx.id),
@@ -193,6 +198,8 @@ struct HomeView: View {
             onAllocate: { path.append(.review(nil, tx)) },
             onConfirm: { run { try await app.confirm(tx) } },
             onDelete: { confirmDelete = tx })
+            .modifier(VanishEffect(phase: vanish))
+            .listRowBackground(vanish == nil ? nil : Color.green.opacity(0.18))
     }
 
     /// From the lock-screen control / Scan Receipt intent.
@@ -314,5 +321,28 @@ struct CardButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A settled pending payment's exit: swells with a bouncing green checkmark, then flies off.
+private struct VanishEffect: ViewModifier {
+    let phase: AppState.Vanish?
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .leading) {
+                if phase != nil {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(.white, .green)
+                        .background(Circle().fill(Color(.systemBackground)).padding(2))
+                        .offset(x: -3)
+                        .transition(.scale(scale: 0.2).combined(with: .opacity))
+                }
+            }
+            .scaleEffect(phase == .pop ? 1.08 : 1, anchor: .leading)
+            .rotationEffect(.degrees(phase == .fly ? 6 : 0))
+            .offset(x: phase == .fly ? 600 : 0)
+            .opacity(phase == .fly ? 0 : 1)
     }
 }

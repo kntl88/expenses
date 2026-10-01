@@ -55,6 +55,16 @@ and saved one receipt at a time. Scanning a receipt for a pending payment replac
 its row with itemized category rows. Older receipt splits without a `txId` are grouped by their shared
 `created` timestamp, date and base description.
 
+### Automatic receipt matching
+Receipts, Wallet imports and card taps carry a paid time (`time`, HH:MM — an extra row field the web
+app ignores; card taps give the exact time). A scanned receipt is auto-assigned to the pending
+payment with the same total, same day ±1, closest time when both are known (within 2 h). Failing
+that, it fills in a card tap still waiting for details from within 30 min of the receipt's printed
+time, and the tap is cleared. Either can be changed in the review's "Replace existing" picker.
+
+Back on Home the Consumption numbers change first; ~1 s later the settled pending payment swells
+green with a checkmark, flies off, and the list closes up (`-demo -settle` plays it in the simulator).
+
 ## Lock screen button
 The `ReceiptControls` widget extension (iOS 18+) adds a **Scan Receipt** control: long-press the
 lock screen → Customize → Lock Screen → tap a bottom button slot (or add it in Control Center) →
