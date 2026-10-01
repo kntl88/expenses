@@ -59,7 +59,9 @@ its row with itemized category rows. Older receipt splits without a `txId` are g
 The `ReceiptControls` widget extension (iOS 18+) adds a **Scan Receipt** control: long-press the
 lock screen → Customize → Lock Screen → tap a bottom button slot (or add it in Control Center) →
 search "Receipts". It runs `ScanReceiptIntent` (Shared/), which opens the app straight into the
-camera. The same action is available in Shortcuts / the Action button.
+camera. The same action is available in Shortcuts / the Action button. For the lock screen widget
+row there's also a circular **Scan Receipt** widget (opens `receipts://scan`, since lock screen widgets
+can't run intents).
 
 ## Widgets
 **Consumption** (home screen small/medium, lock screen rectangular/inline/circular): this week's

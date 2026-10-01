@@ -20,6 +20,8 @@ struct ScanReceiptIntent: AppIntent {
 @MainActor
 enum ScanRequest {
     static let notification = Notification.Name("ScanReceiptRequested")
+    /// Opened by the Scan lock screen widget.
+    nonisolated static let url = URL(string: "receipts://scan")!
     private(set) static var pending = false
 
     static func request() {

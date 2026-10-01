@@ -15,6 +15,9 @@ struct ReceiptScannerApp: App {
                 }
             }
             .environment(app)
+            .onOpenURL { url in
+                if url == ScanRequest.url { ScanRequest.request() }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await app.refresh() } }
             }

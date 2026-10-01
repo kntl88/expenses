@@ -16,6 +16,12 @@ targets:
     sources:
       - ReceiptScanner
       - Shared
+    info:
+      path: ReceiptScanner/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: com.kntl88.ReceiptScanner
+            CFBundleURLSchemes: [receipts]
     entitlements:
       path: ReceiptScanner/ReceiptScanner.entitlements
       properties:

@@ -20,6 +20,7 @@
 		576822B5016D7017B864AD02 /* WeekSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876D71B7830A97CB255C78E5 /* WeekSummary.swift */; };
 		67BA830BA2DC899049AB4A58 /* WeekSummaryStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C0593F95D022F08F055F6F /* WeekSummaryStyle.swift */; };
 		684BBF9EC7B46AEB6A60C06A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164199FDAC80234F90480C83 /* Models.swift */; };
+		81F6C88DAF444B215BD5EE35 /* ScanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */; };
 		82BE9E3D753F937312E85113 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC43AF3EF6CEAEE885976BD /* AppState.swift */; };
 		9462A60593E1BC43026C4575 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E5D83147F3BB0050B2884 /* JSONValue.swift */; };
 		9D8C10D1765618DAA20D7171 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 164199FDAC80234F90480C83 /* Models.swift */; };
@@ -85,6 +86,7 @@
 		6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummaryView.swift; sourceTree = "<group>"; };
 		6E36E222E386F2D674404AAB /* ScanReceiptIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReceiptIntent.swift; sourceTree = "<group>"; };
 		731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScannerApp.swift; sourceTree = "<group>"; };
+		853171B29CEC14D122C55C54 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		876D71B7830A97CB255C78E5 /* WeekSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummary.swift; sourceTree = "<group>"; };
 		99E80B0C1014D31268D8CCC1 /* Transactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transactions.swift; sourceTree = "<group>"; };
 		9EC73C9CB0F87E95CB6DFE9C /* ReceiptScanner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ReceiptScanner.entitlements; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 		B522912C69D6B8D39A5F121D /* ConsumptionWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsumptionWidget.swift; sourceTree = "<group>"; };
 		BBB1B58928D31D534C11CF86 /* ReceiptControls.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ReceiptControls.entitlements; sourceTree = "<group>"; };
 		C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionViews.swift; sourceTree = "<group>"; };
+		D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanWidget.swift; sourceTree = "<group>"; };
 		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCardPaymentIntent.swift; sourceTree = "<group>"; };
 		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
@@ -108,6 +111,7 @@
 				09271B1DEF55D5C00112B610 /* Info.plist */,
 				BBB1B58928D31D534C11CF86 /* ReceiptControls.entitlements */,
 				F3E30737E5A2D558DD7F073D /* ScanReceiptControl.swift */,
+				D275E1136A1EA6D49DD09FD9 /* ScanWidget.swift */,
 			);
 			path = ReceiptControls;
 			sourceTree = "<group>";
@@ -132,6 +136,7 @@
 				47369034472BE10A92CA1F4A /* DemoData.swift */,
 				B2E8D2852640ED13809A7D76 /* GitHubStore.swift */,
 				11D2653A974333A7A3EA3478 /* HomeView.swift */,
+				853171B29CEC14D122C55C54 /* Info.plist */,
 				4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */,
 				D38E5D83147F3BB0050B2884 /* JSONValue.swift */,
 				1494E17C7F1DCE08CAD23D76 /* Keychain.swift */,
@@ -270,6 +275,7 @@
 				684BBF9EC7B46AEB6A60C06A /* Models.swift in Sources */,
 				00D2A93FE2EF0F17DDE8B922 /* ScanReceiptControl.swift in Sources */,
 				CCECCF2CCD2A09576320B4F4 /* ScanReceiptIntent.swift in Sources */,
+				81F6C88DAF444B215BD5EE35 /* ScanWidget.swift in Sources */,
 				576822B5016D7017B864AD02 /* WeekSummary.swift in Sources */,
 				A9CBD4AC3DB2C29E5E640148 /* WeekSummaryStyle.swift in Sources */,
 				DF4A3335520B63E9DA160A9C /* WidgetData.swift in Sources */,
@@ -469,6 +475,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 9CHRAUFN7Z;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ReceiptScanner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Receipts;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan receipts.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -494,6 +501,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 9CHRAUFN7Z;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ReceiptScanner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Receipts;
 				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is used to scan receipts.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
