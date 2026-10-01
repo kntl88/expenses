@@ -42,5 +42,9 @@ struct ReceiptShortcuts: AppShortcutsProvider {
                     phrases: ["Log card payment in \(.applicationName)"],
                     shortTitle: "Log Card Payment",
                     systemImageName: "creditcard")
+        AppShortcut(intent: ScanReceiptIntent(),
+                    phrases: ["Scan receipt in \(.applicationName)"],
+                    shortTitle: "Scan Receipt",
+                    systemImageName: "doc.text.viewfinder")
     }
 }

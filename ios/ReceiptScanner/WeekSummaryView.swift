@@ -13,6 +13,7 @@ struct WeekSummaryView: View {
     /// A single value line: never wraps mid-number, shrinks to fit the narrow cell instead.
     private func value(_ s: String, _ color: Color) -> some View {
         Text(s).font(mono(10)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.5)
+            .contentTransition(.numericText())
     }
 
     /// fmt() in index.html: '€' + n.toFixed(2)
@@ -61,6 +62,7 @@ struct WeekSummaryView: View {
                             + Text(" = ").foregroundColor(C.daily)
                             + Text(signed(row.saving.dailyNet)).foregroundColor(tone(row.saving.dailyNet)))
                             .font(mono(8))
+                            .contentTransition(.numericText())
                             .multilineTextAlignment(.trailing)
                             .fixedSize(horizontal: false, vertical: true)
                     }

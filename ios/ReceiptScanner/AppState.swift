@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 @Observable
 final class AppState {
@@ -68,7 +69,17 @@ final class AppState {
     var pending: [Transaction] { transactions.filter(\.pending) }
     var recent: [Transaction] { Array(transactions.filter { !$0.pending }.prefix(30)) }
 
-    func loadData() async {
+    /// How a reload treats the Consumption card.
+    enum WeekUpdate {
+        case now
+        /// Keep the old numbers on screen at least this long (from the call), then animate to the new ones.
+        case after(Duration)
+        /// Leave it as is (e.g. between receipts of one photo; the last save reveals the change).
+        case keep
+    }
+
+    func loadData(week update: WeekUpdate = .now) async {
+        let start = ContinuousClock.now
         if AppState.demo {
             week = DemoData.week()
             transactions = Transaction.group(DemoData.expenses()).filter { $0.date >= Transaction.displayCutoff }
@@ -79,8 +90,14 @@ final class AppState {
             async let expenses = store.load().expenses
             async let accounts = store.loadAccounts()
             let (ex, ac) = try await (expenses, accounts)
-            week = WeekSummary.compute(expenses: ex, accounts: ac)
             transactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
+            let newWeek = WeekSummary.compute(expenses: ex, accounts: ac)
+            switch update {
+            case .keep: return
+            case .now: break
+            case let .after(delay): try? await Task.sleep(until: start + delay)
+            }
+            withAnimation(.easeInOut(duration: 0.6)) { week = newWeek }
             weekError = nil
         } catch {
             if week == nil { weekError = error.localizedDescription }

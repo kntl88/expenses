@@ -12,7 +12,7 @@ struct ReviewView: View {
     var target: Transaction? = nil
     var onDone: () -> Void
 
-    enum Phase { case scanning, review, saving, saved }
+    enum Phase { case scanning, review, saving }
     @State private var phase: Phase = .scanning
     @State private var started = false
     @State private var error: String?
@@ -21,8 +21,8 @@ struct ReviewView: View {
     /// All receipts found in the photo; they're reviewed and saved one after another.
     @State private var queue: [ReceiptScan] = []
     @State private var position = 0
-    @State private var savedCount = 0
-    @State private var savedTotal = 0.0
+    /// Something from this photo was saved; Home reveals the updated Consumption on the way back.
+    @State private var savedAny = false
     @State private var items: [ReceiptItem] = []
     @State private var description = ""
     @State private var date = Date()
@@ -74,7 +74,6 @@ struct ReviewView: View {
             switch phase {
             case .scanning: scanningView
             case .review, .saving: reviewForm
-            case .saved: savedView
             }
         }
         .navigationTitle(job == nil ? "Allocate" : "Receipt")
@@ -82,6 +81,17 @@ struct ReviewView: View {
             if queue.count > 1, phase == .review {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(position + 1 < queue.count ? "Skip" : "Skip & finish") { advance() }
+                }
+            }
+            if phase != .scanning {
+                ToolbarItem(placement: .confirmationAction) {
+                    if phase == .saving {
+                        ProgressView()
+                    } else {
+                        Button(replacing == nil ? "Save" : "Replace") { Task { await save() } }
+                            .fontWeight(.semibold)
+                            .disabled(!canSave)
+                    }
                 }
             }
         }
@@ -107,18 +117,6 @@ struct ReviewView: View {
             }
         }
         .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var savedView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(.green)
-            Text("Added to expenses").font(.title2.weight(.semibold))
-            Text(savedCount > 1 ? "\(savedCount) receipts · \(Format.euro(savedTotal))"
-                 : "\(groups.count) \(groups.count == 1 ? "entry" : "entries") · \(Format.euro(sum))")
-                .foregroundStyle(.secondary)
-            Button("Done", action: onDone).buttonStyle(.borderedProminent).padding(.top)
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -149,6 +147,10 @@ struct ReviewView: View {
                         }
                     }
                 }
+            }
+
+            if let error {
+                Section { Text(error).foregroundStyle(.red) }
             }
 
             Section("Details") {
@@ -189,26 +191,6 @@ struct ReviewView: View {
             }
 
             replaceSection
-
-            if let error {
-                Section { Text(error).foregroundStyle(.red) }
-            }
-
-            Section {
-                Button {
-                    Task { await save() }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if phase == .saving { ProgressView() } else {
-                            Text(replacing == nil ? "Add \(groups.count) \(groups.count == 1 ? "expense" : "expenses")" : "Replace with split")
-                                .fontWeight(.semibold)
-                        }
-                        Spacer()
-                    }
-                }
-                .disabled(!canSave)
-            }
         }
         .scrollDismissesKeyboard(.interactively)
         .animation(.default, value: items.map(\.category))
@@ -358,10 +340,16 @@ struct ReviewView: View {
     private func advance() {
         if position + 1 < queue.count {
             show(position + 1)
-        } else if savedCount > 0 {
-            phase = .saved
         } else {
-            onDone()
+            finish()
+        }
+    }
+
+    /// Back to Home; it shows the old Consumption briefly, then animates in what was just added.
+    private func finish() {
+        onDone()
+        if savedAny {
+            Task { await app.loadData(week: .after(.seconds(1.2))) }
         }
     }
 
@@ -391,10 +379,13 @@ struct ReviewView: View {
             try await store.commit(newEntries: entries, replacingIds: replacing?.rowIds ?? [],
                                    message: "\(job != nil ? "Receipt" : "Allocate") \(desc) \(dateString) (iOS)")
             if job != nil { ItemRules.learn(from: items) }
-            await app.loadData()
-            savedCount += 1
-            savedTotal += sum
-            if job != nil && position + 1 < queue.count { advance() } else { phase = .saved }
+            savedAny = true
+            if job != nil && position + 1 < queue.count {
+                await app.loadData(week: .keep) // refresh candidates for the next receipt
+                advance()
+            } else {
+                finish()
+            }
         } catch {
             self.error = error.localizedDescription
             phase = .review

@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00D2A93FE2EF0F17DDE8B922 /* ScanReceiptControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E30737E5A2D558DD7F073D /* ScanReceiptControl.swift */; };
 		0FFCBC65B62F174BC4C2B3CB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 657B591D201E75C907CD1E6C /* Assets.xcassets */; };
 		110221C9047E96E2AFE5A036 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D2653A974333A7A3EA3478 /* HomeView.swift */; };
+		120AF21129DB35CBEBC2ACF9 /* ReceiptControls.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 10BE64BA523D2DB6BE5B3C92 /* ReceiptControls.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1623D1D77E56A1DC1679B318 /* PaymentLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 341F99AFB12E6AC404C5C94A /* PaymentLogger.swift */; };
 		426989F7C58503A098E6CF1E /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1494E17C7F1DCE08CAD23D76 /* Keychain.swift */; };
 		47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */; };
@@ -20,9 +22,11 @@
 		ADE16B7747E1E1CE8197553E /* WeekSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876D71B7830A97CB255C78E5 /* WeekSummary.swift */; };
 		AF719F1A640A935A0A7B6DD5 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F2484C67EFB9A62761CEB2 /* CameraPicker.swift */; };
 		AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5004CAD7B3C90BD6EBCDC477 /* ReviewView.swift */; };
+		B66FE03E6B9C0EF58DB857FB /* ScanReceiptIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E36E222E386F2D674404AAB /* ScanReceiptIntent.swift */; };
 		C02524FAFC2CE5BEE9417C44 /* TransactionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46C311B6E1B4B27AD211A0C /* TransactionViews.swift */; };
 		C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */; };
 		C53B9354D2DD2C4C2E8BC994 /* Vault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8E52171420D131C0C85292 /* Vault.swift */; };
+		CCECCF2CCD2A09576320B4F4 /* ScanReceiptIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E36E222E386F2D674404AAB /* ScanReceiptIntent.swift */; };
 		CDFE88601CAADD1A2C1378DE /* ClaudeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A296308186F68BE677FEBE66 /* ClaudeClient.swift */; };
 		E8B8A6DAFE998F71C97271F6 /* ItemRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C61C4A0F66B94D6E47F5E3D /* ItemRules.swift */; };
 		F7591956ED0DE6DAEC2181A4 /* WeekSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */; };
@@ -30,9 +34,35 @@
 		FF6E7D9C38006A11213DE274 /* Transactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E80B0C1014D31268D8CCC1 /* Transactions.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		A75A01C82618E0741A5D61B3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F58F941AFC9693EFC8BCF60C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B3B67CD15A3D5064D1891FCD;
+			remoteInfo = ReceiptControls;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3076323586F0A7CC38348D09 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				120AF21129DB35CBEBC2ACF9 /* ReceiptControls.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		09271B1DEF55D5C00112B610 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0A8E52171420D131C0C85292 /* Vault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vault.swift; sourceTree = "<group>"; };
 		0DD2D05AF8660070BE20531E /* ReceiptScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ReceiptScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		10BE64BA523D2DB6BE5B3C92 /* ReceiptControls.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ReceiptControls.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		11D2653A974333A7A3EA3478 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		1494E17C7F1DCE08CAD23D76 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		164199FDAC80234F90480C83 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -43,6 +73,7 @@
 		657B591D201E75C907CD1E6C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6CC43AF3EF6CEAEE885976BD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		6E3316DA3F7235951CFE7DAC /* WeekSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummaryView.swift; sourceTree = "<group>"; };
+		6E36E222E386F2D674404AAB /* ScanReceiptIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReceiptIntent.swift; sourceTree = "<group>"; };
 		731B0AA682A9B59223FBA4CF /* ReceiptScannerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScannerApp.swift; sourceTree = "<group>"; };
 		876D71B7830A97CB255C78E5 /* WeekSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekSummary.swift; sourceTree = "<group>"; };
 		99E80B0C1014D31268D8CCC1 /* Transactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transactions.swift; sourceTree = "<group>"; };
@@ -53,13 +84,25 @@
 		D38E5D83147F3BB0050B2884 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		DC31137788EAE71F38128AAF /* LogCardPaymentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCardPaymentIntent.swift; sourceTree = "<group>"; };
 		DF4BAD9DF9B7F1BDCA54D4F4 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		F3E30737E5A2D558DD7F073D /* ScanReceiptControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReceiptControl.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		2640E6615A5A49E8798D90C2 /* ReceiptControls */ = {
+			isa = PBXGroup;
+			children = (
+				09271B1DEF55D5C00112B610 /* Info.plist */,
+				F3E30737E5A2D558DD7F073D /* ScanReceiptControl.swift */,
+			);
+			path = ReceiptControls;
+			sourceTree = "<group>";
+		};
 		6668D9B73C2EB5DE7A2AD745 = {
 			isa = PBXGroup;
 			children = (
+				2640E6615A5A49E8798D90C2 /* ReceiptControls */,
 				76ACB69EFEBC4C03EE7B9E63 /* ReceiptScanner */,
+				EEE68ABC2CAA38FD9BA8EF8C /* Shared */,
 				835EB9C5D3FF8CAA18D7A3A8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -95,24 +138,52 @@
 		835EB9C5D3FF8CAA18D7A3A8 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				10BE64BA523D2DB6BE5B3C92 /* ReceiptControls.appex */,
 				0DD2D05AF8660070BE20531E /* ReceiptScanner.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
+		EEE68ABC2CAA38FD9BA8EF8C /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6E36E222E386F2D674404AAB /* ScanReceiptIntent.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B3B67CD15A3D5064D1891FCD /* ReceiptControls */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D229085793A3400604DCF856 /* Build configuration list for PBXNativeTarget "ReceiptControls" */;
+			buildPhases = (
+				0ACB944A7596B0A7498A3A9D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ReceiptControls;
+			packageProductDependencies = (
+			);
+			productName = ReceiptControls;
+			productReference = 10BE64BA523D2DB6BE5B3C92 /* ReceiptControls.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		E43FADB7A4D46456C064BB2B /* ReceiptScanner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = DEAA9FEEB1BB95EBCA6883DD /* Build configuration list for PBXNativeTarget "ReceiptScanner" */;
 			buildPhases = (
 				91101EE9E5C1978DE91953B5 /* Sources */,
 				2FABFF563BA2E833679067B6 /* Resources */,
+				3076323586F0A7CC38348D09 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				262A4192390F2755AC2CBA84 /* PBXTargetDependency */,
 			);
 			name = ReceiptScanner;
 			packageProductDependencies = (
@@ -130,6 +201,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					B3B67CD15A3D5064D1891FCD = {
+						DevelopmentTeam = 9CHRAUFN7Z;
+						ProvisioningStyle = Automatic;
+					};
 					E43FADB7A4D46456C064BB2B = {
 						DevelopmentTeam = 9CHRAUFN7Z;
 						ProvisioningStyle = Automatic;
@@ -150,6 +225,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				B3B67CD15A3D5064D1891FCD /* ReceiptControls */,
 				E43FADB7A4D46456C064BB2B /* ReceiptScanner */,
 			);
 		};
@@ -167,6 +243,15 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0ACB944A7596B0A7498A3A9D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00D2A93FE2EF0F17DDE8B922 /* ScanReceiptControl.swift in Sources */,
+				CCECCF2CCD2A09576320B4F4 /* ScanReceiptIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		91101EE9E5C1978DE91953B5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -185,6 +270,7 @@
 				1623D1D77E56A1DC1679B318 /* PaymentLogger.swift in Sources */,
 				47649EFA3EC194CA356E156F /* ReceiptScannerApp.swift in Sources */,
 				AF8ADC77E311E387C419A207 /* ReviewView.swift in Sources */,
+				B66FE03E6B9C0EF58DB857FB /* ScanReceiptIntent.swift in Sources */,
 				C136BA6B6D2DEA4223480DEC /* SetupView.swift in Sources */,
 				C02524FAFC2CE5BEE9417C44 /* TransactionViews.swift in Sources */,
 				FF6E7D9C38006A11213DE274 /* Transactions.swift in Sources */,
@@ -195,6 +281,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		262A4192390F2755AC2CBA84 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B3B67CD15A3D5064D1891FCD /* ReceiptControls */;
+			targetProxy = A75A01C82618E0741A5D61B3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		8A49EE0F14D968D39D0BAFED /* Debug */ = {
@@ -320,6 +414,24 @@
 			};
 			name = Release;
 		};
+		A1BC95D330B447DAC8E69618 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9CHRAUFN7Z;
+				INFOPLIST_FILE = ReceiptControls/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kntl88.ReceiptScanner.Controls;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		B003074E8DA7C80E20AF8DB1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -368,6 +480,24 @@
 			};
 			name = Release;
 		};
+		D433E39A54313CB3E7EB060B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9CHRAUFN7Z;
+				INFOPLIST_FILE = ReceiptControls/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kntl88.ReceiptScanner.Controls;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -376,6 +506,15 @@
 			buildConfigurations = (
 				8A49EE0F14D968D39D0BAFED /* Debug */,
 				8CA7F433151503049C1A6A50 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D229085793A3400604DCF856 /* Build configuration list for PBXNativeTarget "ReceiptControls" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D433E39A54313CB3E7EB060B /* Debug */,
+				A1BC95D330B447DAC8E69618 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -118,7 +118,11 @@ struct HomeView: View {
                 }
             }
             .refreshable { await app.loadData() }
+            .onReceive(NotificationCenter.default.publisher(for: ScanRequest.notification)) { _ in
+                handleScanRequest()
+            }
             .task {
+                handleScanRequest()
                 await app.loadData()
                 // Debug layout check: `-demo -expand` opens every row.
                 if AppState.demo, ProcessInfo.processInfo.arguments.contains("-expand") {
@@ -140,6 +144,13 @@ struct HomeView: View {
             onScan: { scan(for: tx) },
             onAllocate: { path.append(.review(nil, tx)) },
             onConfirm: { run { try await app.confirm(tx) } })
+    }
+
+    /// From the lock-screen control / Scan Receipt intent.
+    private func handleScanRequest() {
+        guard ScanRequest.take(), UIImagePickerController.isSourceTypeAvailable(.camera) else { return }
+        showSettings = false
+        scan(for: nil)
     }
 
     /// Opens the camera; the photo goes to review, replacing `target` if given.

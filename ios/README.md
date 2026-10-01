@@ -55,6 +55,15 @@ and saved one receipt at a time. Scanning a receipt for a pending payment replac
 its row with itemized category rows. Older receipt splits without a `txId` are grouped by their shared
 `created` timestamp, date and base description.
 
+## Lock screen button
+The `ReceiptControls` widget extension (iOS 18+) adds a **Scan Receipt** control: long-press the
+lock screen → Customize → Lock Screen → tap a bottom button slot (or add it in Control Center) →
+search "Receipts". It runs `ScanReceiptIntent` (Shared/), which opens the app straight into the
+camera. The same action is available in Shortcuts / the Action button.
+
+After saving, the app returns straight to Home; the Consumption card keeps the old numbers for about a
+second, then animates to the new ones.
+
 ## Card payments (Apple Pay automation)
 The app exposes a **Log Card Payment** Shortcuts action (amount + merchant). It categorizes from your
 own history for that merchant (weighted by euros), falls back to Claude for new merchants, applies
