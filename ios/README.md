@@ -75,6 +75,14 @@ After saving, the app returns straight to Home; the Consumption card keeps the o
 two seconds, then animates to the new ones.
 
 ## Card payments (Apple Pay automation)
+
+**Delayed amounts:** the Transaction trigger only waits briefly for the bank's details; Bank
+Norwegian's arrive 30–60 min later, so the automation often runs with an empty Amount. Those taps are
+kept (`MissedTaps`) and listed on Home under **Needs amount**: tap one, enter the amount from Wallet,
+and it's logged for the tap's date like any other card payment (swipe to dismiss; taps older than
+14 days are dropped since the statement import covers them). Reading Wallet history directly isn't
+possible: FinanceKit only covers Apple Card/Cash/Savings (US) and UK open banking, behind an
+App Store–only managed entitlement.
 The app exposes a **Log Card Payment** Shortcuts action (amount + merchant). It categorizes from your
 own history for that merchant (weighted by euros), falls back to Claude for new merchants, applies
 the "eating out < 5 € = basic" rule, and writes the expense as **pending** with today's date and the

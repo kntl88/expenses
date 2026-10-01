@@ -50,12 +50,27 @@ final class AppState {
     }
 
     var outboxCount = Outbox.count
+    var missedTaps = MissedTaps.load()
+
+    /// Prices a card tap the automation logged without an amount.
+    func price(_ tap: MissedTaps.Tap, amount: String, merchant: String) async throws -> String {
+        let msg = try await PaymentLogger.log(amountText: amount, merchant: merchant, date: tap.date)
+        dismiss(tap)
+        await loadData()
+        return msg
+    }
+
+    func dismiss(_ tap: MissedTaps.Tap) {
+        MissedTaps.remove(tap.id)
+        missedTaps = MissedTaps.load()
+    }
 
     /// Called when the app becomes active: sync the offline queue and reload data
     /// (picks up card payments logged by the Shortcuts automation).
     func refresh() async {
         await Outbox.flush()
         outboxCount = Outbox.count
+        missedTaps = MissedTaps.load()
         await loadData()
     }
 

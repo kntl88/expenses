@@ -7,7 +7,8 @@ enum PaymentLogger {
         var errorDescription: String? { message }
     }
 
-    static func log(amountText: String, merchant rawMerchant: String) async throws -> String {
+    /// `date`: when the card was tapped (defaults to now).
+    static func log(amountText: String, merchant rawMerchant: String, date day: Date = Date()) async throws -> String {
         guard let amount = parseAmount(amountText), amount > 0 else {
             throw LogError(message: "Couldn't read the amount \"\(amountText)\". In the automation, tap the Amount field's token and choose Amount (it's passing the whole transaction or the card name).")
         }
@@ -33,7 +34,7 @@ enum PaymentLogger {
         if category == .eo && amount < 5 { category = .basic }
         let name = guess?.name ?? (merchant.isEmpty ? "Card payment" : merchant)
 
-        let date = Format.day.string(from: Date())
+        let date = Format.day.string(from: day)
         // Pending until a receipt is scanned for it or it's allocated in the app.
         let entry = ExpenseEntry.make(amount: amount, date: date, description: name,
                                       category: category, account: Credentials.defaultAccount, pending: true)
@@ -183,5 +184,35 @@ enum AutomationLog {
     static func add(amount: String, merchant: String, result: String) {
         let list = Array(([Entry(date: Date(), amount: amount, merchant: merchant, result: result)] + load()).prefix(20))
         if let d = try? JSONEncoder().encode(list) { UserDefaults.standard.set(d, forKey: key) }
+    }
+}
+
+/// Card taps where Wallet didn't have the amount yet; listed on Home under "Needs amount".
+enum MissedTaps {
+    struct Tap: Codable, Identifiable, Hashable {
+        var id = UUID()
+        var date: Date
+        var merchant: String
+    }
+
+    private static let key = "missedTaps"
+
+    static func load() -> [Tap] {
+        guard let d = UserDefaults.standard.data(forKey: key) else { return [] }
+        return (try? JSONDecoder().decode([Tap].self, from: d)) ?? []
+    }
+
+    static func add(merchant: String) {
+        save([Tap(date: Date(), merchant: merchant)] + load())
+    }
+
+    static func remove(_ id: UUID) {
+        save(load().filter { $0.id != id })
+    }
+
+    private static func save(_ list: [Tap]) {
+        // Old ones are covered by the statement import.
+        let recent = list.filter { $0.date > Date().addingTimeInterval(-14 * 86400) }
+        if let d = try? JSONEncoder().encode(Array(recent.prefix(50))) { UserDefaults.standard.set(d, forKey: key) }
     }
 }
