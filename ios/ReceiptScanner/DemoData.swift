@@ -20,6 +20,19 @@ enum DemoData {
         ]
     }
 
+    /// `-demo -review`: a scanned receipt for checking the review layout.
+    static func receipt() -> ReceiptScan {
+        ReceiptScan(merchant: "K-Citymarket Itäkeskus", date: Day.str(Date()), time: "17:42", total: 23.45, items: [
+            ReceiptItem(name: "Ruisleipä", amount: 2.49, category: .basic),
+            ReceiptItem(name: "Maito 1L", amount: 1.29, category: .basic),
+            ReceiptItem(name: "Kanafile 400g", amount: 6.99, category: .basic),
+            ReceiptItem(name: "Pakastemustikka 1kg", amount: 4.99, category: .he),
+            ReceiptItem(name: "Coca-Cola 1,5L", amount: 2.89, category: .un),
+            ReceiptItem(name: "KOFF III 0,33L", amount: 1.99, category: .fun),
+            ReceiptItem(name: "Fairy 450ml", amount: 2.81, category: .ta),
+        ])
+    }
+
     static func week() -> WeekSummary {
         let today = Day.str(Date())
         func e(_ amount: Double, _ cat: String, _ days: Int = 0, sub: String? = nil) -> JSONValue {

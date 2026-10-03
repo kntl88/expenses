@@ -167,6 +167,7 @@ struct ReviewView: View {
                 Section {
                     ForEach(group.items) { item in
                         ItemRow(item: binding(item.id))
+                            .listRowBackground(group.category.color.opacity(0.16))
                     }
                     .onDelete { offsets in
                         let ids = Set(offsets.map { group.items[$0].id })
@@ -175,6 +176,7 @@ struct ReviewView: View {
                 } header: {
                     HStack {
                         Label(group.category.label, systemImage: group.category.symbol)
+                            .foregroundStyle(group.category.color)
                         Spacer()
                         Text(Format.euro(group.total)).monospacedDigit()
                     }
@@ -195,7 +197,52 @@ struct ReviewView: View {
             replaceSection
         }
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom, spacing: 0) { totalBar }
         .animation(.default, value: items.map(\.category))
+    }
+
+    /// Always-visible sum of the items, checked against the receipt (or replaced payment) total,
+    /// with each category's share as a colored bar.
+    private var totalBar: some View {
+        let expected = replacing?.total ?? scan?.total
+        let matches = expected.map { abs($0 - sum) <= 0.01 } ?? true
+        return VStack(alignment: .leading, spacing: 8) {
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    ForEach(groups, id: \.category) { g in
+                        g.category.color
+                            .frame(width: max(4, (geo.size.width - CGFloat(groups.count - 1) * 2) * g.total / max(sum, 0.01)))
+                    }
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 6)
+            HStack(alignment: .firstTextBaseline) {
+                Text("TOTAL").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(Format.euro(sum)).font(.title.weight(.bold)).monospacedDigit()
+                    .contentTransition(.numericText())
+                Spacer()
+                if let expected {
+                    if matches {
+                        Label("matches receipt", systemImage: "checkmark.seal.fill")
+                            .font(.subheadline.weight(.medium)).foregroundStyle(.green)
+                    } else {
+                        VStack(alignment: .trailing, spacing: 0) {
+                            Text("receipt \(Format.euro(expected))").font(.subheadline.weight(.semibold))
+                            Text("off by \(Format.euro(abs(expected - sum)))").font(.caption)
+                        }
+                        .foregroundStyle(.orange)
+                        .monospacedDigit()
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+        .animation(.snappy, value: sum)
     }
 
     private var totalsFooter: some View {
@@ -306,6 +353,9 @@ struct ReviewView: View {
     }
 
     private func runScan() async {
+        #if DEBUG
+        if AppState.demo { queue = [DemoData.receipt()]; show(0); return }
+        #endif
         guard scan == nil, let job, let claude = app.claude else { return }
         error = nil
         do {
@@ -453,8 +503,9 @@ private struct ItemRow: View {
                 }
             } label: {
                 Image(systemName: item.category.symbol)
+                    .foregroundStyle(.primary)
                     .frame(width: 32, height: 28)
-                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                    .background(item.category.color.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
             }
             VStack(alignment: .leading, spacing: 1) {
                 TextField("Item", text: $item.name)

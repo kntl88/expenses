@@ -21,3 +21,21 @@ extension Color {
         self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
     }
 }
+
+extension ReceiptCategory {
+    /// The web app's CATEGORIES colors; the budgeted envelopes (pink there) get distinct shades.
+    var color: Color {
+        switch self {
+        case .basic: return Color(hex: 0x60C0A0)
+        case .fun: return Color(hex: 0xF0D454)
+        case .gas: return Color(hex: 0xF0A054)
+        case .un: return Color(hex: 0xF05454)
+        case .eo: return Color(hex: 0xF0806A)
+        case .pu: return Color(hex: 0xF07498)
+        case .he: return Color(hex: 0x9AD86A)
+        case .med: return Color(hex: 0xE070E0)
+        case .ta: return Color(hex: 0x70B8F0)
+        case .misc: return Color(hex: 0x90A4AE)
+        }
+    }
+}

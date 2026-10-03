@@ -179,6 +179,9 @@ struct HomeView: View {
                 }
                 #if DEBUG
                 if AppState.demo, ProcessInfo.processInfo.arguments.contains("-settle") { await app.demoSettle() }
+                if AppState.demo, ProcessInfo.processInfo.arguments.contains("-review") {
+                    path = [.review(ScanJob(images: [UIImage(systemName: "doc.text")!]), nil)]
+                }
                 #endif
             }
         }
