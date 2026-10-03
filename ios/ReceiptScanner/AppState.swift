@@ -66,8 +66,35 @@ final class AppState {
     // MARK: Data (week summary + transactions)
 
     var week: WeekSummary?
-    /// Bank and Norwegian card balances, as on the web app's Accounts card.
-    var balances: [(label: String, value: Double)] = []
+    /// Bank and card balances, as on the web app's Accounts card (plus any manual correction).
+    var balances: [Balance] = []
+
+    struct Balance: Identifiable {
+        let key: String
+        let label: String
+        let computed: Double
+        let manualOffset: Double?
+        var id: String { key }
+        var value: Double { computed + (manualOffset ?? 0) }
+    }
+
+    private static let balanceAccounts = [("bank", "Bank"), ("norwegian", "Norwegian"), ("work", "Work")]
+
+    private static func balances(expenses: [JSONValue], accounts: JSONValue) -> [Balance] {
+        balanceAccounts.map { key, label in
+            Balance(key: key, label: label, computed: WeekSummary.balance(key, expenses: expenses, accounts: accounts),
+                    manualOffset: BalanceOverrides.offset(key))
+        }
+    }
+
+    /// Temporary, phone-only: makes `key` show `actual` until the missing expenses are added
+    /// (the difference is kept, so later payments still move the balance). nil clears it.
+    func setBalance(_ key: String, actual: Double?) {
+        guard let b = balances.first(where: { $0.key == key }) else { return }
+        BalanceOverrides.set(key, offset: actual.map { Format.round2($0 - b.computed) })
+        balances = balances.map { $0.key == key ? Balance(key: key, label: $0.label, computed: $0.computed,
+                                                          manualOffset: BalanceOverrides.offset(key)) : $0 }
+    }
     var weekError: String?
     var transactions: [Transaction] = []
 
@@ -92,7 +119,9 @@ final class AppState {
         let start = ContinuousClock.now
         if AppState.demo {
             week = DemoData.week()
-            balances = [("Bank", 1843.27), ("Norwegian", -412.60)]
+            balances = [Balance(key: "bank", label: "Bank", computed: 1843.27, manualOffset: BalanceOverrides.offset("bank")),
+                        Balance(key: "norwegian", label: "Norwegian", computed: -412.60, manualOffset: BalanceOverrides.offset("norwegian")),
+                        Balance(key: "work", label: "Work", computed: -86.20, manualOffset: BalanceOverrides.offset("work"))]
             transactions = Transaction.group(DemoData.expenses()).filter { $0.date >= Transaction.displayCutoff }
             return
         }
@@ -103,9 +132,7 @@ final class AppState {
             let (ex, ac) = try await (expenses, accounts)
             let newTransactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
             let newWeek = WeekSummary.compute(expenses: ex, accounts: ac)
-            let newBalances = [("Bank", "bank"), ("Norwegian", "norwegian")].map {
-                (label: $0.0, value: WeekSummary.balance($0.1, expenses: ex, accounts: ac))
-            }
+            let newBalances = Self.balances(expenses: ex, accounts: ac)
             WidgetData.save(expenses: ex, accounts: ac)
             switch update {
             case .keep:
@@ -171,5 +198,20 @@ final class AppState {
             list.filter { !ids.contains($0["id"]?.stringValue ?? "") }
         }
         await loadData()
+    }
+}
+
+/// Manual balance corrections kept on the phone only (account → amount added to the computed balance).
+enum BalanceOverrides {
+    private static let key = "balanceOverrides"
+
+    static func offset(_ account: String) -> Double? {
+        (UserDefaults.standard.dictionary(forKey: key) as? [String: Double])?[account]
+    }
+
+    static func set(_ account: String, offset: Double?) {
+        var all = (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:]
+        all[account] = offset
+        UserDefaults.standard.set(all, forKey: key)
     }
 }

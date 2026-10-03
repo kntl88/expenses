@@ -137,31 +137,123 @@ struct WeekSummaryView: View {
     }
 }
 
-/// The web app's Accounts card lines (Bank, Norwegian): label left, balance right,
-/// accent when positive, red when negative.
+/// The web app's Accounts card lines (Bank, Norwegian, Work): accent when positive, red when
+/// negative. Tap one to set it by hand; corrected ones say "set manually".
 struct BalancesView: View {
-    let balances: [(label: String, value: Double)]
+    let balances: [AppState.Balance]
+    var onTap: (AppState.Balance) -> Void
     private typealias C = WebStyle
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(balances, id: \.label) { b in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(b.label.uppercased())
-                        .font(.system(size: 9, weight: .light, design: .monospaced)).tracking(1)
-                        .foregroundStyle(C.muted)
-                    Text("€" + String(format: "%.2f", b.value)) // fmt() in index.html
-                        .font(.system(size: 15, weight: .medium, design: .monospaced))
-                        .foregroundStyle(b.value >= 0 ? C.accent : C.red)
-                        .contentTransition(.numericText())
-                        .lineLimit(1).minimumScaleFactor(0.6)
+            ForEach(balances) { b in
+                Button { onTap(b) } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(b.label.uppercased())
+                            .font(.system(size: 9, weight: .light, design: .monospaced)).tracking(1)
+                            .foregroundStyle(C.muted)
+                        Text("€" + String(format: "%.2f", b.value)) // fmt() in index.html
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundStyle(b.value >= 0 ? C.accent : C.red)
+                            .contentTransition(.numericText())
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                        Text(b.manualOffset != nil ? "SET MANUALLY" : " ")
+                            .font(.system(size: 7, weight: .light, design: .monospaced)).tracking(0.5)
+                            .foregroundStyle(C.dim)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(C.surface, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(b.manualOffset != nil ? C.accentDim : C.border))
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10).padding(.vertical, 8)
-                .background(C.surface, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(C.border))
+                .buttonStyle(.plain)
             }
         }
         .environment(\.colorScheme, .dark)
+    }
+}
+
+/// The day's score: this week's saving if every day were like today, next to the week's pace so far,
+/// for each level of the Consumption card (Total, +Gas, +Purch).
+struct ScoreView: View {
+    let summary: WeekSummary?
+    @State private var level = 0
+    private typealias C = WebStyle
+
+    private func mono(_ size: CGFloat, _ weight: Font.Weight = .light) -> Font { .system(size: size, weight: weight, design: .monospaced) }
+    private func fmt(_ n: Double) -> String { "€" + String(format: "%.2f", n) }
+    private func signed(_ n: Double) -> String { (n >= 0 ? "+" : "") + fmt(n) }
+    private func tone(_ n: Double) -> Color { n >= 0 ? C.green : C.red }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("DAY'S SCORE").font(mono(10)).tracking(1).foregroundStyle(C.muted)
+                Spacer()
+                Text(Date().formatted(.dateTime.weekday(.wide).day().month(.abbreviated)).uppercased())
+                    .font(mono(10)).foregroundStyle(C.dim)
+            }
+            if let s = summary {
+                levelPicker(s)
+                let score = s.rows[level].score
+                tile("TODAY × 7", value: score.dayProjected,
+                     note: "If every day this week went like today.",
+                     detail: "spent \(fmt(score.today)) today · budget \(fmt(score.weekBudget / 7))/day")
+                tile("THIS WEEK", value: score.weekProjected,
+                     note: "At this week's pace so far, to Sunday.",
+                     detail: "spent \(fmt(score.week)) in \(score.daysElapsed) day\(score.daysElapsed == 1 ? "" : "s") · budget \(fmt(score.weekBudget))/week")
+                difference(score)
+            } else {
+                HStack { Spacer(); ProgressView().tint(C.dim); Spacer() }.frame(height: 160)
+            }
+        }
+        .padding(14)
+        .background(C.surface, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(C.border))
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func levelPicker(_ s: WeekSummary) -> some View {
+        HStack(spacing: 4) {
+            ForEach(Array(s.rows.enumerated()), id: \.offset) { i, row in
+                Button { withAnimation(.snappy) { level = i } } label: {
+                    Text(row.cumulative.label.uppercased())
+                        .font(mono(9, i == level ? .regular : .light)).tracking(0.5)
+                        .foregroundStyle(i == level ? C.accent : C.muted)
+                        .frame(maxWidth: .infinity, minHeight: 26)
+                        .background(i == level ? C.surface2 : .clear, in: RoundedRectangle(cornerRadius: 5))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(i == level ? C.accentDim : C.border))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func tile(_ label: String, value: Double, note: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(mono(9)).tracking(1).foregroundStyle(C.muted)
+            Text(signed(value))
+                .font(mono(34, .regular)).foregroundStyle(tone(value))
+                .lineLimit(1).minimumScaleFactor(0.5)
+                .contentTransition(.numericText())
+            Text(note).font(mono(9)).foregroundStyle(C.dim)
+            Text(detail).font(mono(9)).foregroundStyle(C.muted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(C.surface2, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// How today moves the week: better or worse than the pace so far.
+    private func difference(_ score: WeekSummary.Score) -> some View {
+        let d = score.dayProjected - score.weekProjected
+        return HStack(spacing: 6) {
+            Image(systemName: d >= 0 ? "arrow.up.right" : "arrow.down.right")
+            Text(d >= 0 ? "Today beats the week's pace by \(fmt(d))/week"
+                        : "Today is \(fmt(-d))/week behind the week's pace")
+        }
+        .font(mono(10))
+        .foregroundStyle(tone(d))
     }
 }

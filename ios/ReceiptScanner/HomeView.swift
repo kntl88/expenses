@@ -22,6 +22,10 @@ struct HomeView: View {
     @State private var confirmDelete: Transaction?
     @State private var actionError: String?
     @State private var expanded: Set<String> = []
+    enum Page { case home, score }
+    @State private var page: Page = .home
+    @State private var editingBalance: AppState.Balance?
+    @State private var balanceText = ""
 
     var body: some View {
         // Read here so List rows redraw when it changes (rows don't track it on their own).
@@ -29,8 +33,30 @@ struct HomeView: View {
         return NavigationStack(path: $path) {
             List {
                 Section {
+                    HStack(spacing: 6) {
+                        NavButton(title: "Home", systemImage: "house", selected: page == .home) { page = .home }
+                        NavButton(title: "Score", systemImage: "gauge.with.needle", selected: page == .score) { page = .score }
+                        Spacer(minLength: 0)
+                    }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
+                if page == .score {
+                    Section {
+                        ScoreView(summary: app.week)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+                } else {
+                Section {
                     if !app.balances.isEmpty {
-                        BalancesView(balances: app.balances)
+                        BalancesView(balances: app.balances) { b in
+                            balanceText = String(format: "%.2f", b.value)
+                            editingBalance = b
+                        }
                             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -137,6 +163,7 @@ struct HomeView: View {
                             }
                     }
                 }
+                }
             }
             .contentMargins(.horizontal, 0, for: .scrollContent)
             .navigationTitle("")
@@ -159,6 +186,24 @@ struct HomeView: View {
                 .ignoresSafeArea()
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .alert(editingBalance.map { "\($0.label) balance" } ?? "", isPresented: Binding(
+                get: { editingBalance != nil }, set: { if !$0 { editingBalance = nil } }
+            ), presenting: editingBalance) { b in
+                TextField("Actual balance", text: $balanceText)
+                    .keyboardType(.numbersAndPunctuation)
+                Button("Set") {
+                    let v = Double(balanceText.replacingOccurrences(of: ",", with: ".").filter { "-0123456789.".contains($0) })
+                    if let v { app.setBalance(b.key, actual: v) }
+                }
+                if b.manualOffset != nil {
+                    Button("Use calculated (\(String(format: "€%.2f", b.computed)))", role: .destructive) {
+                        app.setBalance(b.key, actual: nil)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("Temporary, on this phone only, until the missing expenses are added. Later payments still move it.")
+            }
             .confirmationDialog("Delete this transaction?", isPresented: Binding(
                 get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }
             ), presenting: confirmDelete) { tx in
@@ -185,6 +230,7 @@ struct HomeView: View {
                     expanded = Set(app.transactions.map(\.id))
                 }
                 #if DEBUG
+                if AppState.demo, ProcessInfo.processInfo.arguments.contains("-score") { page = .score }
                 if AppState.demo, ProcessInfo.processInfo.arguments.contains("-settle") { await app.demoSettle() }
                 if AppState.demo, ProcessInfo.processInfo.arguments.contains("-review") {
                     path = [.review(ScanJob(images: [UIImage(systemName: "doc.text")!]), nil)]
@@ -333,6 +379,30 @@ struct CardButton: View {
             .frame(maxWidth: .infinity, minHeight: 40)
             .background(WebStyle.surface, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(WebStyle.border))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Compact page switch at the top: same height and style as CardButton, sized to its title.
+struct NavButton: View {
+    let title: String
+    let systemImage: String
+    let selected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage).font(.system(size: 12, weight: .light))
+                Text(title.uppercased()).font(.system(size: 11, weight: .regular, design: .monospaced)).tracking(0.5)
+            }
+            .foregroundStyle(selected ? WebStyle.accent : WebStyle.dim)
+            .padding(.horizontal, 16)
+            .frame(minHeight: 40)
+            .background(selected ? WebStyle.surface2 : WebStyle.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(selected ? WebStyle.accentDim : WebStyle.border))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)

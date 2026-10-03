@@ -20,6 +20,16 @@ Total, Gas, Purchases, with Saving and Forecast), computed from `expenses.json` 
 Swift port of `renderDailyRates` / `getBudgetBreakdown` (`WeekSummary.swift`). Tap combo cells to show
 the per-day bar chart; pull down to refresh. Keep the two in sync if the web formula changes.
 
+## Balances and day's score
+Home shows the **Bank / Norwegian / Work** balances (web app's `getAccountBal`: account offset + every
+confirmed row up to today). Tap one to set the actual balance **temporarily, on the phone only**: the
+difference is stored locally (`BalanceOverrides`) and added to the calculated balance, so later
+payments still move it; "Use calculated" clears it once the missing expenses are in.
+
+The **Home / Score** buttons at the top switch pages. **Score** shows, for Total / +Gas / +Purch,
+this week's saving if every day went like today (`budget − today × 7`, one-time purchases counted
+once) next to the week's pace so far (the Consumption card's Forecast), and how today compares.
+
 ## Flow
 Take a photo (used as-is, no auto-crop) → Claude (`claude-opus-5`) lists every line
 item with a category (Basic by default) → items are grouped by category; tap an item's category to

@@ -56,11 +56,21 @@ struct WeekSummary {
     struct Cell { let label: String; let total: Double; let daily: Double }
     struct Saving { let total: Double; let dailyBudget: Double; let today: Double; let dailyNet: Double }
     struct Forecast { let max: Double; let projected: Double; let monthly: Double }
+    /// The day's score: this week's saving if every day were like today, and at the week's pace so far.
+    struct Score {
+        let weekBudget: Double      // this week's budget pool
+        let today: Double           // spent today
+        let dayProjected: Double    // weekBudget - today × 7 (one-time purchases counted once)
+        let week: Double            // spent Mon…today
+        let daysElapsed: Int
+        let weekProjected: Double   // Forecast.projected
+    }
     struct Row {
         let leading: [(combo: Int, cell: Cell)]   // row 1: Basic/Fun/Unnec; rows 2–3: one cell spanning 3
         let cumulative: Cell
         let saving: Saving
         let forecast: Forecast
+        let score: Score
     }
 
     let weekNumber: Int
@@ -106,6 +116,7 @@ struct WeekSummary {
         let weekCombo = combos.map { comboSpread($0, weekItems, monday, todayStr) }
         let weekComboOneTime = combos.map { comboSpread($0, weekItems.filter(\.oneTime), monday, todayStr) }
         let todayCombo = combos.map { comboSpread($0, weekItems, todayStr, todayStr) }
+        let todayComboOneTime = combos.map { comboSpread($0, weekItems.filter(\.oneTime), todayStr, todayStr) }
         let daysElapsed = diff + 1
 
         let weekLoans: Double = loanDeduction(accounts, monday, sunday)
@@ -126,16 +137,24 @@ struct WeekSummary {
             return Forecast(max: max, projected: proj, monthly: proj * 4.35)
         }
 
+        func score(_ today: Double, _ todayOneTime: Double, _ weekSpent: Double, _ weekOneTime: Double) -> Score {
+            Score(weekBudget: weekBudgetPool, today: today,
+                  dayProjected: weekBudgetPool - (today - todayOneTime) * 7 - todayOneTime,
+                  week: weekSpent, daysElapsed: daysElapsed,
+                  weekProjected: forecast(weekSpent, weekOneTime).projected)
+        }
+        let tdo1 = todayComboOneTime[3], tdo2 = tdo1 + todayComboOneTime[5], tdo3 = tdo2 + todayComboOneTime[4]
+
         let cum1 = comboTotals[3], wk1 = weekCombo[3], td1 = todayCombo[3], ot1 = weekComboOneTime[3]
         let cum2 = cum1 + comboTotals[5], wk2 = wk1 + weekCombo[5], td2 = td1 + todayCombo[5], ot2 = ot1 + weekComboOneTime[5]
         let cum3 = cum2 + comboTotals[4], wk3 = wk2 + weekCombo[4], td3 = td2 + todayCombo[4], ot3 = ot2 + weekComboOneTime[4]
         let rows = [
             Row(leading: [0, 1, 2].map { ($0, cell($0)) }, cumulative: cum("Total", cum1),
-                saving: saving(cum1, td1), forecast: forecast(wk1, ot1)),
+                saving: saving(cum1, td1), forecast: forecast(wk1, ot1), score: score(td1, tdo1, wk1, ot1)),
             Row(leading: [(5, cell(5))], cumulative: cum("+Gas", cum2),
-                saving: saving(cum2, td2), forecast: forecast(wk2, ot2)),
+                saving: saving(cum2, td2), forecast: forecast(wk2, ot2), score: score(td2, tdo2, wk2, ot2)),
             Row(leading: [(4, cell(4))], cumulative: cum("+Purch", cum3),
-                saving: saving(cum3, td3), forecast: forecast(wk3, ot3)),
+                saving: saving(cum3, td3), forecast: forecast(wk3, ot3), score: score(td3, tdo3, wk3, ot3)),
         ]
 
         let mondayDate = Format.day.date(from: monday) ?? now
