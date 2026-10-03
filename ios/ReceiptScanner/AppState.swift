@@ -205,13 +205,28 @@ final class AppState {
 enum BalanceOverrides {
     private static let key = "balanceOverrides"
 
+    /// Corrections measured on 2026-10-03 against the data then (calculated → actual):
+    /// Bank 6613.04 → 1120, Norwegian -2743.13 → -167.13, Work -2070.03 → 0.
+    /// Applied once per install; remove when the missing expenses are added.
+    private static let seed: [String: Double] = ["bank": -5493.04, "norwegian": 2576.00, "work": 2070.03]
+    private static let seededKey = "balanceOverridesSeeded-2026-10-03"
+
+    private static var all: [String: Double] {
+        let d = UserDefaults.standard
+        if !d.bool(forKey: seededKey) {
+            d.set(seed, forKey: key)
+            d.set(true, forKey: seededKey)
+        }
+        return (d.dictionary(forKey: key) as? [String: Double]) ?? [:]
+    }
+
     static func offset(_ account: String) -> Double? {
-        (UserDefaults.standard.dictionary(forKey: key) as? [String: Double])?[account]
+        all[account]
     }
 
     static func set(_ account: String, offset: Double?) {
-        var all = (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:]
-        all[account] = offset
-        UserDefaults.standard.set(all, forKey: key)
+        var updated = all
+        updated[account] = offset
+        UserDefaults.standard.set(updated, forKey: key)
     }
 }
