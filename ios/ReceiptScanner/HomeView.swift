@@ -29,6 +29,13 @@ struct HomeView: View {
         return NavigationStack(path: $path) {
             List {
                 Section {
+                    if !app.balances.isEmpty {
+                        BalancesView(balances: app.balances)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+
                     WeekSummaryView(summary: app.week, error: app.weekError)
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 6, trailing: 0))
                         .listRowBackground(Color.clear)

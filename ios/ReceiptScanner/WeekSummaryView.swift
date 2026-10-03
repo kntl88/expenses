@@ -136,3 +136,32 @@ struct WeekSummaryView: View {
         .animation(.default, value: bars.map(\.total))
     }
 }
+
+/// The web app's Accounts card lines (Bank, Norwegian): label left, balance right,
+/// accent when positive, red when negative.
+struct BalancesView: View {
+    let balances: [(label: String, value: Double)]
+    private typealias C = WebStyle
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(balances, id: \.label) { b in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(b.label.uppercased())
+                        .font(.system(size: 9, weight: .light, design: .monospaced)).tracking(1)
+                        .foregroundStyle(C.muted)
+                    Text("€" + String(format: "%.2f", b.value)) // fmt() in index.html
+                        .font(.system(size: 15, weight: .medium, design: .monospaced))
+                        .foregroundStyle(b.value >= 0 ? C.accent : C.red)
+                        .contentTransition(.numericText())
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .background(C.surface, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(C.border))
+            }
+        }
+        .environment(\.colorScheme, .dark)
+    }
+}

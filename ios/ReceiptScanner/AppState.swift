@@ -66,6 +66,8 @@ final class AppState {
     // MARK: Data (week summary + transactions)
 
     var week: WeekSummary?
+    /// Bank and Norwegian card balances, as on the web app's Accounts card.
+    var balances: [(label: String, value: Double)] = []
     var weekError: String?
     var transactions: [Transaction] = []
 
@@ -90,6 +92,7 @@ final class AppState {
         let start = ContinuousClock.now
         if AppState.demo {
             week = DemoData.week()
+            balances = [("Bank", 1843.27), ("Norwegian", -412.60)]
             transactions = Transaction.group(DemoData.expenses()).filter { $0.date >= Transaction.displayCutoff }
             return
         }
@@ -100,6 +103,9 @@ final class AppState {
             let (ex, ac) = try await (expenses, accounts)
             let newTransactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
             let newWeek = WeekSummary.compute(expenses: ex, accounts: ac)
+            let newBalances = [("Bank", "bank"), ("Norwegian", "norwegian")].map {
+                (label: $0.0, value: WeekSummary.balance($0.1, expenses: ex, accounts: ac))
+            }
             WidgetData.save(expenses: ex, accounts: ac)
             switch update {
             case .keep:
@@ -107,12 +113,12 @@ final class AppState {
                 return
             case .now:
                 transactions = newTransactions
-                withAnimation(.easeInOut(duration: 0.6)) { week = newWeek }
+                withAnimation(.easeInOut(duration: 0.6)) { week = newWeek; balances = newBalances }
             case let .after(delay):
                 // Old list and numbers stay on screen; numbers change first, then any pending payment
                 // that was just settled pops and flies off before the list updates.
                 try? await Task.sleep(until: start + delay)
-                withAnimation(.easeInOut(duration: 0.6)) { week = newWeek }
+                withAnimation(.easeInOut(duration: 0.6)) { week = newWeek; balances = newBalances }
                 await show(newTransactions, settlingAfter: .seconds(1.2))
             }
             weekError = nil

@@ -145,6 +145,21 @@ struct WeekSummary {
                            rows: rows, periodItems: periodItems, periodStart: periodStart, periodEnd: periodEnd)
     }
 
+    /// getAccountBal in index.html: the account's offset plus every confirmed row on it up to today
+    /// (UTC date, like the web app's toISOString()).
+    static func balance(_ account: String, expenses: [JSONValue], accounts: JSONValue, now: Date = Date()) -> Double {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let c = utc.dateComponents([.year, .month, .day], from: now)
+        let today = String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+        let sum = expenses.reduce(0.0) { s, e in
+            guard e["account"]?.stringValue == account, !truthy(e["proposed"]), !truthy(e["dismissed"]),
+                  let date = e["date"]?.stringValue, date <= today, let amount = number(e["amount"]) else { return s }
+            return s + amount
+        }
+        return (number(accounts[account]?["offset"]) ?? 0) + sum
+    }
+
     /// Daily totals Mon…today for the selected combo cells (the web app's rate-chart for one week).
     func dailyBars(selected: Set<Int>) -> [(label: String, total: Double)] {
         var cats = Set<String>(), subCats = Set<String>()

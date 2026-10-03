@@ -51,7 +51,7 @@ enum ReceiptCategory: String, CaseIterable, Identifiable, Codable {
 }
 
 enum Account: String, CaseIterable, Identifiable {
-    case bank, work, gold, norwegian, nordnet
+    case bank, work, norwegian, nordnet
     var id: String { rawValue }
     var label: String { rawValue.prefix(1).uppercased() + rawValue.dropFirst() }
 }
