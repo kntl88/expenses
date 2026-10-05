@@ -66,35 +66,79 @@ final class AppState {
     // MARK: Data (week summary + transactions)
 
     var week: WeekSummary?
-    /// Bank and card balances, as on the web app's Accounts card (plus any manual correction).
+    /// Bank and card balances. Detached from the web app: each account has its own phone-only offset
+    /// (`AppBalances`), so changing an offset in the web app doesn't move them; the rows still do.
     var balances: [Balance] = []
 
     struct Balance: Identifiable {
         let key: String
         let label: String
-        let computed: Double
-        let manualOffset: Double?
+        /// Every confirmed row on the account up to today.
+        let rowSum: Double
+        let webOffset: Double
+        let appOffset: Double
+        /// The latest balance read from a bank app screenshot, and the rows up to that day.
+        let check: AppBalances.Check?
+        let rowSumAtCheck: Double?
         var id: String { key }
-        var value: Double { computed + (manualOffset ?? 0) }
+        var value: Double { appOffset + rowSum }
+        /// What the web app's Accounts card shows.
+        var webValue: Double { webOffset + rowSum }
+        var differsFromWeb: Bool { abs(appOffset - webOffset) >= 0.005 }
+        /// Screenshot balance minus the app's balance on that day, when they don't match.
+        var discrepancy: Double? {
+            guard let check, let rowSumAtCheck else { return nil }
+            let d = Format.round2(check.reported - (appOffset + rowSumAtCheck))
+            return abs(d) >= 0.005 ? d : nil
+        }
     }
 
     private static let balanceAccounts = [("bank", "Bank"), ("norwegian", "Norwegian"), ("work", "Work")]
 
     private static func balances(expenses: [JSONValue], accounts: JSONValue) -> [Balance] {
         balanceAccounts.map { key, label in
-            Balance(key: key, label: label, computed: WeekSummary.balance(key, expenses: expenses, accounts: accounts),
-                    manualOffset: BalanceOverrides.offset(key))
+            let web = WeekSummary.webOffset(key, accounts: accounts)
+            let check = AppBalances.check(key)
+            return Balance(key: key, label: label, rowSum: WeekSummary.rowSum(key, expenses: expenses), webOffset: web,
+                           appOffset: AppBalances.offset(key, webOffset: web), check: check,
+                           rowSumAtCheck: check.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.day) })
         }
     }
 
-    /// Temporary, phone-only: makes `key` show `actual` until the missing expenses are added
-    /// (the difference is kept, so later payments still move the balance). nil clears it.
+    private func updateBalance(_ key: String) {
+        balances = balances.map { b in
+            b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
+                                       appOffset: AppBalances.offset(key, webOffset: b.webOffset),
+                                       check: b.check, rowSumAtCheck: b.rowSumAtCheck)
+        }
+    }
+
+    /// Phone-only: makes `key` show `actual` now (later payments still move it). nil goes back to the
+    /// web app's offset.
     func setBalance(_ key: String, actual: Double?) {
         guard let b = balances.first(where: { $0.key == key }) else { return }
-        BalanceOverrides.set(key, offset: actual.map { Format.round2($0 - b.computed) })
-        balances = balances.map { $0.key == key ? Balance(key: key, label: $0.label, computed: $0.computed,
-                                                          manualOffset: BalanceOverrides.offset(key)) : $0 }
+        AppBalances.setOffset(key, actual.map { Format.round2($0 - b.rowSum) } ?? b.webOffset)
+        updateBalance(key)
     }
+
+    /// Makes `key` match the balance last read from a screenshot.
+    func acceptCheckedBalance(_ key: String) {
+        guard let b = balances.first(where: { $0.key == key }), let c = b.check, let atCheck = b.rowSumAtCheck else { return }
+        AppBalances.setOffset(key, Format.round2(c.reported - atCheck))
+        updateBalance(key)
+    }
+
+    /// Records the balance a bank app screenshot showed today (compared on Home after the next load).
+    func recordBalanceCheck(_ key: String, reported: Double) {
+        let check = AppBalances.Check(reported: Format.round2(reported), day: Format.day.string(from: Date()))
+        AppBalances.setCheck(key, check)
+        // Checked today, so the rows up to that day are today's rows (the next load recomputes it).
+        balances = balances.map { b in
+            b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
+                                       appOffset: b.appOffset, check: check, rowSumAtCheck: b.rowSum)
+        }
+    }
+
     var weekError: String?
     var transactions: [Transaction] = []
 
@@ -119,9 +163,10 @@ final class AppState {
         let start = ContinuousClock.now
         if AppState.demo {
             week = DemoData.week()
-            balances = [Balance(key: "bank", label: "Bank", computed: 1843.27, manualOffset: BalanceOverrides.offset("bank")),
-                        Balance(key: "norwegian", label: "Norwegian", computed: -412.60, manualOffset: BalanceOverrides.offset("norwegian")),
-                        Balance(key: "work", label: "Work", computed: -86.20, manualOffset: BalanceOverrides.offset("work"))]
+            balances = [Balance(key: "bank", label: "Bank", rowSum: 1843.27, webOffset: 0, appOffset: 0, check: nil, rowSumAtCheck: nil),
+                        Balance(key: "norwegian", label: "Norwegian", rowSum: -412.60, webOffset: 0, appOffset: 0,
+                                check: .init(reported: -398.10, day: Format.day.string(from: Date())), rowSumAtCheck: -412.60),
+                        Balance(key: "work", label: "Work", rowSum: -86.20, webOffset: 0, appOffset: 0, check: nil, rowSumAtCheck: nil)]
             transactions = Transaction.group(DemoData.expenses()).filter { $0.date >= Transaction.displayCutoff }
             return
         }
@@ -201,32 +246,64 @@ final class AppState {
     }
 }
 
-/// Manual balance corrections kept on the phone only (account → amount added to the computed balance).
-enum BalanceOverrides {
+/// The app's own balance offsets and screenshot balance checks, kept on the phone only.
+enum AppBalances {
+    private static let offsetsKey = "appBalanceOffsets"
+    private static let checksKey = "balanceChecks"
+
+    struct Check: Codable {
+        /// Balance the bank app showed (negative = owed).
+        let reported: Double
+        /// YYYY-MM-DD the screenshot was read.
+        let day: String
+    }
+
+    private static var offsets: [String: Double] {
+        (UserDefaults.standard.dictionary(forKey: offsetsKey) as? [String: Double]) ?? [:]
+    }
+
+    /// The account's offset. The first time, it's taken over from the web app's offset plus the old
+    /// manual correction, so the balance shown stays the same.
+    static func offset(_ account: String, webOffset: Double) -> Double {
+        if let o = offsets[account] { return o }
+        let o = Format.round2(webOffset + (LegacyOverrides.offset(account) ?? 0))
+        if !AppState.demo { setOffset(account, o) }
+        return o
+    }
+
+    static func setOffset(_ account: String, _ offset: Double) {
+        var updated = offsets
+        updated[account] = offset
+        UserDefaults.standard.set(updated, forKey: offsetsKey)
+    }
+
+    static func check(_ account: String) -> Check? {
+        guard let data = UserDefaults.standard.data(forKey: checksKey),
+              let all = try? JSONDecoder().decode([String: Check].self, from: data) else { return nil }
+        return all[account]
+    }
+
+    static func setCheck(_ account: String, _ check: Check) {
+        var all = (UserDefaults.standard.data(forKey: checksKey))
+            .flatMap { try? JSONDecoder().decode([String: Check].self, from: $0) } ?? [:]
+        all[account] = check
+        UserDefaults.standard.set(try? JSONEncoder().encode(all), forKey: checksKey)
+    }
+}
+
+/// Before the balances were detached: manual corrections added to the web app's balance. Only read
+/// once, to carry them over into `AppBalances`.
+private enum LegacyOverrides {
     private static let key = "balanceOverrides"
 
     /// Corrections measured on 2026-10-03 against the data then (calculated → actual):
     /// Bank 6613.04 → 1120, Norwegian -2743.13 → -167.13, Work -2070.03 → 0.
-    /// Applied once per install; remove when the missing expenses are added.
     private static let seed: [String: Double] = ["bank": -5493.04, "norwegian": 2576.00, "work": 2070.03]
     private static let seededKey = "balanceOverridesSeeded-2026-10-03"
 
-    private static var all: [String: Double] {
-        let d = UserDefaults.standard
-        if !d.bool(forKey: seededKey) {
-            d.set(seed, forKey: key)
-            d.set(true, forKey: seededKey)
-        }
-        return (d.dictionary(forKey: key) as? [String: Double]) ?? [:]
-    }
-
     static func offset(_ account: String) -> Double? {
-        all[account]
-    }
-
-    static func set(_ account: String, offset: Double?) {
-        var updated = all
-        updated[account] = offset
-        UserDefaults.standard.set(updated, forKey: key)
+        let d = UserDefaults.standard
+        let all = d.bool(forKey: seededKey) ? (d.dictionary(forKey: key) as? [String: Double]) ?? [:] : seed
+        return all[account]
     }
 }

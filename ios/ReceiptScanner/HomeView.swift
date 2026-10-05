@@ -195,14 +195,23 @@ struct HomeView: View {
                     let v = Double(balanceText.replacingOccurrences(of: ",", with: ".").filter { "-0123456789.".contains($0) })
                     if let v { app.setBalance(b.key, actual: v) }
                 }
-                if b.manualOffset != nil {
-                    Button("Use calculated (\(String(format: "€%.2f", b.computed)))", role: .destructive) {
+                if let c = b.check, b.discrepancy != nil {
+                    Button("Match screenshot (€\(String(format: "%.2f", c.reported)) on \(c.day))") {
+                        app.acceptCheckedBalance(b.key)
+                    }
+                }
+                if b.differsFromWeb {
+                    Button("Use web app's (\(String(format: "€%.2f", b.webValue)))", role: .destructive) {
                         app.setBalance(b.key, actual: nil)
                     }
                 }
                 Button("Cancel", role: .cancel) {}
-            } message: { _ in
-                Text("Temporary, on this phone only, until the missing expenses are added. Later payments still move it.")
+            } message: { b in
+                if let d = b.discrepancy, let c = b.check {
+                    Text("The bank app showed €\(String(format: "%.2f", c.reported)) on \(c.day), \(String(format: "€%.2f", abs(d))) \(d > 0 ? "more" : "less") than here. On this phone only; later payments still move it.")
+                } else {
+                    Text("On this phone only, separate from the web app. Later payments still move it.")
+                }
             }
             .confirmationDialog("Delete this transaction?", isPresented: Binding(
                 get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }

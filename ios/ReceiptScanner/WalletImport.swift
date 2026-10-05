@@ -60,6 +60,27 @@ struct WalletPayment: Identifiable {
     var include = true
 }
 
+/// What a transaction list screenshot showed.
+struct WalletRead {
+    enum Source: String { case wallet, norwegian, bank, other }
+    var source: Source
+    /// The card/account balance on screen (negative = owed), when a bank app shows one.
+    var balance: Double?
+    var payments: [WalletPayment]
+
+    /// Bank Norwegian rows are booked card purchases: added as accepted, not pending.
+    var addsAccepted: Bool { source == .norwegian }
+
+    /// The account this screenshot is from, when the source tells.
+    var account: Account? {
+        switch source {
+        case .norwegian: .norwegian
+        case .bank: .bank
+        case .wallet, .other: nil
+        }
+    }
+}
+
 extension ClaudeClient {
     private static let walletSchema: [String: Any] = [
         "type": "object",
@@ -81,13 +102,17 @@ extension ClaudeClient {
                     "additionalProperties": false,
                 ],
             ],
+            "source": ["type": "string", "enum": ["apple_wallet", "bank_norwegian", "other_bank", "other"],
+                       "description": "Which app the screenshot is from"],
+            "balance": ["anyOf": [["type": "number"], ["type": "null"]],
+                        "description": "The card's or account's current balance shown on screen, in euros; negative when it's money owed on a credit card; null if none is shown"],
         ],
-        "required": ["payments"],
+        "required": ["source", "balance", "payments"],
         "additionalProperties": false,
     ]
 
     /// Reads the rows of a screenshot of Apple Wallet's card transaction list.
-    func readWallet(_ image: UIImage, now: Date = Date()) async throws -> [WalletPayment] {
+    func readWallet(_ image: UIImage, now: Date = Date()) async throws -> WalletRead {
         guard let jpeg = ImageUtil.jpegForClaude(image) else { throw ClaudeError(message: "Couldn't encode the image.") }
         let today = Format.day.string(from: now)
         let weekday = now.formatted(.dateTime.weekday(.wide).locale(Locale(identifier: "en_US")))
@@ -112,13 +137,15 @@ extension ClaudeClient {
         - un: kiosks and candy/soft-drink impulse purchases
 
         Ignore anything that isn't a transaction row (card image, balance, credit limit, headers, buttons). If there are no transaction rows, return an empty list.
+
+        Also give the source app (apple_wallet, bank_norwegian for the Bank Norwegian app, other_bank for any other bank's app, other) and the balance. Balance: the current balance (saldo) of the card or account as shown — for a credit card, the amount used/owed as a negative number (e.g. "Saldo 167,13" owed → -167.13). Never the available amount (disponibelt, käytettävissä), the credit limit or a minimum payment. null when no balance is shown.
         """
         let content: [[String: Any]] = [
             ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
             ["type": "text", "text": text],
         ]
         let result = try await send(content: content, schema: Self.walletSchema, maxTokens: 8000, effort: "low")
-        return (result["payments"] as? [[String: Any]] ?? []).compactMap { p in
+        let payments: [WalletPayment] = (result["payments"] as? [[String: Any]] ?? []).compactMap { p in
             guard let amount = (p["amount"] as? NSNumber)?.doubleValue, amount != 0,
                   let date = p["date"] as? String, Format.day.date(from: date) != nil else { return nil }
             return WalletPayment(merchant: (p["merchant"] as? String ?? "").trimmingCharacters(in: .whitespaces),
@@ -127,6 +154,14 @@ extension ClaudeClient {
                                  category: (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) ?? .misc,
                                  status: p["status"] as? String ?? "completed")
         }
+        let source: WalletRead.Source = switch result["source"] as? String {
+        case "apple_wallet": .wallet
+        case "bank_norwegian": .norwegian
+        case "other_bank": .bank
+        default: .other
+        }
+        return WalletRead(source: source, balance: (result["balance"] as? NSNumber).map { Format.round2($0.doubleValue) },
+                          payments: payments)
     }
 }
 

@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Reads a Wallet screenshot and adds the payments that aren't in expenses yet as pending card payments.
+/// Reads a Wallet or bank app screenshot and adds the payments that aren't in expenses yet: as pending
+/// card payments, or straight as accepted transactions from Bank Norwegian. A balance on screen is
+/// checked against the app's.
 struct WalletImportView: View {
     @Environment(AppState.self) private var app
     let job: ScanJob
@@ -12,6 +14,9 @@ struct WalletImportView: View {
     @State private var started = false
     @State private var error: String?
     @State private var payments: [WalletPayment] = []
+    @State private var read: WalletRead?
+
+    private var account: Account { read?.account ?? app.defaultAccount }
 
     private var selected: [WalletPayment] { payments.filter(\.include) }
 
@@ -86,6 +91,18 @@ struct WalletImportView: View {
             if let error {
                 Section { Text(error).foregroundStyle(.red) }
             }
+            if let reported = read?.balance, let b = app.balances.first(where: { $0.key == account.rawValue }) {
+                let after = Format.round2(b.value - selected.reduce(0) { $0 + $1.amount })
+                let off = abs(reported - after) >= 0.005
+                Section {
+                    LabeledContent("\(b.label) in screenshot", value: Format.euro(reported))
+                    LabeledContent("In Receipts after adding", value: Format.euro(after))
+                        .foregroundStyle(off ? .red : .primary)
+                } footer: {
+                    Text(off ? "Doesn't match: \(Format.euro(abs(reported - after))) \(reported > after ? "more" : "less") in the bank. The \(b.label) balance is highlighted on Home until it matches."
+                             : "Matches.")
+                }
+            }
             Section {
                 if payments.isEmpty {
                     Text("No transactions found in the screenshot.").foregroundStyle(.secondary)
@@ -94,7 +111,7 @@ struct WalletImportView: View {
                     PaymentRow(payment: $p)
                 }
             } footer: {
-                Text("New payments are added as pending, to confirm or itemize later. Ones already in Receipts (same amount within 5 days), declined ones, refunds and non-purchases are unchecked.")
+                Text("New payments are added \(read?.addsAccepted == true ? "as accepted transactions" : "as pending, to confirm or itemize later") (\(account.label)). Ones already in Receipts (same amount within 5 days), declined ones, refunds and non-purchases are unchecked.")
             }
         }
     }
@@ -113,7 +130,11 @@ struct WalletImportView: View {
         guard let image = job.images.first, let claude = app.claude else { return }
         error = nil
         do {
-            var found = try await claude.readWallet(image)
+            let result = try await claude.readWallet(image)
+            if let balance = result.balance, let account = result.account {
+                app.recordBalanceCheck(account.rawValue, reported: balance)
+            }
+            var found = result.payments
             var used: Set<String> = []
             for i in found.indices {
                 if let g = MerchantHistory.guess(found[i].merchant, in: app.transactions) {
@@ -135,6 +156,7 @@ struct WalletImportView: View {
                 if let tap = found[i].tap { found[i].time = Format.hhmm(tap.date) } // exact, from the tap
             }
             payments = found
+            read = result
             phase = .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
             app.saveAnthropicKey(nil)
@@ -151,11 +173,11 @@ struct WalletImportView: View {
         let entries = selected.map { p in
             ExpenseEntry.make(amount: p.amount, date: p.date,
                               description: p.merchant.isEmpty ? "Card payment" : p.merchant,
-                              category: p.category, account: app.defaultAccount, time: p.time, pending: true)
+                              category: p.category, account: account, time: p.time, pending: read?.addsAccepted != true)
         }
         do {
             try await store.commit(newEntries: entries,
-                                   message: "Wallet import \(entries.count) payment\(entries.count == 1 ? "" : "s") (iOS)")
+                                   message: "\(read?.source == .norwegian ? "Norwegian" : "Wallet") import \(entries.count) payment\(entries.count == 1 ? "" : "s") (iOS)")
             // A tap is done once its payment is added, or was already in Receipts.
             app.clearTaps(Set(payments.compactMap { p in p.include || p.existing != nil ? p.tap?.id : nil }))
             onDone()

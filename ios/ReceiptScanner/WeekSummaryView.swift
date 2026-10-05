@@ -137,8 +137,9 @@ struct WeekSummaryView: View {
     }
 }
 
-/// The web app's Accounts card lines (Bank, Norwegian, Work): accent when positive, red when
-/// negative. Tap one to set it by hand; corrected ones say "set manually".
+/// Bank, Norwegian and Work balances with the app's own offsets: accent when positive, red when
+/// negative. Ones that differ from the web app show the difference; a balance that didn't match the
+/// last bank app screenshot is outlined in red. Tap one to set it by hand.
 struct BalancesView: View {
     let balances: [AppState.Balance]
     var onTap: (AppState.Balance) -> Void
@@ -157,20 +158,29 @@ struct BalancesView: View {
                             .foregroundStyle(b.value >= 0 ? C.accent : C.red)
                             .contentTransition(.numericText())
                             .lineLimit(1).minimumScaleFactor(0.6)
-                        Text(b.manualOffset != nil ? "SET MANUALLY" : " ")
+                        Text(caption(b))
                             .font(.system(size: 7, weight: .light, design: .monospaced)).tracking(0.5)
-                            .foregroundStyle(C.dim)
+                            .foregroundStyle(b.discrepancy != nil ? C.red : C.dim)
+                            .lineLimit(1).minimumScaleFactor(0.7)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 10).padding(.vertical, 6)
                     .background(C.surface, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(b.manualOffset != nil ? C.accentDim : C.border))
+                    .overlay(RoundedRectangle(cornerRadius: 10).fill(C.red.opacity(b.discrepancy != nil ? 0.12 : 0)).allowsHitTesting(false))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
+                        .stroke(b.discrepancy != nil ? C.red : C.border, lineWidth: b.discrepancy != nil ? 1.5 : 1))
                     .contentShape(RoundedRectangle(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
             }
         }
         .environment(\.colorScheme, .dark)
+    }
+
+    private func caption(_ b: AppState.Balance) -> String {
+        if let d = b.discrepancy { return "BANK " + (d > 0 ? "+" : "−") + String(format: "%.2f", abs(d)) }
+        if b.differsFromWeb { return "WEB " + String(format: "%.2f", b.webValue) }
+        return " "
     }
 }
 

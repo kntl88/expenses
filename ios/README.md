@@ -21,10 +21,17 @@ Swift port of `renderDailyRates` / `getBudgetBreakdown` (`WeekSummary.swift`). T
 the per-day bar chart; pull down to refresh. Keep the two in sync if the web formula changes.
 
 ## Balances and day's score
-Home shows the **Bank / Norwegian / Work** balances (web app's `getAccountBal`: account offset + every
-confirmed row up to today). Tap one to set the actual balance **temporarily, on the phone only**: the
-difference is stored locally (`BalanceOverrides`) and added to the calculated balance, so later
-payments still move it; "Use calculated" clears it once the missing expenses are in.
+Home shows the **Bank / Norwegian / Work** balances, **detached from the web app**: each account has
+its own phone-only offset (`AppBalances`) plus every confirmed row on it up to today, so changing an
+offset in the web app doesn't move them (the rows still do). The first run takes over the web app's
+offset plus the old manual correction, so nothing jumps. When the phone's offset differs from the
+web app's, the box shows the web app's figure ("WEB …"). Tap a balance to set it; "Use web app's"
+goes back to the web app's offset.
+
+**Balance check:** a Wallet import from a bank app screenshot also reads the balance on screen
+(Bank Norwegian → Norwegian, another bank app → Bank). The import review shows it next to the app's
+balance after adding, and on Home the box is outlined in red with the difference ("BANK +14.50") as
+long as the app's balance on the screenshot's day doesn't match. Tap it to "Match screenshot".
 
 The **Home / Score** buttons at the top switch pages. **Score** shows, for Total / +Gas / +Purch,
 this week's saving if every day went like today (`budget − today × 7`, one-time purchases counted
@@ -100,7 +107,8 @@ Receipts opens on the screenshot with **Cancel / Import** first, so an accidenta
 reaches Claude. After Import, Claude reads the rows (relative dates like "Yesterday" resolved to dates). Each row
 gets a category from your past naming of that merchant in the app's transactions, else Claude's guess.
 Rows matching a transaction already in the app (same amount within 5 days), declined ones and refunds
-start unchecked. **Add** saves the checked ones as pending card payments.
+start unchecked. **Add** saves the checked ones as pending card payments, except from the **Bank
+Norwegian** app: those go straight into accepted transactions on the Norwegian account.
 
 ### Card taps waiting for details
 Shortcuts → Automation → **Transaction** (your payment card only, Run Immediately) → **Register Card
