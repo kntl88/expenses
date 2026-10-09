@@ -69,6 +69,8 @@ final class AppState {
     /// Bank and card balances. Detached from the web app: each account has its own phone-only offset
     /// (`AppBalances`), so changing an offset in the web app doesn't move them; the rows still do.
     var balances: [Balance] = []
+    /// The rows of the last load, for balance checks.
+    private var expenses: [JSONValue] = []
 
     struct Balance: Identifiable {
         let key: String
@@ -139,6 +141,17 @@ final class AppState {
         }
     }
 
+    /// The balance a bank app's month totals imply for `key` today: the app's balance at the end of
+    /// last month (assumed checked) plus the month's payments minus its purchases. nil unless `month`
+    /// (YYYY-MM) is the current month.
+    func balanceFromMonth(_ key: String, month: String, spent: Double, paid: Double) -> Double? {
+        let today = Format.day.string(from: Date())
+        guard today.hasPrefix(month + "-"), let b = balances.first(where: { $0.key == key }) else { return nil }
+        // "YYYY-MM-00" sorts before the month's first day and after every day of the month before.
+        let atMonthStart = WeekSummary.rowSum(key, expenses: expenses, through: month + "-00")
+        return Format.round2(b.appOffset + atMonthStart + paid - spent)
+    }
+
     var weekError: String?
     var transactions: [Transaction] = []
 
@@ -175,6 +188,7 @@ final class AppState {
             async let expenses = store.load().expenses
             async let accounts = store.loadAccounts()
             let (ex, ac) = try await (expenses, accounts)
+            self.expenses = ex
             let newTransactions = Transaction.group(ex).filter { $0.date >= Transaction.displayCutoff }
             let newWeek = WeekSummary.compute(expenses: ex, accounts: ac)
             let newBalances = Self.balances(expenses: ex, accounts: ac)

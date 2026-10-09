@@ -66,7 +66,19 @@ struct WalletRead {
     var source: Source
     /// The card/account balance on screen (negative = owed), when a bank app shows one.
     var balance: Double?
+    /// The month's totals from a month section header (Bank Norwegian: "Lokakuu · Käytetty 546,40 •
+    /// Maksettu 0,00"), when shown.
+    var month: MonthTotals?
     var payments: [WalletPayment]
+
+    struct MonthTotals {
+        /// YYYY-MM
+        var month: String
+        /// Card purchases in the month (positive), including reservations.
+        var spent: Double
+        /// Payments to the card in the month (positive).
+        var paid: Double
+    }
 
     /// Bank Norwegian rows are booked card purchases: added as accepted, not pending.
     var addsAccepted: Bool { source == .norwegian }
@@ -106,8 +118,19 @@ extension ClaudeClient {
                        "description": "Which app the screenshot is from"],
             "balance": ["anyOf": [["type": "number"], ["type": "null"]],
                         "description": "The card's or account's current balance shown on screen, in euros; negative when it's money owed on a credit card; null if none is shown"],
+            "month": ["anyOf": [
+                ["type": "object",
+                 "properties": [
+                     "month": ["type": "string", "description": "YYYY-MM"],
+                     "spent": ["type": "number", "description": "Euros used/spent in the month, positive"],
+                     "paid": ["type": "number", "description": "Euros paid to the card in the month, positive"],
+                 ],
+                 "required": ["month", "spent", "paid"],
+                 "additionalProperties": false],
+                ["type": "null"],
+            ], "description": "The newest month section header's spent/paid totals; null if none is shown"],
         ],
-        "required": ["source", "balance", "payments"],
+        "required": ["source", "balance", "month", "payments"],
         "additionalProperties": false,
     ]
 
@@ -139,6 +162,8 @@ extension ClaudeClient {
         Ignore anything that isn't a transaction row (card image, balance, credit limit, headers, buttons). If there are no transaction rows, return an empty list.
 
         Also give the source app (apple_wallet, bank_norwegian for the Bank Norwegian app, other_bank for any other bank's app, other) and the balance. Balance: the current balance (saldo) of the card or account as shown — for a credit card, the amount used/owed as a negative number (e.g. "Saldo 167,13" owed → -167.13). Never the available amount (disponibelt, käytettävissä), the credit limit or a minimum payment. null when no balance is shown.
+
+        Month: when a month section header shows the month's totals — amount used/spent (Käytetty, Brukt, Använt, Spent) and paid (Maksettu, Betalt, Paid) — give the newest such month as YYYY-MM with both amounts as positive numbers (paid 0 when it says 0,00). null when no month totals are shown.
         """
         let content: [[String: Any]] = [
             ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]],
@@ -160,8 +185,14 @@ extension ClaudeClient {
         case "other_bank": .bank
         default: .other
         }
+        let month = (result["month"] as? [String: Any]).flatMap { m -> WalletRead.MonthTotals? in
+            guard let month = m["month"] as? String, month.count == 7, Format.day.date(from: month + "-01") != nil,
+                  let spent = (m["spent"] as? NSNumber)?.doubleValue else { return nil }
+            return .init(month: month, spent: Format.round2(abs(spent)),
+                         paid: Format.round2(abs((m["paid"] as? NSNumber)?.doubleValue ?? 0)))
+        }
         return WalletRead(source: source, balance: (result["balance"] as? NSNumber).map { Format.round2($0.doubleValue) },
-                          payments: payments)
+                          month: month, payments: payments)
     }
 }
 

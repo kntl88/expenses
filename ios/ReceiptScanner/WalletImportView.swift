@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Reads a Wallet or bank app screenshot and adds the payments that aren't in expenses yet: as pending
-/// card payments, or straight as accepted transactions from Bank Norwegian. A balance on screen is
-/// checked against the app's.
+/// card payments, or straight as accepted transactions from Bank Norwegian. A balance on screen, or the
+/// current month's spent/paid totals, is checked against the app's.
 struct WalletImportView: View {
     @Environment(AppState.self) private var app
     let job: ScanJob
@@ -15,6 +15,8 @@ struct WalletImportView: View {
     @State private var error: String?
     @State private var payments: [WalletPayment] = []
     @State private var read: WalletRead?
+    /// The balance the screenshot shows, or the one its month totals imply.
+    @State private var reported: Double?
 
     private var account: Account { read?.account ?? app.defaultAccount }
 
@@ -91,16 +93,20 @@ struct WalletImportView: View {
             if let error {
                 Section { Text(error).foregroundStyle(.red) }
             }
-            if let reported = read?.balance, let b = app.balances.first(where: { $0.key == account.rawValue }) {
+            if let reported, let b = app.balances.first(where: { $0.key == account.rawValue }) {
                 let after = Format.round2(b.value - selected.reduce(0) { $0 + $1.amount })
                 let off = abs(reported - after) >= 0.005
                 Section {
-                    LabeledContent("\(b.label) in screenshot", value: Format.euro(reported))
+                    if read?.balance == nil, let m = read?.month {
+                        LabeledContent("\(m.month) spent · paid", value: "\(Format.euro(m.spent)) · \(Format.euro(m.paid))")
+                    }
+                    LabeledContent("\(b.label) \(read?.balance == nil ? "by the screenshot" : "in screenshot")", value: Format.euro(reported))
                     LabeledContent("In Receipts after adding", value: Format.euro(after))
                         .foregroundStyle(off ? .red : .primary)
                 } footer: {
-                    Text(off ? "Doesn't match: \(Format.euro(abs(reported - after))) \(reported > after ? "more" : "less") in the bank. The \(b.label) balance is highlighted on Home until it matches."
-                             : "Matches.")
+                    Text((read?.balance == nil ? "From the month's totals, taking the app's balance at the end of last month as right. " : "")
+                         + (off ? "Doesn't match: \(Format.euro(abs(reported - after))) \(reported > after ? "more" : "less") in the bank. The \(b.label) balance is highlighted on Home until it matches."
+                             : "Matches."))
                 }
             }
             Section {
@@ -131,8 +137,11 @@ struct WalletImportView: View {
         error = nil
         do {
             let result = try await claude.readWallet(image)
-            if let balance = result.balance, let account = result.account {
-                app.recordBalanceCheck(account.rawValue, reported: balance)
+            if let account = result.account {
+                reported = result.balance ?? result.month.flatMap {
+                    app.balanceFromMonth(account.rawValue, month: $0.month, spent: $0.spent, paid: $0.paid)
+                }
+                if let reported { app.recordBalanceCheck(account.rawValue, reported: reported) }
             }
             var found = result.payments
             var used: Set<String> = []
