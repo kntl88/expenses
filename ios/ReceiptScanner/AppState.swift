@@ -279,10 +279,27 @@ enum AppBalances {
     /// The account's offset. The first time, it's taken over from the web app's offset plus the old
     /// manual correction, so the balance shown stays the same.
     static func offset(_ account: String, webOffset: Double) -> Double {
+        applyCorrections()
         if let o = offsets[account] { return o }
         let o = Format.round2(webOffset + (LegacyOverrides.offset(account) ?? 0))
         if !AppState.demo { setOffset(account, o) }
         return o
+    }
+
+    /// One-time shifts of the phone's offsets, each applied once.
+    /// 2026-10-09: with all of October imported Norwegian showed -496.54; the bank says -603.89.
+    private static let corrections: [(key: String, account: String, delta: Double)] = [
+        ("balanceCorrection-2026-10-09-norwegian", "norwegian", -107.35),
+    ]
+
+    private static func applyCorrections() {
+        guard !AppState.demo else { return }
+        let d = UserDefaults.standard
+        for c in corrections where !d.bool(forKey: c.key) {
+            // Only shifts an offset the phone already has; a fresh install starts from the web app's.
+            if let o = offsets[c.account] { setOffset(c.account, Format.round2(o + c.delta)) }
+            d.set(true, forKey: c.key)
+        }
     }
 
     static func setOffset(_ account: String, _ offset: Double) {
