@@ -159,7 +159,7 @@ extension ClaudeClient {
         - misc: parking, public transport, services, anything unclear
         - un: kiosks and candy/soft-drink impulse purchases
 
-        Ignore anything that isn't a transaction row (card image, balance, credit limit, headers, buttons). If there are no transaction rows, return an empty list.
+        Ignore anything that isn't a transaction row (card image, balance, credit limit, headers, buttons). Skip a row cut off at the top or bottom edge of the screen or hidden behind a button or tab bar, so its merchant, date or amount isn't fully visible — it's read from the next screenshot. If there are no transaction rows, return an empty list.
 
         Also give the source app (apple_wallet, bank_norwegian for the Bank Norwegian app, other_bank for any other bank's app, other) and the balance. Balance: the current balance (saldo) of the card or account as shown — for a credit card, the amount used/owed as a negative number (e.g. "Saldo 167,13" owed → -167.13). Never the available amount (disponibelt, käytettävissä), the credit limit or a minimum payment. null when no balance is shown.
 
