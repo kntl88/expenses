@@ -327,6 +327,8 @@ enum AppBalances {
     /// 2026-10-09: with all of October imported Norwegian showed -496.54; the bank says -603.89.
     private static let corrections: [(key: String, account: String, delta: Double)] = [
         ("balanceCorrection-2026-10-09-norwegian", "norwegian", -107.35),
+        // 2026-10-11: Norwegian showed -704.33; the target (carry-over -57.49 − Käytetty 637,05) is -694.54.
+        ("balanceCorrection-2026-10-11-norwegian", "norwegian", 9.79),
     ]
 
     private static func applyCorrections() {
