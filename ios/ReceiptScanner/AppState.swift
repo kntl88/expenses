@@ -331,6 +331,12 @@ enum AppBalances {
             setOffset("norwegian", 2613.43)
             d.set(true, forKey: "offsetSet-2026-10-11-norwegian")
         }
+        // The check from this morning's screenshot was stored as a fixed balance; make it the live
+        // month-totals check it came from.
+        if !d.bool(forKey: "checkMonth-2026-10-11-norwegian") {
+            setCheck("norwegian", Check(reported: -694.54, day: "2026-10-11", month: "2026-10", spent: 637.05, paid: 0))
+            d.set(true, forKey: "checkMonth-2026-10-11-norwegian")
+        }
         // 2026-10-11: a Bank Norwegian screenshot was read as another bank's, so its month totals
         // were recorded as a Bank balance check.
         if !d.bool(forKey: "checkFix-2026-10-11-bank") {
