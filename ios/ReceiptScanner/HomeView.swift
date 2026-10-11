@@ -195,6 +195,12 @@ struct HomeView: View {
                     let v = Double(balanceText.replacingOccurrences(of: ",", with: ".").filter { "-0123456789.".contains($0) })
                     if let v { app.setBalance(b.key, actual: v) }
                 }
+                if b.check?.spent != nil {
+                    Button("Set as target") {
+                        let v = Double(balanceText.replacingOccurrences(of: ",", with: ".").filter { "-0123456789.".contains($0) })
+                        if let v { app.setTarget(b.key, v) }
+                    }
+                }
                 if let c = b.check, c.spent == nil, b.discrepancy != nil {
                     Button("Match screenshot (€\(String(format: "%.2f", c.reported)) on \(c.day))") {
                         app.acceptCheckedBalance(b.key)

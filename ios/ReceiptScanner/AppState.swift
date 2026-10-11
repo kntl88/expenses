@@ -122,7 +122,7 @@ final class AppState {
         balances = balances.map { b in
             b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
                                        appOffset: AppBalances.offset(key, webOffset: b.webOffset),
-                                       check: b.check, rowSumAtCheck: b.rowSumAtCheck)
+                                       check: AppBalances.check(key), rowSumAtCheck: b.rowSumAtCheck)
         }
     }
 
@@ -131,6 +131,16 @@ final class AppState {
     func setBalance(_ key: String, actual: Double?) {
         guard let b = balances.first(where: { $0.key == key }) else { return }
         AppBalances.setOffset(key, actual.map { Format.round2($0 - b.rowSum) } ?? b.webOffset)
+        updateBalance(key)
+    }
+
+    /// Sets the target of a month-totals check by its carry-over (target = carry − used + paid);
+    /// the balance itself doesn't change.
+    func setTarget(_ key: String, _ target: Double) {
+        guard let c = AppBalances.check(key), let spent = c.spent else { return }
+        let paid = c.paid ?? 0
+        AppBalances.setCheck(key, AppBalances.Check(reported: Format.round2(target), day: c.day, month: c.month,
+                                                    spent: spent, paid: paid, carry: Format.round2(target + spent - paid)))
         updateBalance(key)
     }
 
@@ -322,10 +332,10 @@ enum AppBalances {
     private static func applyCorrections() {
         guard !AppState.demo else { return }
         let d = UserDefaults.standard
-        // 2026-10-11: Norwegian should show -694.54; its rows up to today sum to -3170.95.
-        if !d.bool(forKey: "offsetSet-2026-10-11b-norwegian") {
-            setOffset("norwegian", 2476.41)
-            d.set(true, forKey: "offsetSet-2026-10-11b-norwegian")
+        // 2026-10-11: undo moving the Norwegian offset to 2476.41; only the target was to change.
+        if !d.bool(forKey: "offsetRestore-2026-10-11-norwegian") {
+            setOffset("norwegian", 2470.80)
+            d.set(true, forKey: "offsetRestore-2026-10-11-norwegian")
         }
         // The check from this morning's screenshot was stored as a fixed balance; make it the live
         // month-totals check it came from.
