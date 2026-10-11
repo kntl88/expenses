@@ -5,21 +5,13 @@ import SwiftUI
 ///   (tap an item's category to move it) and writes one row per category with its receipt lines;
 /// - allocate (`job` nil): splits/categorizes an existing transaction (e.g. a pending card payment)
 ///   without a receipt.
-/// - import (`imported` set): card payments read from a Wallet/bank screenshot, reviewed and accepted
-///   one by one.
 /// Either way it can replace a transaction (`target`, or one picked from matching candidates); a
-/// receipt or payment for a transaction already in Receipts shows that one's previous itemization.
+/// receipt for a transaction already in Receipts shows that one's previous itemization.
 struct ReviewView: View {
     @Environment(AppState.self) private var app
     let job: ScanJob?
     var target: Transaction? = nil
-    var imported: [WalletPayment]? = nil
-    /// The account the imported screenshot is from.
-    var importAccount: Account? = nil
     var onDone: () -> Void
-    /// After each save: the account and how much was added to its spending (0 when an existing
-    /// transaction was only re-split).
-    var onSaved: ((Account, Double) -> Void)? = nil
 
     enum Phase { case scanning, review, saving }
     @State private var phase: Phase = .scanning
@@ -53,15 +45,8 @@ struct ReviewView: View {
         }
     }
 
-    private var importing: Bool { imported != nil }
-    /// The imported payment being reviewed.
-    private var payment: WalletPayment? { imported.flatMap { position < $0.count ? $0[position] : nil } }
-
-    /// Receipt lines are stored with the rows; manual allocation splits and card payments are not
-    /// receipt lines (an imported payment keeps the lines of the transaction it matches).
-    private var storesItems: Bool {
-        importing ? (replacing?.isItemized ?? false) : job != nil || (target?.isItemized ?? false)
-    }
+    /// Receipt lines are stored with the rows; manual allocation splits are not receipt lines.
+    private var storesItems: Bool { job != nil || (target?.isItemized ?? false) }
 
     /// Transactions that could be this same purchase (a pending card payment, or one imported from the
     /// statement): same amount, within ±10 days — Norwegian booking dates lag, so match by amount.
@@ -94,9 +79,9 @@ struct ReviewView: View {
             case .review, .saving: reviewForm
             }
         }
-        .navigationTitle(job == nil ? "Allocate" : importing ? "Import" : "Receipt")
+        .navigationTitle(job == nil ? "Allocate" : "Receipt")
         .toolbar {
-            if queue.count > 1 || importing, phase == .review {
+            if queue.count > 1, phase == .review {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(position + 1 < queue.count ? "Skip" : "Skip & finish") { advance() }
                 }
@@ -106,7 +91,7 @@ struct ReviewView: View {
                     if phase == .saving {
                         ProgressView()
                     } else {
-                        Button(importing ? "Accept" : replacing == nil ? "Save" : "Replace") { Task { await save() } }
+                        Button(replacing == nil ? "Save" : "Replace") { Task { await save() } }
                             .fontWeight(.semibold)
                             .disabled(!canSave)
                     }
@@ -152,16 +137,13 @@ struct ReviewView: View {
                     VStack(alignment: .leading) {
                         if job != nil {
                             if queue.count > 1 {
-                                Text("\(importing ? "Payment" : "Receipt") \(position + 1) of \(queue.count)")
+                                Text("Receipt \(position + 1) of \(queue.count)")
                                     .font(.caption.weight(.semibold)).foregroundStyle(.tint)
                             }
                             Text(scan?.merchant ?? "Unknown merchant").font(.headline)
                             if let total = scan?.total {
-                                Text(importing ? "Card payment \(Format.euro(total)) · \(account.label)" : "Receipt total \(Format.euro(total))")
+                                Text("Receipt total \(Format.euro(total))")
                                     .font(.subheadline).foregroundStyle(.secondary)
-                            }
-                            if let note = payment?.note {
-                                Text(note).font(.caption).foregroundStyle(.secondary)
                             }
                         } else if let t = target {
                             Text(t.title).font(.headline)
@@ -247,11 +229,11 @@ struct ReviewView: View {
                 Spacer()
                 if let expected {
                     if matches {
-                        Label("matches \(importing ? "payment" : "receipt")", systemImage: "checkmark.seal.fill")
+                        Label("matches receipt", systemImage: "checkmark.seal.fill")
                             .font(.subheadline.weight(.medium)).foregroundStyle(.green)
                     } else {
                         VStack(alignment: .trailing, spacing: 0) {
-                            Text("\(importing ? "payment" : "receipt") \(Format.euro(expected))").font(.subheadline.weight(.semibold))
+                            Text("receipt \(Format.euro(expected))").font(.subheadline.weight(.semibold))
                             Text("off by \(Format.euro(abs(expected - sum)))").font(.caption)
                         }
                         .foregroundStyle(.orange)
@@ -278,12 +260,12 @@ struct ReviewView: View {
                 }
             }
             .monospacedDigit()
-            Text(job != nil && !importing ? "Tap an item's category to move it. Non-Basic choices are remembered for next time."
+            Text(job != nil ? "Tap an item's category to move it. Non-Basic choices are remembered for next time."
                             : "Tap the category to change it; add items to split the amount.")
         }
     }
 
-    /// A receipt or imported payment for a transaction already in Receipts: says so and shows what
+    /// A receipt for a transaction already in Receipts: says so and shows what
     /// it was itemized as before.
     @ViewBuilder private var existingSection: some View {
         if job != nil, let r = replacing {
@@ -320,9 +302,9 @@ struct ReviewView: View {
             } header: {
                 Label("Existing transaction", systemImage: "clock.arrow.circlepath")
             } footer: {
-                Text("\(importing ? "This payment" : "This receipt") is already in Receipts: \(r.title) · \(r.date)"
+                Text("This receipt is already in Receipts: \(r.title) · \(r.date)"
                      + "\(r.account.map { " · \(Account(rawValue: $0)?.label ?? $0)" } ?? ""). Above is its previous itemization; "
-                     + "\(importing ? "accepting" : "saving") replaces it with the items below.")
+                     + "saving replaces it with the items below.")
             }
         }
     }
@@ -352,7 +334,7 @@ struct ReviewView: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                 }
-                if replacing == nil || importing, let tap = matchedTap {
+                if replacing == nil, let tap = matchedTap {
                     Label("Fills in the card tap at \(Format.hhmm(tap.date))\(tap.merchant.isEmpty ? "" : " · \(tap.merchant)")",
                           systemImage: "clock.badge.checkmark")
                         .foregroundStyle(.green)
@@ -360,7 +342,7 @@ struct ReviewView: View {
             } header: {
                 Text("Replace existing")
             } footer: {
-                Text("Pick the matching card payment or expense so this \(importing ? "payment" : "receipt") replaces it instead of adding a duplicate.")
+                Text("Pick the matching card payment or expense so this receipt replaces it instead of adding a duplicate.")
             }
             .onChange(of: replacing) { _, r in
                 if let r { adopt(r) }
@@ -398,13 +380,7 @@ struct ReviewView: View {
             replacing = t
             adopt(t)
         }
-        if let imported, !imported.isEmpty {
-            queue = imported.map { p in
-                ReceiptScan(merchant: p.merchant.isEmpty ? "Card payment" : p.merchant, date: p.date, time: p.time, total: p.amount,
-                            items: [ReceiptItem(name: p.merchant, amount: p.amount, category: p.category)])
-            }
-            show(0)
-        } else if job == nil {
+        if job == nil {
             // Allocate: start from the transaction's receipt lines, or one item per row.
             if let t = target {
                 items = t.isItemized ? t.receiptItems
@@ -453,18 +429,7 @@ struct ReviewView: View {
         scan = r
         items = r.items
         error = nil
-        if importing {
-            account = importAccount ?? app.defaultAccount
-            description = r.merchant ?? "Card payment"
-            if let d = r.date.flatMap({ Format.day.date(from: $0) }) { date = d } else { date = Date() }
-            matchedTap = payment?.tap
-            replacing = payment?.existing
-            if let e = payment?.existing {
-                adopt(e)
-                // A screenshot row has no receipt lines: keep the ones the transaction already has.
-                if e.isItemized { items = e.receiptItems }
-            }
-        } else if i == 0, let t = target {
+        if i == 0, let t = target {
             replacing = t
             adopt(t)
         } else {
@@ -554,10 +519,9 @@ struct ReviewView: View {
         }
         do {
             try await store.commit(newEntries: entries, replacingIds: replacing?.rowIds ?? [],
-                                   message: "\(importing ? "Import" : job != nil ? "Receipt" : "Allocate") \(desc) \(dateString) (iOS)")
-            if job != nil && !importing { ItemRules.learn(from: items) }
-            if replacing == nil || importing, let tap = matchedTap { app.clearTaps([tap.id]) }
-            onSaved?(account, Format.round2(sum - (replacing?.total ?? 0)))
+                                   message: "\(job != nil ? "Receipt" : "Allocate") \(desc) \(dateString) (iOS)")
+            if job != nil { ItemRules.learn(from: items) }
+            if replacing == nil, let tap = matchedTap { app.clearTaps([tap.id]) }
             savedAny = true
             if job != nil && position + 1 < queue.count {
                 await app.loadData(week: .keep) // refresh candidates for the next receipt

@@ -98,7 +98,7 @@ can't run intents).
 Works on any card transaction list — Apple Wallet or the **Bank Norwegian app** (shows payments
 immediately, with times). Finnish/Nordic dates and statuses are understood; reservations count as
 pending, while invoice payments, interest, transfers and cash withdrawals are marked "not a purchase"
-and are left out of the review.
+and start unchecked.
 
 Card details reach Wallet 30–60 min after paying, too late for the Shortcuts Transaction trigger, so
 payments are imported from a screenshot of Wallet's transaction list instead:
@@ -110,12 +110,10 @@ payments are imported from a screenshot of Wallet's transaction list instead:
 Receipts opens on the screenshot with **Cancel / Import** first, so an accidental Back Tap never
 reaches Claude. After Import, Claude reads the rows (relative dates like "Yesterday" resolved to dates). Each row
 gets a category from your past naming of that merchant in the app's transactions, else Claude's guess.
-Nothing is added as pending: the payments then open one by one in the receipt review ("Payment 2 of
-5") — category, split, date, account — and **Accept** saves each as a transaction (**Skip** leaves it
-out). One matching a transaction already in the app (same amount within 5 days) opens as an
-**existing transaction** with its previous itemization shown; it keeps its receipt lines, and
-accepting replaces it. Declined ones, refunds and non-purchases aren't reviewed; they're listed on the
-summary after the review, along with the balance check.
+Rows matching a transaction already in the app (same amount within 5 days), declined ones, refunds
+and non-purchases start unchecked. **Add** saves the checked ones as accepted transactions (nothing
+is added as pending). With month totals on screen, the list also compares the month's spent − paid
+with the month's rows in Receipts after adding, and shows how much is missing.
 
 ### Card taps waiting for details
 Shortcuts → Automation → **Transaction** (your payment card only, Run Immediately) → **Register Card
