@@ -157,6 +157,13 @@ final class AppState {
         return Format.round2(b.appOffset + atMonthStart + paid - spent)
     }
 
+    /// The account's rows this month (YYYY-MM) up to today: spending as a positive number, payments
+    /// to it subtracted — comparable to the bank app's month totals (spent − paid).
+    func monthNet(_ key: String, month: String) -> Double {
+        let start = WeekSummary.rowSum(key, expenses: expenses, through: month + "-00")
+        return Format.round2(start - WeekSummary.rowSum(key, expenses: expenses))
+    }
+
     var weekError: String?
     var transactions: [Transaction] = []
 

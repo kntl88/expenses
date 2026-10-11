@@ -114,7 +114,18 @@ struct WalletImportView: View {
                 let off = abs(reported - after) >= 0.005
                 Section {
                     if read?.balance == nil, let m = read?.month {
-                        LabeledContent("\(m.month) spent · paid", value: "\(Format.euro(m.spent)) · \(Format.euro(m.paid))")
+                        let bank = Format.round2(m.spent - m.paid)
+                        let here = Format.round2(app.monthNet(account.rawValue, month: m.month) + added)
+                        LabeledContent("\(m.month) spent − paid, bank", value: Format.euro(bank))
+                        LabeledContent("\(m.month) in Receipts", value: Format.euro(here))
+                            .foregroundStyle(abs(bank - here) >= 0.005 ? .red : .primary)
+                        if bank - here >= 0.005 {
+                            Text("\(Format.euro(bank - here)) of this month's payments are missing from Receipts.")
+                                .font(.footnote).foregroundStyle(.red)
+                        } else if here - bank >= 0.005 {
+                            Text("Receipts has \(Format.euro(here - bank)) more this month than the bank.")
+                                .font(.footnote).foregroundStyle(.red)
+                        }
                     }
                     LabeledContent("\(b.label) \(read?.balance == nil ? "by the screenshot" : "in screenshot")", value: Format.euro(reported))
                     LabeledContent("In Receipts now", value: Format.euro(after))
