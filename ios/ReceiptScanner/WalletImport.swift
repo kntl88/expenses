@@ -58,6 +58,18 @@ struct WalletPayment: Identifiable {
     /// The waiting card tap this payment fills in.
     var tap: CardTaps.Tap?
     var include = true
+
+    /// What the screenshot said about the payment, beyond its date.
+    var note: String? {
+        if let tap { return "Card tap \(tap.date.formatted(date: .omitted, time: .shortened))" }
+        switch status {
+        case "declined": return "Declined"
+        case "refund": return "Refund"
+        case "pending": return "Reserved, not booked yet"
+        case "other": return "Not a purchase"
+        default: return nil
+        }
+    }
 }
 
 /// What a transaction list screenshot showed.
@@ -79,9 +91,6 @@ struct WalletRead {
         /// Payments to the card in the month (positive).
         var paid: Double
     }
-
-    /// Bank Norwegian rows are booked card purchases: added as accepted, not pending.
-    var addsAccepted: Bool { source == .norwegian }
 
     /// The account this screenshot is from, when the source tells.
     var account: Account? {

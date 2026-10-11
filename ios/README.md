@@ -76,8 +76,10 @@ its row with itemized category rows. Older receipt splits without a `txId` are g
 
 ### Automatic receipt matching
 Receipts, Wallet imports and card taps carry a paid time (`time`, HH:MM — an extra row field the web
-app ignores; card taps give the exact time). A scanned receipt is auto-assigned to the pending
-payment with the same total, same day ±1, closest time when both are known (within 2 h). Failing
+app ignores; card taps give the exact time). A scanned receipt is auto-assigned to the transaction
+with the same total, same day ±1, closest time when both are known (within 2 h), pending payments
+first. The review then marks it as an **existing transaction** and shows its previous itemization
+above the new items; saving replaces it. Failing
 that, it fills in a card tap still waiting for details from within 30 min of the receipt's printed
 time, and the tap is cleared. Either can be changed in the review's "Replace existing" picker.
 
@@ -96,7 +98,7 @@ can't run intents).
 Works on any card transaction list — Apple Wallet or the **Bank Norwegian app** (shows payments
 immediately, with times). Finnish/Nordic dates and statuses are understood; reservations count as
 pending, while invoice payments, interest, transfers and cash withdrawals are marked "not a purchase"
-and start unchecked.
+and are left out of the review.
 
 Card details reach Wallet 30–60 min after paying, too late for the Shortcuts Transaction trigger, so
 payments are imported from a screenshot of Wallet's transaction list instead:
@@ -108,9 +110,12 @@ payments are imported from a screenshot of Wallet's transaction list instead:
 Receipts opens on the screenshot with **Cancel / Import** first, so an accidental Back Tap never
 reaches Claude. After Import, Claude reads the rows (relative dates like "Yesterday" resolved to dates). Each row
 gets a category from your past naming of that merchant in the app's transactions, else Claude's guess.
-Rows matching a transaction already in the app (same amount within 5 days), declined ones and refunds
-start unchecked. **Add** saves the checked ones as pending card payments, except from the **Bank
-Norwegian** app: those go straight into accepted transactions on the Norwegian account.
+Nothing is added as pending: the payments then open one by one in the receipt review ("Payment 2 of
+5") — category, split, date, account — and **Accept** saves each as a transaction (**Skip** leaves it
+out). One matching a transaction already in the app (same amount within 5 days) opens as an
+**existing transaction** with its previous itemization shown; it keeps its receipt lines, and
+accepting replaces it. Declined ones, refunds and non-purchases aren't reviewed; they're listed on the
+summary after the review, along with the balance check.
 
 ### Card taps waiting for details
 Shortcuts → Automation → **Transaction** (your payment card only, Run Immediately) → **Register Card

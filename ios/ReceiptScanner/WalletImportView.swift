@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// Reads a Wallet or bank app screenshot and adds the payments that aren't in expenses yet: as pending
-/// card payments, or straight as accepted transactions from Bank Norwegian. A balance on screen, or the
-/// current month's spent/paid totals, is checked against the app's.
+/// Reads a Wallet or bank app screenshot, then goes through its payments one by one in the review
+/// (`ReviewView`) to accept: new ones are added as transactions, ones already in Receipts show their
+/// previous itemization. A balance on screen, or the current month's spent/paid totals, is checked
+/// against the app's.
 struct WalletImportView: View {
     @Environment(AppState.self) private var app
     let job: ScanJob
     var onDone: () -> Void
 
     /// `confirm` first, so an accidental Back Tap screenshot is never sent to Claude.
-    enum Phase { case confirm, reading, review, saving }
+    enum Phase { case confirm, reading, review, done }
     @State private var phase: Phase = .confirm
     @State private var started = false
     @State private var error: String?
@@ -17,39 +18,45 @@ struct WalletImportView: View {
     @State private var read: WalletRead?
     /// The balance the screenshot shows, or the one its month totals imply.
     @State private var reported: Double?
+    /// The account's balance in Receipts when the screenshot was read.
+    @State private var balanceBefore: Double?
+    /// The payments to review, in screenshot order.
+    @State private var queue: [WalletPayment] = []
+    @State private var accepted = 0
+    /// Spending added to `account` by the accepted payments.
+    @State private var added = 0.0
 
     private var account: Account { read?.account ?? app.defaultAccount }
 
-    private var selected: [WalletPayment] { payments.filter(\.include) }
-
     var body: some View {
-        Group {
-            switch phase {
-            case .confirm: confirmView
-            case .reading: readingView
-            case .review, .saving: reviewList
+        if phase == .review {
+            ReviewView(job: job, imported: queue, importAccount: account, onDone: finishReview) { acc, amount in
+                accepted += 1
+                if acc == account { added = Format.round2(added + amount) }
             }
-        }
-        .navigationTitle("Import payments")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(phase == .confirm)
-        .toolbar {
-            if phase == .confirm {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onDone)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Import") { Task { await start() } }.fontWeight(.semibold)
+        } else {
+            Group {
+                switch phase {
+                case .confirm: confirmView
+                case .reading, .review: readingView
+                case .done: doneList
                 }
             }
-            if phase == .review || phase == .saving {
-                ToolbarItem(placement: .confirmationAction) {
-                    if phase == .saving {
-                        ProgressView()
-                    } else {
-                        Button(selected.isEmpty ? "Add" : "Add \(selected.count)") { Task { await save() } }
-                            .fontWeight(.semibold)
-                            .disabled(selected.isEmpty)
+            .navigationTitle("Import payments")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(phase == .confirm || phase == .done)
+            .toolbar {
+                if phase == .confirm {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel", action: onDone)
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Import") { Task { await start() } }.fontWeight(.semibold)
+                    }
+                }
+                if phase == .done {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done", action: onDone).fontWeight(.semibold)
                     }
                 }
             }
@@ -88,20 +95,29 @@ struct WalletImportView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var reviewList: some View {
+    /// After the review: what was accepted, the balance check, and the rows that weren't purchases.
+    private var doneList: some View {
         List {
             if let error {
                 Section { Text(error).foregroundStyle(.red) }
             }
-            if let reported, let b = app.balances.first(where: { $0.key == account.rawValue }) {
-                let after = Format.round2(b.value - selected.reduce(0) { $0 + $1.amount })
+            Section {
+                if queue.isEmpty {
+                    Text(payments.isEmpty ? "No transactions found in the screenshot." : "No payments to import.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    LabeledContent("Accepted", value: "\(accepted) of \(queue.count)")
+                }
+            }
+            if let reported, let before = balanceBefore, let b = app.balances.first(where: { $0.key == account.rawValue }) {
+                let after = Format.round2(before - added)
                 let off = abs(reported - after) >= 0.005
                 Section {
                     if read?.balance == nil, let m = read?.month {
                         LabeledContent("\(m.month) spent · paid", value: "\(Format.euro(m.spent)) · \(Format.euro(m.paid))")
                     }
                     LabeledContent("\(b.label) \(read?.balance == nil ? "by the screenshot" : "in screenshot")", value: Format.euro(reported))
-                    LabeledContent("In Receipts after adding", value: Format.euro(after))
+                    LabeledContent("In Receipts now", value: Format.euro(after))
                         .foregroundStyle(off ? .red : .primary)
                 } footer: {
                     Text((read?.balance == nil ? "From the month's totals, taking the app's balance at the end of last month as right. " : "")
@@ -109,15 +125,15 @@ struct WalletImportView: View {
                              : "Matches."))
                 }
             }
-            Section {
-                if payments.isEmpty {
-                    Text("No transactions found in the screenshot.").foregroundStyle(.secondary)
+            let ignored = payments.filter { !$0.include && $0.existing == nil }
+            if !ignored.isEmpty {
+                Section {
+                    ForEach(ignored) { PaymentRow(payment: $0) }
+                } header: {
+                    Text("Not imported")
+                } footer: {
+                    Text("Declined payments, refunds and non-purchases.")
                 }
-                ForEach($payments) { $p in
-                    PaymentRow(payment: $p)
-                }
-            } footer: {
-                Text("New payments are added \(read?.addsAccepted == true ? "as accepted transactions" : "as pending, to confirm or itemize later") (\(account.label)). Ones already in Receipts (same amount within 5 days), declined ones, refunds and non-purchases are unchecked.")
             }
         }
     }
@@ -166,7 +182,9 @@ struct WalletImportView: View {
             }
             payments = found
             read = result
-            phase = .review
+            balanceBefore = app.balances.first { $0.key == (result.account ?? app.defaultAccount).rawValue }?.value
+            queue = found.filter { $0.include || $0.existing != nil }
+            phase = queue.isEmpty ? .done : .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
             app.saveAnthropicKey(nil)
             error = "Anthropic API key was rejected. Enter a new one in Settings."
@@ -175,26 +193,11 @@ struct WalletImportView: View {
         }
     }
 
-    private func save() async {
-        guard let store = app.store, !selected.isEmpty else { return }
-        phase = .saving
-        error = nil
-        let entries = selected.map { p in
-            ExpenseEntry.make(amount: p.amount, date: p.date,
-                              description: p.merchant.isEmpty ? "Card payment" : p.merchant,
-                              category: p.category, account: account, time: p.time, pending: read?.addsAccepted != true)
-        }
-        do {
-            try await store.commit(newEntries: entries,
-                                   message: "\(read?.source == .norwegian ? "Norwegian" : "Wallet") import \(entries.count) payment\(entries.count == 1 ? "" : "s") (iOS)")
-            // A tap is done once its payment is added, or was already in Receipts.
-            app.clearTaps(Set(payments.compactMap { p in p.include || p.existing != nil ? p.tap?.id : nil }))
-            onDone()
-            Task { await app.loadData(week: .after(.seconds(2.4))) }
-        } catch {
-            self.error = error.localizedDescription
-            phase = .review
-        }
+    /// The review went through the queue (accepted or skipped each). A tap whose payment was already
+    /// in Receipts is done either way; with a balance to check, the summary shows it.
+    private func finishReview() {
+        app.clearTaps(Set(payments.compactMap { $0.existing != nil ? $0.tap?.id : nil }))
+        if reported == nil { onDone() } else { phase = .done }
     }
 
     private static func dayDistance(_ a: String, _ b: String) -> Int {
@@ -204,45 +207,21 @@ struct WalletImportView: View {
 }
 
 private struct PaymentRow: View {
-    @Binding var payment: WalletPayment
-
-    private var subtitle: String {
-        if let t = payment.existing { return "\(payment.date) · already added: \(t.title)" }
-        if let tap = payment.tap { return "\(payment.date) · card tap \(tap.date.formatted(date: .omitted, time: .shortened))" }
-        switch payment.status {
-        case "declined": return "\(payment.date) · declined"
-        case "refund": return "\(payment.date) · refund"
-        case "pending": return "\(payment.date) · reserved, not booked yet"
-        case "other": return "\(payment.date) · not a purchase"
-        default: return payment.date
-        }
-    }
+    let payment: WalletPayment
 
     var body: some View {
         HStack(spacing: 10) {
-            Button { payment.include.toggle() } label: {
-                Image(systemName: payment.include ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(payment.include ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-            }
-            .buttonStyle(.plain)
-            Menu {
-                Picker("Category", selection: $payment.category) {
-                    ForEach(ReceiptCategory.allCases) { c in
-                        Label(c.label, systemImage: c.symbol).tag(c)
-                    }
-                }
-            } label: {
-                Image(systemName: payment.category.symbol)
-                    .frame(width: 32, height: 28)
-                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-            }
+            Image(systemName: payment.category.symbol)
+                .frame(width: 32, height: 28)
+                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 1) {
-                TextField("Merchant", text: $payment.merchant).font(.subheadline)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(payment.merchant).font(.subheadline)
+                Text([payment.date, payment.note].compactMap { $0 }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
+            Spacer()
             Text(Format.euro(payment.amount)).monospacedDigit()
         }
-        .opacity(payment.include ? 1 : 0.55)
+        .foregroundStyle(.secondary)
     }
 }
