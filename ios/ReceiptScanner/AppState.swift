@@ -82,8 +82,6 @@ final class AppState {
         /// The latest balance read from a bank app screenshot, and the rows up to that day.
         let check: AppBalances.Check?
         let rowSumAtCheck: Double?
-        /// For a check from month totals: the rows up to the end of the month before.
-        var rowSumAtMonthStart: Double? = nil
         var id: String { key }
         var value: Double { appOffset + rowSum }
         /// What the web app's Accounts card shows.
@@ -95,17 +93,16 @@ final class AppState {
             let d = Format.round2(target - value)
             return abs(d) >= 0.005 ? d : nil
         }
-        /// The balance at the end of the month before a month-totals check (offset + rows up to then).
-        var monthStartBalance: Double? { rowSumAtMonthStart.map { Format.round2(appOffset + $0) } }
-        /// What the balance should be now, moved by the rows dated after the check's day. From month
-        /// totals it's live: the balance at the end of last month − used + paid, so it follows the offset.
+        /// What the balance should be. From month totals: the carry-over from previous months − used
+        /// (Käytetty) + paid (Maksettu), from the bank app only. Else the screenshot's balance moved by
+        /// the rows dated after that day.
         var target: Double? {
-            guard let check, let rowSumAtCheck else { return nil }
-            let since = rowSum - rowSumAtCheck
-            if let spent = check.spent, let start = monthStartBalance {
-                return Format.round2(start - spent + (check.paid ?? 0) + since)
+            guard let check else { return nil }
+            if let spent = check.spent, let carry = check.carry {
+                return Format.round2(carry - spent + (check.paid ?? 0))
             }
-            return Format.round2(check.reported + since)
+            guard let rowSumAtCheck else { return nil }
+            return Format.round2(check.reported + rowSum - rowSumAtCheck)
         }
     }
 
@@ -117,8 +114,7 @@ final class AppState {
             let check = AppBalances.check(key)
             return Balance(key: key, label: label, rowSum: WeekSummary.rowSum(key, expenses: expenses), webOffset: web,
                            appOffset: AppBalances.offset(key, webOffset: web), check: check,
-                           rowSumAtCheck: check.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.day) },
-                           rowSumAtMonthStart: check?.month.map { WeekSummary.rowSum(key, expenses: expenses, through: $0 + "-00") })
+                           rowSumAtCheck: check.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.day) })
         }
     }
 
@@ -126,7 +122,7 @@ final class AppState {
         balances = balances.map { b in
             b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
                                        appOffset: AppBalances.offset(key, webOffset: b.webOffset),
-                                       check: b.check, rowSumAtCheck: b.rowSumAtCheck, rowSumAtMonthStart: b.rowSumAtMonthStart)
+                                       check: b.check, rowSumAtCheck: b.rowSumAtCheck)
         }
     }
 
@@ -149,32 +145,31 @@ final class AppState {
     /// (compared on Home after the next load).
     func recordBalanceCheck(_ key: String, reported: Double, month: WalletRead.MonthTotals? = nil) {
         let check = AppBalances.Check(reported: Format.round2(reported), day: Format.day.string(from: Date()),
-                                      month: month?.month, spent: month?.spent, paid: month?.paid)
+                                      month: month?.month, spent: month?.spent, paid: month?.paid,
+                                      carry: month.flatMap { carry(key, month: $0.month) })
         AppBalances.setCheck(key, check)
         // Checked today, so the rows up to that day are today's rows (the next load recomputes it).
         balances = balances.map { b in
             b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
-                                       appOffset: b.appOffset, check: check, rowSumAtCheck: b.rowSum,
-                                       rowSumAtMonthStart: month.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.month + "-00") })
+                                       appOffset: b.appOffset, check: check, rowSumAtCheck: b.rowSum)
         }
     }
 
-    /// The balance a bank app's month totals imply for `key` today: the app's balance at the end of
-    /// last month (assumed checked) plus the month's payments minus its purchases. nil unless `month`
-    /// (YYYY-MM) is the current month.
-    func balanceFromMonth(_ key: String, month: String, spent: Double, paid: Double) -> Double? {
-        let today = Format.day.string(from: Date())
-        guard today.hasPrefix(month + "-"), let b = balances.first(where: { $0.key == key }) else { return nil }
-        // "YYYY-MM-00" sorts before the month's first day and after every day of the month before.
-        let atMonthStart = WeekSummary.rowSum(key, expenses: expenses, through: month + "-00")
-        return Format.round2(b.appOffset + atMonthStart + paid - spent)
+    /// The carry-over from previous months under `month`'s totals: kept from the month's earlier check,
+    /// or for a new month, the target the last check of the month before ended at.
+    private func carry(_ key: String, month: String) -> Double? {
+        guard let c = AppBalances.check(key), let m = c.month, let carry = c.carry else { return nil }
+        if m == month { return carry }
+        return m < month ? Format.round2(carry - (c.spent ?? 0) + (c.paid ?? 0)) : nil
     }
 
-    /// The account's rows this month (YYYY-MM) up to today: spending as a positive number, payments
-    /// to it subtracted — comparable to the bank app's month totals (spent − paid).
-    func monthNet(_ key: String, month: String) -> Double {
-        let start = WeekSummary.rowSum(key, expenses: expenses, through: month + "-00")
-        return Format.round2(start - WeekSummary.rowSum(key, expenses: expenses))
+    /// The balance a bank app's month totals imply for `key`: the carry-over from previous months
+    /// minus the month's purchases plus its payments. nil unless `month` (YYYY-MM) is the current
+    /// month and the carry-over is known.
+    func balanceFromMonth(_ key: String, month: String, spent: Double, paid: Double) -> Double? {
+        let today = Format.day.string(from: Date())
+        guard today.hasPrefix(month + "-"), let carry = carry(key, month: month) else { return nil }
+        return Format.round2(carry - spent + paid)
     }
 
     var weekError: String?
@@ -300,6 +295,8 @@ enum AppBalances {
         var month: String? = nil
         var spent: Double? = nil
         var paid: Double? = nil
+        /// The balance carried over from previous months, under the month's totals.
+        var carry: Double? = nil
     }
 
     private static var offsets: [String: Double] {
@@ -335,6 +332,11 @@ enum AppBalances {
         if !d.bool(forKey: "checkMonth-2026-10-11-norwegian") {
             setCheck("norwegian", Check(reported: -694.54, day: "2026-10-11", month: "2026-10", spent: 637.05, paid: 0))
             d.set(true, forKey: "checkMonth-2026-10-11-norwegian")
+        }
+        // Norwegian is -694.54 under October's Käytetty 637,05 / Maksettu 0,00: -57.49 carried over.
+        if !d.bool(forKey: "checkCarry-2026-10-11-norwegian") {
+            setCheck("norwegian", Check(reported: -694.54, day: "2026-10-11", month: "2026-10", spent: 637.05, paid: 0, carry: -57.49))
+            d.set(true, forKey: "checkCarry-2026-10-11-norwegian")
         }
         // 2026-10-11: a Bank Norwegian screenshot was read as another bank's, so its month totals
         // were recorded as a Bank balance check.

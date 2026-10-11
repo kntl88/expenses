@@ -17,8 +17,6 @@ struct WalletImportView: View {
     @State private var read: WalletRead?
     /// The balance the screenshot shows, or the one its month totals imply.
     @State private var reported: Double?
-    /// The account's net rows this month in Receipts when the screenshot was read.
-    @State private var monthBefore: Double?
 
     private var account: Account { read?.account ?? app.defaultAccount }
 
@@ -101,24 +99,13 @@ struct WalletImportView: View {
                 let off = abs(reported - after) >= 0.005
                 Section {
                     if read?.balance == nil, let m = read?.month {
-                        let bank = Format.round2(m.spent - m.paid)
-                        let here = Format.round2((monthBefore ?? 0) + selectedTotal)
-                        LabeledContent("\(m.month) spent − paid, bank", value: Format.euro(bank))
-                        LabeledContent("\(m.month) in Receipts after adding", value: Format.euro(here))
-                            .foregroundStyle(abs(bank - here) >= 0.005 ? .red : .primary)
-                        if bank - here >= 0.005 {
-                            Text("\(Format.euro(bank - here)) of this month's payments are missing from Receipts.")
-                                .font(.footnote).foregroundStyle(.red)
-                        } else if here - bank >= 0.005 {
-                            Text("Receipts has \(Format.euro(here - bank)) more this month than the bank.")
-                                .font(.footnote).foregroundStyle(.red)
-                        }
+                        LabeledContent("\(m.month) used · paid", value: "\(Format.euro(m.spent)) · \(Format.euro(m.paid))")
                     }
                     LabeledContent("\(b.label) \(read?.balance == nil ? "by the screenshot" : "in screenshot")", value: Format.euro(reported))
                     LabeledContent("In Receipts after adding", value: Format.euro(after))
                         .foregroundStyle(off ? .red : .primary)
                 } footer: {
-                    Text((read?.balance == nil ? "From the month's totals, taking the app's balance at the end of last month as right. " : "")
+                    Text((read?.balance == nil ? "Target: the carry-over from previous months − used + paid. " : "")
                          + (off ? "Doesn't match: \(Format.euro(abs(reported - after))) \(reported > after ? "more" : "less") in the bank. The \(b.label) balance is highlighted on Home until it matches."
                              : "Matches."))
                 }
@@ -182,7 +169,6 @@ struct WalletImportView: View {
             }
             payments = found
             read = result
-            monthBefore = result.month.map { app.monthNet((result.account ?? app.defaultAccount).rawValue, month: $0.month) }
             phase = .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
             app.saveAnthropicKey(nil)

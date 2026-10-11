@@ -31,9 +31,9 @@ goes back to the web app's offset.
 **Balance check:** a Wallet import from a bank app screenshot also reads the balance on screen
 (Bank Norwegian → Norwegian, another bank app → Bank). With no balance on screen, the current month's
 header totals ("Lokakuu · Käytetty 546,40 • Maksettu 0,00") are used instead: the app's balance at the
-end of last month (offset + rows up to then) − used (Käytetty) + paid (Maksettu). That target is kept
-live, so it follows the offset; the gap to the app's balance is then this month's payments missing
-from Receipts (tap the box for the breakdown). The import review shows it next to the app's
+offset carried over from previous months − used (Käytetty) + paid (Maksettu); nothing from the
+rows in Receipts goes into it. The carry-over is kept for the month and rolls into the next month
+from the last check (tap the box for the breakdown). The import review shows it next to the app's
 balance after adding, and on Home the box is outlined in red with the target balance ("TARGET €-603.89": the screenshot's balance moved by the rows added since) as
 long as the app's balance on the screenshot's day doesn't match. Tap it to "Match screenshot".
 

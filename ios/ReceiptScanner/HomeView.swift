@@ -207,12 +207,9 @@ struct HomeView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { b in
-                if let c = b.check, let m = c.month, let spent = c.spent, let start = b.monthStartBalance, let t = b.target {
-                    let here = app.monthNet(b.key, month: m), bank = Format.round2(spent - (c.paid ?? 0))
-                    let gap = Format.round2(bank - here)
-                    Text("Target €\(String(format: "%.2f", t)) = end of last month €\(String(format: "%.2f", start)) − used €\(String(format: "%.2f", spent)) + paid €\(String(format: "%.2f", c.paid ?? 0)) (bank app, \(c.day)). "
-                         + "Receipts has €\(String(format: "%.2f", here)) for \(m)"
-                         + (abs(gap) < 0.005 ? ", the same." : gap > 0 ? ": €\(String(format: "%.2f", gap)) of the month's payments are missing." : ": €\(String(format: "%.2f", -gap)) more than the bank."))
+                if let c = b.check, let m = c.month, let spent = c.spent, let carry = c.carry, let t = b.target {
+                    Text("Target €\(String(format: "%.2f", t)) = carried over €\(String(format: "%.2f", carry)) − used €\(String(format: "%.2f", spent)) + paid €\(String(format: "%.2f", c.paid ?? 0)) (\(m), bank app on \(c.day))."
+                         + (b.discrepancy.map { " Here €\(String(format: "%.2f", b.value)), \(String(format: "€%.2f", abs($0))) \($0 < 0 ? "more" : "less") spent than the bank." } ?? ""))
                 } else if let d = b.discrepancy, let c = b.check {
                     Text("The bank app showed €\(String(format: "%.2f", c.reported)) on \(c.day), \(String(format: "€%.2f", abs(d))) \(d > 0 ? "more" : "less") than here. On this phone only; later payments still move it.")
                 } else {
