@@ -20,6 +20,8 @@ struct WalletImportView: View {
     @State private var reported: Double?
     /// The account's balance in Receipts when the screenshot was read.
     @State private var balanceBefore: Double?
+    /// The account's net rows this month in Receipts when the screenshot was read.
+    @State private var monthBefore: Double?
     /// The payments to review, in screenshot order.
     @State private var queue: [WalletPayment] = []
     @State private var accepted = 0
@@ -115,7 +117,7 @@ struct WalletImportView: View {
                 Section {
                     if read?.balance == nil, let m = read?.month {
                         let bank = Format.round2(m.spent - m.paid)
-                        let here = Format.round2(app.monthNet(account.rawValue, month: m.month) + added)
+                        let here = Format.round2((monthBefore ?? 0) + added)
                         LabeledContent("\(m.month) spent − paid, bank", value: Format.euro(bank))
                         LabeledContent("\(m.month) in Receipts", value: Format.euro(here))
                             .foregroundStyle(abs(bank - here) >= 0.005 ? .red : .primary)
@@ -194,6 +196,7 @@ struct WalletImportView: View {
             payments = found
             read = result
             balanceBefore = app.balances.first { $0.key == (result.account ?? app.defaultAccount).rawValue }?.value
+            monthBefore = result.month.map { app.monthNet((result.account ?? app.defaultAccount).rawValue, month: $0.month) }
             queue = found.filter { $0.include || $0.existing != nil }
             phase = queue.isEmpty ? .done : .review
         } catch let e as ClaudeClient.ClaudeError where e.isAuth {
