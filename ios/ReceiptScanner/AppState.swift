@@ -325,11 +325,10 @@ enum AppBalances {
     private static func applyCorrections() {
         guard !AppState.demo else { return }
         let d = UserDefaults.standard
-        // 2026-10-11: the card's balance is -694.54 with October's Käytetty 637,05 / Maksettu 0,00, so
-        // it was -57.49 at the end of September; rows up to then sum to -2670.92.
-        if !d.bool(forKey: "offsetSet-2026-10-11-norwegian") {
-            setOffset("norwegian", 2613.43)
-            d.set(true, forKey: "offsetSet-2026-10-11-norwegian")
+        // 2026-10-11: Norwegian should show -694.54; its rows up to today sum to -3170.95.
+        if !d.bool(forKey: "offsetSet-2026-10-11b-norwegian") {
+            setOffset("norwegian", 2476.41)
+            d.set(true, forKey: "offsetSet-2026-10-11b-norwegian")
         }
         // The check from this morning's screenshot was stored as a fixed balance; make it the live
         // month-totals check it came from.
