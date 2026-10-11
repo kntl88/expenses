@@ -178,7 +178,9 @@ struct BalancesView: View {
     }
 
     private func caption(_ b: AppState.Balance) -> String {
-        if let d = b.discrepancy { return "BANK " + (d > 0 ? "+" : "−") + String(format: "%.2f", abs(d)) }
+        if let t = b.target {
+            return b.discrepancy == nil ? "✓ MATCHES BANK" : "TARGET €" + String(format: "%.2f", t)
+        }
         if b.differsFromWeb { return "WEB " + String(format: "%.2f", b.webValue) }
         return " "
     }

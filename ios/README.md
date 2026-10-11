@@ -32,7 +32,7 @@ goes back to the web app's offset.
 (Bank Norwegian → Norwegian, another bank app → Bank). With no balance on screen, the current month's
 header totals ("Lokakuu · Käytetty 546,40 • Maksettu 0,00") are used instead: the app's balance at the
 end of last month (assumed checked) + paid − spent. The import review shows it next to the app's
-balance after adding, and on Home the box is outlined in red with the difference ("BANK +14.50") as
+balance after adding, and on Home the box is outlined in red with the target balance ("TARGET €-603.89": the screenshot's balance moved by the rows added since) as
 long as the app's balance on the screenshot's day doesn't match. Tap it to "Match screenshot".
 
 The **Home / Score** buttons at the top switch pages. **Score** shows, for Total / +Gas / +Purch,

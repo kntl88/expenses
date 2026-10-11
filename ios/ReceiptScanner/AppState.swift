@@ -93,6 +93,11 @@ final class AppState {
             let d = Format.round2(check.reported - (appOffset + rowSumAtCheck))
             return abs(d) >= 0.005 ? d : nil
         }
+        /// What the balance should be now: the screenshot's balance moved by the rows added since that day.
+        var target: Double? {
+            guard let check, let rowSumAtCheck else { return nil }
+            return Format.round2(check.reported + rowSum - rowSumAtCheck)
+        }
     }
 
     private static let balanceAccounts = [("bank", "Bank"), ("norwegian", "Norwegian"), ("work", "Work")]
