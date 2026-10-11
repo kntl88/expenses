@@ -157,7 +157,7 @@ struct ReviewView: View {
                             }
                             Text(scan?.merchant ?? "Unknown merchant").font(.headline)
                             if let total = scan?.total {
-                                Text("\(importing ? "Card payment" : "Receipt total") \(Format.euro(total))")
+                                Text(importing ? "Card payment \(Format.euro(total)) · \(account.label)" : "Receipt total \(Format.euro(total))")
                                     .font(.subheadline).foregroundStyle(.secondary)
                             }
                             if let note = payment?.note {

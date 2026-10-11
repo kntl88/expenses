@@ -170,7 +170,7 @@ extension ClaudeClient {
 
         Ignore anything that isn't a transaction row (card image, balance, credit limit, headers, buttons). Skip a row cut off at the top or bottom edge of the screen or hidden behind a button or tab bar, so its merchant, date or amount isn't fully visible — it's read from the next screenshot. If there are no transaction rows, return an empty list.
 
-        Also give the source app (apple_wallet, bank_norwegian for the Bank Norwegian app, other_bank for any other bank's app, other) and the balance. Balance: the current balance (saldo) of the card or account as shown — for a credit card, the amount used/owed as a negative number (e.g. "Saldo 167,13" owed → -167.13). Never the available amount (disponibelt, käytettävissä), the credit limit or a minimum payment. null when no balance is shown.
+        Also give the source app (apple_wallet, bank_norwegian for the Bank Norwegian app, other_bank for any other bank's app, other). The Bank Norwegian app often doesn't show its name: it's a dark app with a "Luottokortti" (credit card) page, "Tapahtumat" with Lista/Kategoria, month headers like "Lokakuu · Käytetty … • Maksettu …", rows marked "Katevaraus"/"Osto", and bottom tabs Koti, Kortti, Säästö, Laina — that is bank_norwegian. Any credit card (luottokortti, kredittkort) transaction list is bank_norwegian too and the balance. Balance: the current balance (saldo) of the card or account as shown — for a credit card, the amount used/owed as a negative number (e.g. "Saldo 167,13" owed → -167.13). Never the available amount (disponibelt, käytettävissä), the credit limit or a minimum payment. null when no balance is shown.
 
         Month: when a month section header shows the month's totals — amount used/spent (Käytetty, Brukt, Använt, Spent) and paid (Maksettu, Betalt, Paid) — give the newest such month as YYYY-MM with both amounts as positive numbers (paid 0 when it says 0,00). null when no month totals are shown.
         """
@@ -188,7 +188,7 @@ extension ClaudeClient {
                                  category: (p["category"] as? String).flatMap(ReceiptCategory.init(rawValue:)) ?? .misc,
                                  status: p["status"] as? String ?? "completed")
         }
-        let source: WalletRead.Source = switch result["source"] as? String {
+        var source: WalletRead.Source = switch result["source"] as? String {
         case "apple_wallet": .wallet
         case "bank_norwegian": .norwegian
         case "other_bank": .bank
@@ -200,6 +200,8 @@ extension ClaudeClient {
             return .init(month: month, spent: Format.round2(abs(spent)),
                          paid: Format.round2(abs((m["paid"] as? NSNumber)?.doubleValue ?? 0)))
         }
+        // Spent/paid month totals are a credit card's; the only credit card is Bank Norwegian's.
+        if month != nil && source != .wallet { source = .norwegian }
         return WalletRead(source: source, balance: (result["balance"] as? NSNumber).map { Format.round2($0.doubleValue) },
                           month: month, payments: payments)
     }
@@ -216,8 +218,14 @@ enum MerchantHistory {
         return cleaned.split(separator: " ").map(String.init).first { $0.count >= 3 && Int($0) == nil }
     }
 
-    /// Your latest name and majority category (weighted by euros) for this merchant, from the
-    /// transactions the app shows.
+    /// Every word: "K-SUPERMARKET TAPIOLA" → "ksupermarkettapiola".
+    private static func fullKey(_ s: String) -> String {
+        s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fi_FI"))
+            .unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
+    }
+
+    /// Your majority category (weighted by euros) for this merchant's chain, from the transactions the
+    /// app shows, and your latest name for this same store (else the name as shown).
     static func guess(_ merchant: String, in transactions: [Transaction]) -> (category: ReceiptCategory, name: String)? {
         guard let k = key(merchant) else { return nil }
         var weight: [ReceiptCategory: Double] = [:]
@@ -226,7 +234,10 @@ enum MerchantHistory {
             guard let tk = key(tx.title),
                   tk == k || (k.count >= 5 && tk.hasPrefix(k)) || (tk.count >= 5 && k.hasPrefix(tk)) else { continue }
             for row in tx.rows { if let t = row.token { weight[t, default: 0] += row.amount } }
-            if name == nil { name = tx.title } // newest first: reuse your latest naming
+            // Newest first: reuse your latest naming, but only for the same store, not just the chain
+            // (the first word of "K-Supermarket Tapiola" also matches "K-Supermarket Kamppi").
+            let a = fullKey(tx.title), b = fullKey(merchant)
+            if name == nil, !a.isEmpty, !b.isEmpty, a.hasPrefix(b) || b.hasPrefix(a) { name = tx.title }
         }
         let total = weight.values.reduce(0, +)
         guard let top = weight.max(by: { $0.value < $1.value }), total > 0, top.value / total >= 0.5 else { return nil }

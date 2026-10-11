@@ -295,6 +295,12 @@ enum AppBalances {
     private static func applyCorrections() {
         guard !AppState.demo else { return }
         let d = UserDefaults.standard
+        // 2026-10-11: a Bank Norwegian screenshot was read as another bank's, so its month totals
+        // were recorded as a Bank balance check.
+        if !d.bool(forKey: "checkFix-2026-10-11-bank") {
+            if check("bank")?.day == "2026-10-11" { removeCheck("bank") }
+            d.set(true, forKey: "checkFix-2026-10-11-bank")
+        }
         for c in corrections where !d.bool(forKey: c.key) {
             // Only shifts an offset the phone already has; a fresh install starts from the web app's.
             if let o = offsets[c.account] { setOffset(c.account, Format.round2(o + c.delta)) }
@@ -312,6 +318,13 @@ enum AppBalances {
         guard let data = UserDefaults.standard.data(forKey: checksKey),
               let all = try? JSONDecoder().decode([String: Check].self, from: data) else { return nil }
         return all[account]
+    }
+
+    static func removeCheck(_ account: String) {
+        var all = (UserDefaults.standard.data(forKey: checksKey))
+            .flatMap { try? JSONDecoder().decode([String: Check].self, from: $0) } ?? [:]
+        all[account] = nil
+        UserDefaults.standard.set(try? JSONEncoder().encode(all), forKey: checksKey)
     }
 
     static func setCheck(_ account: String, _ check: Check) {
