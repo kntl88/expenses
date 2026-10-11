@@ -82,21 +82,30 @@ final class AppState {
         /// The latest balance read from a bank app screenshot, and the rows up to that day.
         let check: AppBalances.Check?
         let rowSumAtCheck: Double?
+        /// For a check from month totals: the rows up to the end of the month before.
+        var rowSumAtMonthStart: Double? = nil
         var id: String { key }
         var value: Double { appOffset + rowSum }
         /// What the web app's Accounts card shows.
         var webValue: Double { webOffset + rowSum }
         var differsFromWeb: Bool { abs(appOffset - webOffset) >= 0.005 }
-        /// Screenshot balance minus the app's balance on that day, when they don't match.
+        /// Target minus the app's balance, when they don't match.
         var discrepancy: Double? {
-            guard let check, let rowSumAtCheck else { return nil }
-            let d = Format.round2(check.reported - (appOffset + rowSumAtCheck))
+            guard let target else { return nil }
+            let d = Format.round2(target - value)
             return abs(d) >= 0.005 ? d : nil
         }
-        /// What the balance should be now: the screenshot's balance moved by the rows added since that day.
+        /// The balance at the end of the month before a month-totals check (offset + rows up to then).
+        var monthStartBalance: Double? { rowSumAtMonthStart.map { Format.round2(appOffset + $0) } }
+        /// What the balance should be now, moved by the rows dated after the check's day. From month
+        /// totals it's live: the balance at the end of last month − used + paid, so it follows the offset.
         var target: Double? {
             guard let check, let rowSumAtCheck else { return nil }
-            return Format.round2(check.reported + rowSum - rowSumAtCheck)
+            let since = rowSum - rowSumAtCheck
+            if let spent = check.spent, let start = monthStartBalance {
+                return Format.round2(start - spent + (check.paid ?? 0) + since)
+            }
+            return Format.round2(check.reported + since)
         }
     }
 
@@ -108,7 +117,8 @@ final class AppState {
             let check = AppBalances.check(key)
             return Balance(key: key, label: label, rowSum: WeekSummary.rowSum(key, expenses: expenses), webOffset: web,
                            appOffset: AppBalances.offset(key, webOffset: web), check: check,
-                           rowSumAtCheck: check.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.day) })
+                           rowSumAtCheck: check.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.day) },
+                           rowSumAtMonthStart: check?.month.map { WeekSummary.rowSum(key, expenses: expenses, through: $0 + "-00") })
         }
     }
 
@@ -116,7 +126,7 @@ final class AppState {
         balances = balances.map { b in
             b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
                                        appOffset: AppBalances.offset(key, webOffset: b.webOffset),
-                                       check: b.check, rowSumAtCheck: b.rowSumAtCheck)
+                                       check: b.check, rowSumAtCheck: b.rowSumAtCheck, rowSumAtMonthStart: b.rowSumAtMonthStart)
         }
     }
 
@@ -135,14 +145,17 @@ final class AppState {
         updateBalance(key)
     }
 
-    /// Records the balance a bank app screenshot showed today (compared on Home after the next load).
-    func recordBalanceCheck(_ key: String, reported: Double) {
-        let check = AppBalances.Check(reported: Format.round2(reported), day: Format.day.string(from: Date()))
+    /// Records the balance a bank app screenshot showed today, or the month totals it showed instead
+    /// (compared on Home after the next load).
+    func recordBalanceCheck(_ key: String, reported: Double, month: WalletRead.MonthTotals? = nil) {
+        let check = AppBalances.Check(reported: Format.round2(reported), day: Format.day.string(from: Date()),
+                                      month: month?.month, spent: month?.spent, paid: month?.paid)
         AppBalances.setCheck(key, check)
         // Checked today, so the rows up to that day are today's rows (the next load recomputes it).
         balances = balances.map { b in
             b.key != key ? b : Balance(key: key, label: b.label, rowSum: b.rowSum, webOffset: b.webOffset,
-                                       appOffset: b.appOffset, check: check, rowSumAtCheck: b.rowSum)
+                                       appOffset: b.appOffset, check: check, rowSumAtCheck: b.rowSum,
+                                       rowSumAtMonthStart: month.map { WeekSummary.rowSum(key, expenses: expenses, through: $0.month + "-00") })
         }
     }
 
@@ -282,6 +295,11 @@ enum AppBalances {
         let reported: Double
         /// YYYY-MM-DD the screenshot was read.
         let day: String
+        /// When it came from a month header instead of a balance: the month (YYYY-MM) and its
+        /// used/paid totals, so the target follows the offset.
+        var month: String? = nil
+        var spent: Double? = nil
+        var paid: Double? = nil
     }
 
     private static var offsets: [String: Double] {

@@ -155,7 +155,9 @@ struct WalletImportView: View {
                 reported = result.balance ?? result.month.flatMap {
                     app.balanceFromMonth(account.rawValue, month: $0.month, spent: $0.spent, paid: $0.paid)
                 }
-                if let reported { app.recordBalanceCheck(account.rawValue, reported: reported) }
+                if let reported {
+                    app.recordBalanceCheck(account.rawValue, reported: reported, month: result.balance == nil ? result.month : nil)
+                }
             }
             var found = result.payments
             var used: Set<String> = []

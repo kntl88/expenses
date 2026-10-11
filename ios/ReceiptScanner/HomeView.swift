@@ -195,7 +195,7 @@ struct HomeView: View {
                     let v = Double(balanceText.replacingOccurrences(of: ",", with: ".").filter { "-0123456789.".contains($0) })
                     if let v { app.setBalance(b.key, actual: v) }
                 }
-                if let c = b.check, b.discrepancy != nil {
+                if let c = b.check, c.spent == nil, b.discrepancy != nil {
                     Button("Match screenshot (€\(String(format: "%.2f", c.reported)) on \(c.day))") {
                         app.acceptCheckedBalance(b.key)
                     }
@@ -207,7 +207,13 @@ struct HomeView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { b in
-                if let d = b.discrepancy, let c = b.check {
+                if let c = b.check, let m = c.month, let spent = c.spent, let start = b.monthStartBalance, let t = b.target {
+                    let here = app.monthNet(b.key, month: m), bank = Format.round2(spent - (c.paid ?? 0))
+                    let gap = Format.round2(bank - here)
+                    Text("Target €\(String(format: "%.2f", t)) = end of last month €\(String(format: "%.2f", start)) − used €\(String(format: "%.2f", spent)) + paid €\(String(format: "%.2f", c.paid ?? 0)) (bank app, \(c.day)). "
+                         + "Receipts has €\(String(format: "%.2f", here)) for \(m)"
+                         + (abs(gap) < 0.005 ? ", the same." : gap > 0 ? ": €\(String(format: "%.2f", gap)) of the month's payments are missing." : ": €\(String(format: "%.2f", -gap)) more than the bank."))
+                } else if let d = b.discrepancy, let c = b.check {
                     Text("The bank app showed €\(String(format: "%.2f", c.reported)) on \(c.day), \(String(format: "€%.2f", abs(d))) \(d > 0 ? "more" : "less") than here. On this phone only; later payments still move it.")
                 } else {
                     Text("On this phone only, separate from the web app. Later payments still move it.")
