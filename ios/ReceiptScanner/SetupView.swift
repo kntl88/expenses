@@ -15,6 +15,7 @@ struct SetupView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var needsRepo = false
+    @State private var status: String?
 
     var body: some View {
         if pushed {
@@ -60,11 +61,15 @@ struct SetupView: View {
                         TextField("Data repo name", text: $manualRepo)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        Button("Save") {
-                            app.saveGitHub(token: manualToken.trimmingCharacters(in: .whitespaces),
-                                           repo: manualRepo.trimmingCharacters(in: .whitespaces))
+                        Button {
+                            Task { await saveManual() }
+                        } label: {
+                            HStack {
+                                Text("Save")
+                                if busy { Spacer(); ProgressView() }
+                            }
                         }
-                        .disabled(manualToken.isEmpty || manualRepo.isEmpty)
+                        .disabled(manualToken.isEmpty || manualRepo.isEmpty || busy)
                     }
                 }
 
@@ -86,13 +91,37 @@ struct SetupView: View {
                 if let error {
                     Section { Text(error).foregroundStyle(.red) }
                 }
+                if let status {
+                    Section { Label(status, systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
+                }
             }
             .navigationTitle(pushed ? "Connection" : "Set up")
+    }
+
+    /// Checks the token against the data repo before saving, then reloads so the change shows.
+    private func saveManual() async {
+        busy = true
+        error = nil
+        status = nil
+        defer { busy = false }
+        let token = manualToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let repo = manualRepo.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            _ = try await GitHubStore(owner: Vault.owner, repo: repo, token: token).load()
+        } catch {
+            self.error = "Not saved: \(error.localizedDescription)"
+            return
+        }
+        app.saveGitHub(token: token, repo: repo)
+        manualToken = ""
+        status = "Token saved — connected to \(Vault.owner)/\(repo)"
+        await app.loadData()
     }
 
     private func unlock() async {
         busy = true
         error = nil
+        status = nil
         defer { busy = false }
         do {
             let creds = try await Vault.unlock(pin: pin)
